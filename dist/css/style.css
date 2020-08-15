@@ -2329,18 +2329,192 @@
   overflow: visible;
   clip: auto; }
 
-html {
-  box-sizing: border-box; }
+@font-face {
+  font-family: 'Fira Code';
+  src: url("eot/FiraCode-Light.eot");
+  src: url("eot/FiraCode-Light.eot") format("embedded-opentype"), url("woff2/FiraCode-Light.woff2") format("woff2"), url("woff/FiraCode-Light.woff") format("woff"), url("ttf/FiraCode-Light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal; }
 
-*, *::after, *::before {
-  box-sizing: inherit; }
+@font-face {
+  font-family: 'Fira Code';
+  src: url("eot/FiraCode-Regular.eot");
+  src: url("eot/FiraCode-Regular.eot") format("embedded-opentype"), url("woff2/FiraCode-Regular.woff2") format("woff2"), url("woff/FiraCode-Regular.woff") format("woff"), url("ttf/FiraCode-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal; }
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url("eot/FiraCode-Medium.eot");
+  src: url("eot/FiraCode-Medium.eot") format("embedded-opentype"), url("woff2/FiraCode-Medium.woff2") format("woff2"), url("woff/FiraCode-Medium.woff") format("woff"), url("ttf/FiraCode-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal; }
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url("eot/FiraCode-Bold.eot");
+  src: url("eot/FiraCode-Bold.eot") format("embedded-opentype"), url("woff2/FiraCode-Bold.woff2") format("woff2"), url("woff/FiraCode-Bold.woff") format("woff"), url("ttf/FiraCode-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal; }
+
+/**
+ * @license
+ * Copyright (C) 2015 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/* Pretty printing styles. Used with prettify.js. */
+/* SPAN elements with the classes below are added by prettyprint. */
+.pln {
+  color: #000; }
+
+/* plain text */
+@media screen {
+  .str {
+    color: #080; }
+  /* string content */
+  .kwd {
+    color: #008; }
+  /* a keyword */
+  .com {
+    color: #800; }
+  /* a comment */
+  .typ {
+    color: #606; }
+  /* a type name */
+  .lit {
+    color: #066; }
+  /* a literal value */
+  /* punctuation, lisp open bracket, lisp close bracket */
+  .pun, .opn, .clo {
+    color: #660; }
+  .tag {
+    color: #008; }
+  /* a markup tag name */
+  .atn {
+    color: #606; }
+  /* a markup attribute name */
+  .atv {
+    color: #080; }
+  /* a markup attribute value */
+  .dec, .var {
+    color: #606; }
+  /* a declaration; a variable name */
+  .fun {
+    color: red; }
+  /* a function name */ }
+
+/* Use higher contrast and text-weight for printable form. */
+@media print, projection {
+  .str {
+    color: #060; }
+  .kwd {
+    color: #006;
+    font-weight: bold; }
+  .com {
+    color: #600;
+    font-style: italic; }
+  .typ {
+    color: #404;
+    font-weight: bold; }
+  .lit {
+    color: #044; }
+  .pun, .opn, .clo {
+    color: #440; }
+  .tag {
+    color: #006;
+    font-weight: bold; }
+  .atn {
+    color: #404; }
+  .atv {
+    color: #060; } }
+
+/* Put a border around prettyprinted code snippets. */
+pre.prettyprint {
+  padding: 2px;
+  border: 1px solid #888; }
+
+/* Specify class=linenums on a pre to get line numbering */
+ol.linenums {
+  margin-top: 0;
+  margin-bottom: 0; }
+
+/* IE indents via margin-left */
+li.L0,
+li.L1,
+li.L2,
+li.L3,
+li.L5,
+li.L6,
+li.L7,
+li.L8 {
+  list-style-type: none; }
+
+/* Alternate shading for lines */
+li.L1,
+li.L3,
+li.L5,
+li.L7,
+li.L9 {
+  background: #eee; }
+
+code .linenums .L0 {
+  list-style-type: decimal !important;
+  background: inherit; }
+
+code .linenums .L1 {
+  list-style-type: decimal !important;
+  background: inherit; }
+
+code .linenums .L2 {
+  list-style-type: decimal !important;
+  background: inherit; }
+
+code .linenums .L3 {
+  list-style-type: decimal !important;
+  background: inherit; }
+
+code .linenums .L4 {
+  list-style-type: decimal !important;
+  background: inherit; }
+
+code .linenums .L5 {
+  list-style-type: decimal !important;
+  background: inherit; }
+
+code .linenums .L6 {
+  list-style-type: decimal !important;
+  background: inherit; }
+
+code .linenums .L7 {
+  list-style-type: decimal !important;
+  background: inherit; }
+
+code .linenums .L8 {
+  list-style-type: decimal !important;
+  background: inherit; }
+
+code .linenums .L9 {
+  list-style-type: decimal !important;
+  background: inherit; }
 
 body {
   margin: 0px;
   padding: 0px;
   display: inline-block;
   box-sizing: border-box;
-  font-family: "Open Sans"; }
+  font-family: 'Fira Code';
+  background: #fafafa; }
 
 .left {
   float: left; }
@@ -2354,37 +2528,187 @@ body {
 .text-right {
   text-align: right; }
 
-#ui .counter {
-  height: 32px;
-  line-height: 32px; }
-  #ui .counter > * {
-    float: left; }
-  #ui .counter > span {
-    height: 32px;
-    line-height: 32px;
+h1, h2, h3, h4 {
+  font-weight: 400; }
+
+#ui header {
+  margin: 0px;
+  padding: 0px;
+  display: inline-block;
+  box-sizing: border-box;
+  height: 48px;
+  line-height: 48px;
+  display: block;
+  position: fixed;
+  top: 0px;
+  left: 0px;
+  width: 100%;
+  box-shadow: 0px 1px 1px #ccc, 0px 7px 3px #f5f5f5;
+  background: #fff;
+  box-sizing: border-box;
+  transition: .3s; }
+  #ui header > * {
+    margin: 0px;
+    padding: 0px;
     display: inline-block;
-    font-size: 14px;
-    padding: 0px 10px; }
-  #ui .counter button {
+    box-sizing: border-box;
+    height: 48px;
+    line-height: 48px;
+    height: auto;
+    max-height: 48px;
+    margin: 0px 10px;
+    vertical-align: middle; }
+  #ui header img {
+    vertical-align: top; }
+  #ui header button {
+    margin: 0px;
+    padding: 0px;
     display: inline-block;
     box-sizing: border-box;
     height: 32px;
-    line-height: 12px;
-    padding: 10px;
-    cursor: pointer;
-    font-size: 14px;
-    background: #fafafa;
-    color: #333;
+    line-height: 32px;
+    padding: 4px;
+    padding-left: 8px;
+    width: 36px;
+    background: #fff;
+    box-shadow: 0px 1px 1px #ccc, 0px 2px 3px #f5f5f5;
     border: 0px;
-    transition: box-shadow 0.3s, background 0.3s;
-    box-shadow: 1px 1px 2px #ccc;
-    outline: none; }
-    #ui .counter button:active {
-      padding: 11px 10px 9px 10px; }
-    #ui .counter button:active {
-      outline: none; }
-    #ui .counter button:hover {
-      box-shadow: 1px 1px 5px #aaa;
-      color: #000; }
+    outline: none;
+    cursor: pointer;
+    font-size: 1em;
+    color: #333;
+    transition: .3s linear; }
+    #ui header button i {
+      transition: .3s; }
+    #ui header button svg {
+      transition: .2s; }
+      #ui header button svg path {
+        transition: .3s; }
+    #ui header button:hover {
+      box-shadow: 0px 1px 1px #bbb, 0px 2px 5px #eee; }
+      #ui header button:hover i, #ui header button:hover svg {
+        transform: scale(1.2); }
+
+#ui .codebin {
+  position: absolute;
+  left: 0px;
+  right: 0px;
+  top: 48px;
+  bottom: 0px;
+  display: inline-block;
+  transition: .3s; }
+  #ui .codebin code {
+    font-family: 'Fira Code', monospace;
+    font-size: 1em;
+    white-space: pre;
+    display: inline-block;
+    height: 100%;
+    width: 50%;
+    float: left;
+    overflow-y: auto;
+    padding: 10px 5px;
+    color: #3e434c;
+    tab-size: 2;
+    transition: .3s;
+    border: 1px solid #ccc;
+    box-sizing: border-box; }
+    #ui .codebin code.source {
+      min-width: 400px;
+      box-shadow: inset 0px 0px 0px #949fa9, 2px 2px 3px transparent; }
+      #ui .codebin code.source:focus {
+        outline: none; }
+  #ui .codebin .output {
+    text-align: left;
+    height: 100%;
+    width: 50%;
+    display: inline-block;
+    float: left; }
+    #ui .codebin .output code.console {
+      width: 100%;
+      height: 50%;
+      border: 1px solid #ccc; }
+      #ui .codebin .output code.console .err {
+        color: #800;
+        font-size: inherit; }
+    #ui .codebin .output iframe {
+      width: 100%;
+      height: 50%;
+      display: block;
+      border: 1px solid #ccc; }
+
+#ui .side-bar {
+  background: #f5f5f5;
+  height: 100%;
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  box-shadow: 1px 1px 3px #aaa;
+  z-index: 9999; }
+  #ui .side-bar h3 {
+    margin: 0px;
+    padding: 0px;
+    display: inline-block;
+    box-sizing: border-box;
+    height: 48px;
+    line-height: 48px;
+    width: 100%;
+    text-align: center;
+    background: #fefefe;
+    box-shadow: 0px 1px 1px #ccc, 0px 7px 3px #f5f5f5; }
+  #ui .side-bar ul {
+    margin: 0px;
+    padding: 0px;
+    display: inline-block;
+    box-sizing: border-box;
+    list-style: none;
+    display: block;
+    width: 100%; }
+    #ui .side-bar ul.file-list {
+      margin: 0px;
+      padding: 0px;
+      display: inline-block;
+      box-sizing: border-box;
+      margin-top: 16px;
+      line-height: 32px;
+      list-style: none;
+      user-select: none;
+      font-size: 0.8em; }
+      #ui .side-bar ul.file-list li {
+        margin: 0px;
+        padding: 0px;
+        display: inline-block;
+        box-sizing: border-box;
+        display: block; }
+      #ui .side-bar ul.file-list span {
+        margin-left: 8px; }
+      #ui .side-bar ul.file-list i {
+        width: 16px;
+        line-height: 32px;
+        text-align: center;
+        font-size: 1.2em; }
+      #ui .side-bar ul.file-list a {
+        margin: 0px;
+        padding: 0px;
+        display: inline-block;
+        box-sizing: border-box;
+        height: 32px;
+        line-height: 32px;
+        display: block;
+        width: 100%;
+        cursor: pointer; }
+        #ui .side-bar ul.file-list a:hover {
+          background: #eee; }
+
+#ui .side-bar {
+  width: 260px;
+  margin-left: -260px;
+  transition: .3s .3s ease-in-out; }
+  #ui .side-bar ~ * {
+    transition: left .3s .3s ease-in-out;
+    left: 0px; }
+  #ui .side-bar.toggled {
+    margin-left: 0px; }
+    #ui .side-bar.toggled ~ * {
+      left: 260px; }
 
 /*# sourceMappingURL=style.css.map */

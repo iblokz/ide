@@ -6,9 +6,20 @@ const {
 	section, button, span
 } = require('iblokz-snabbdom-helpers');
 // components
-const counter = require('./counter');
+const header = require('./header');
+const sideBar = require('./side-bar');
+const codebin = require('./codebin');
 
 module.exports = ({state, actions}) => section('#ui', [
-	h1('UI Boilerplate'),
-	counter({state, actions})
+	sideBar({state, actions}),
+	header({state, actions}),
+	codebin({
+		source: state.source || '',
+		pos: state.pos,
+		type: state.type || 'js',
+		change: (source, pos) => actions.updateSource(source, pos),
+		updatePos: pos => actions.updatePos(pos),
+		undo: () => actions.undo(),
+		redo: () => actions.redo()
+	})
 ]);
