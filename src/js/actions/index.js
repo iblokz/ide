@@ -7,6 +7,11 @@ const counter = require('./counter');
 
 // initial
 const initial = {
+	file: {
+		name: 'Untitled.js',
+		ext: 'js',
+		source: 'console.log("Hello World!")'
+	},
 	sideBar: false,
 	type: 'js',
 	example: false,
@@ -35,7 +40,16 @@ const initial = {
 		files: [
 			{
 				name: 'index.js',
-				ext: 'js'
+				ext: 'js',
+				source: `
+const foo = bar => bar + 1;
+
+function xyz () {
+	console.log('abc')
+}
+
+const zyn = foo(3);
+`
 			},
 			{
 				name: 'ui',
@@ -44,7 +58,17 @@ const initial = {
 				files: [
 					{
 						name: 'index.js',
-						ext: 'js'
+						ext: 'js',
+						source: `
+const bar = baz => baz * 2;
+
+function jcl () {
+	const bob = bar(3);
+	console.log('bob', bob)
+}
+
+jcl(3);
+		`
 					}
 				]
 			}
@@ -59,6 +83,23 @@ const arrToggle = (key, value) => state =>
 	obj.patch(state, key,
 		arr.toggle(obj.sub(state, key), value)
 	);
+
+const loadFile = file => state => Object.assign({}, state, {
+	file,
+	source: file.source,
+	type: file.ext,
+	index: state.index + 1,
+	maxIndex: state.index + 1,
+	pos: initial.pos,
+	history: [].concat(
+		state.history.slice(0, state.index + 1),
+		[{
+			type: file.ext,
+			source: file.source,
+			pos: initial.pos
+		}]
+	)
+});
 
 const updateSource = (source, pos = initial.pos) => state => Object.assign({}, state, {
 	source,
@@ -115,6 +156,7 @@ module.exports = {
 	set,
 	toggle,
 	arrToggle,
+	loadFile,
 	updateSource,
 	updatePos,
 	undo,

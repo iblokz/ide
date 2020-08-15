@@ -10,6 +10,9 @@ const prettify = require('code-prettify');
 const vm = require('../../util/vm');
 const caret = require('../../util/caret');
 
+const acorn = require('acorn');
+const infer = require('tern/lib/infer.js');
+
 // const libs = require('../../libs');
 
 // Python
@@ -70,6 +73,10 @@ const sandbox = (source, iframe, context = {}, cb) => {
 	let log = [];
 	let err = null;
 	let res = null;
+	const ast = infer.parse(source);
+	// const inf = infer.analyze(ast);
+	// log.push(ast);
+	// log.push(inf);
 	try {
 		res = vm.runInIFrame(source, iframe, Object.assign(context, {
 			console: {log: (...args) => {

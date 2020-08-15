@@ -61,7 +61,7 @@ module.exports = ({state, actions}) => div('.side-bar', {
 	// h3('File List'),
 	ul('.file-list',
 		state.filesTree.sort(fileSort).map((item, index) => treeMap(item, [index], 0,
-			(item, path, level) => item.isDir ? actions.toggleFolder(path, item.expanded) : true
+			(item, path, level) => item.isDir ? actions.toggleFolder(path, item.expanded) : actions.loadFile(item)
 		))
 	)
 ]);
