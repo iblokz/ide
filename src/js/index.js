@@ -47,7 +47,7 @@ actions$
 
 // state -> ui
 const ui$ = state$.map(state => ui({state, actions}));
-vdom.patchStream(ui$, '#ui');
+vdom.patchStream(ui$, 'body');
 
 // livereload impl.
 if (module.hot) {

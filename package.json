@@ -2,7 +2,7 @@
   "name": "iblokz-ide",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "source": "src/index.pug",
   "scripts": {
     "build": "npm run build:assets && npm run build:js && npm run build:sass",
     "build:js": "browserify src/js/index.js -o dist/js/app.js --debug",
@@ -13,32 +13,32 @@
     "watch:sass": "nodemon -w src/sass -e sass -x 'npm run build:sass'",
     "watch:assets": "nodemon -e jpg,jpeg,gif,png,json,md,svg,flac,ogg --watch src/assets --exec 'npm run build:assets'",
     "livereload": "livereload dist/**/*.css -d",
-    "start": "npm run build && serve --path dist --port 3000 & npm run watch"
+    "start:old": "npm run build && serve --path dist --port 3000 & npm run watch",
+    "start": "parcel"
   },
   "author": "Alex Milanov <alex@i4web.biz>",
   "license": "MIT",
   "dependencies": {
+    "@openfonts/fira-code_cyrillic": "^1.44.8",
     "acorn": "^8.0.1",
     "code-prettify": "github:alex-milanov/code-prettify",
-    "firacode": "^1.205.0",
     "font-awesome": "^4.7.0",
     "iblokz-data": "^1.2.0",
     "iblokz-snabbdom-helpers": "^1.2.0",
     "rx": "^4.1.0",
     "snabbdom": "^0.5.4",
     "snapsvg": "^0.5.1",
-    "superagent": "^3.3.1",
     "tern": "^0.24.3"
   },
   "devDependencies": {
+    "@parcel/transformer-pug": "2.12.0",
+    "@parcel/transformer-sass": "2.12.0",
     "browserify": "^13.1.1",
     "browserify-hmr": "^0.3.5",
     "eslint": "^3.12.2",
     "eslint-config-google": "^0.6.0",
-    "fs-extra": "^1.0.0",
-    "livereload": "^0.6.0",
-    "node-sass": "^4.1.1",
-    "node-serve": "0.0.3",
-    "watchify": "^3.8.0"
+    "parcel": "^2.12.0",
+    "path-browserify": "^1.0.0",
+    "process": "^0.11.10"
   }
 }
