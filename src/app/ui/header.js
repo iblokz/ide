@@ -10,8 +10,35 @@ module.exports = ({state, actions}) => header([
 	}, [
 		svgHamburger(({state: state.sideBar ? 1 : 0, strokeWidth: '3px', size: 22}))
 	]),
-	h1('iBloKz IDE'),
+	h1([
+		'iBloKz IDE',
+		state.file && state.file.name
+			? span('.file-title', [
+				' — ',
+				state.file.name,
+				state.dirty ? ' •' : ''
+			])
+			: []
+	]),
 	span('.header-actions', [
+		button('.save-file', {
+			attrs: {
+				'aria-label': 'Save file',
+				title: state.canWrite && state.dirty
+					? 'Save'
+					: state.canWrite
+						? 'No changes'
+						: 'Save requires a writable folder (Chromium / Electron)',
+				disabled: (!state.canWrite || !state.dirty || !state.file || state.file.id === 'untitled')
+					? 'disabled'
+					: undefined
+			},
+			on: {
+				click: () => state.canWrite && state.dirty && actions.saveFile(state.file, state.source)
+			}
+		}, [
+			i('.fa.fa-save')
+		]),
 		button('.theme-toggle', {
 			attrs: {
 				'aria-label': state.themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',

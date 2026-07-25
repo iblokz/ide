@@ -1,12 +1,12 @@
 'use strict';
 
-const {section} = require('iblokz-snabbdom-helpers');
+const {body} = require('iblokz-snabbdom-helpers');
 const {themeClass} = require('../util/theme');
 const header = require('./header');
 const sideBar = require('./side-bar');
 const codebin = require('./codebin');
 
-module.exports = ({state, actions}) => section(`#ui.${themeClass(state.themeMode || 'dark')}`, [
+module.exports = ({state, actions}) => body(`#ui.${themeClass(state.themeMode || 'dark')}`, [
 	sideBar({state, actions}),
 	header({state, actions}),
 	codebin({

@@ -1,4 +1,4 @@
-header
+& > header
 	+header-height($header-height)
 	display: flex
 	align-items: center
@@ -27,6 +27,11 @@ header
 		overflow: hidden
 		text-overflow: ellipsis
 		white-space: nowrap
+
+		.file-title
+			font-weight: 400
+			color: var(--app-text-muted)
+			font-size: 0.9em
 
 	.header-actions
 		margin-left: auto
@@ -60,13 +65,17 @@ header
 				stroke: var(--app-icon)
 				transition: stroke .2s ease
 
-		&:hover
+		&:hover:not(:disabled)
 			background: var(--app-bg-hover)
 			color: var(--app-icon-hover)
 			i, svg
 				transform: scale(1.08)
 			svg path
 				stroke: var(--app-icon-hover)
+
+		&:disabled
+			opacity: 0.35
+			cursor: default
 
 		&:focus-visible
 			border-color: var(--app-accent)

@@ -157,11 +157,26 @@ module.exports = ({
 }) => span('.codebin', [
 	code(`.source[type="${type}"][contenteditable="true"][spellcheck="false"]`, {
 		hook: {
-			insert: ({elm}) => caret.set(elm, pos),
-			update: ({elm}) => caret.set(elm, pos)
+			insert: ({elm}) => {
+				elm.innerHTML = prettify.prettyPrintOne(source || '', type, true);
+				caret.set(elm, pos);
+			},
+			update: (oldVnode, vnode) => {
+				const elm = vnode.elm;
+				const prev = oldVnode.data && oldVnode.data.dataset
+					? oldVnode.data.dataset.source
+					: null;
+				const next = source || '';
+				if (prev !== next) {
+					elm.innerHTML = prettify.prettyPrintOne(next, type, true);
+				}
+				caret.set(elm, pos);
+			}
+		},
+		dataset: {
+			source: source || ''
 		},
 		props: {
-			innerHTML: prettify.prettyPrintOne(source, type, true),
 			spellcheck: false
 		},
 		on: {

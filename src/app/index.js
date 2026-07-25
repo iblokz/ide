@@ -18,6 +18,7 @@ let {actions, state$} = createState(actionsTree);
 
 viewport.start();
 applyDocumentTheme(state$.getValue().themeMode);
+actions.refreshFsCapabilities();
 
 state$
 	.pipe(

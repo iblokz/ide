@@ -1,6 +1,10 @@
 
 body
 	+reset
+	// reset sets inline-block; with only absolute/fixed children that
+	// collapses body width to 0 and clips the editor to ~0px
+	display: block
+	width: 100%
 	font-family: 'Fira Code', monospace
 	background: var(--app-bg-page, #f4f6f8)
 	color: var(--app-text, #2a3038)

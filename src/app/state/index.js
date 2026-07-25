@@ -1,84 +1,52 @@
 'use strict';
 
-const {obj, arr, fn} = require('iblokz-data');
+const {obj, arr} = require('iblokz-data');
 const {getInitialThemeMode} = require('../util/theme');
+const {patchAt, isTextFile} = require('../util/file-tree');
+const {loadRecent, pushRecent} = require('../util/recent');
+const {getFs, DEMO_TREE, probeCapabilities, resetFs} = require('../services/fs');
+
+const emptyPos = {
+	start: {row: 0, col: 0},
+	end: {row: 0, col: 0}
+};
+
+const demoSource = 'console.log("Hello World!")';
 
 const initial = {
 	themeMode: getInitialThemeMode(),
-	file: {
-		name: 'Untitled.js',
-		ext: 'js',
-		source: 'console.log("Hello World!")'
+	fsBackend: getFs().id,
+	canOpenFolder: getFs().canOpenFolder,
+	canWrite: getFs().canWrite,
+	project: {
+		id: 'demo',
+		name: 'Demo',
+		path: 'demo'
 	},
+	recentRoots: loadRecent(),
+	file: {
+		id: 'untitled',
+		name: 'Untitled.js',
+		path: 'Untitled.js',
+		ext: 'js',
+		source: demoSource
+	},
+	dirty: false,
 	sideBar: false,
 	type: 'js',
 	example: false,
 	index: 0,
 	maxIndex: 0,
-	source: 'console.log("Hello World!")',
-	pos: {
-		start: {row: 0, col: 0},
-		end: {row: 0, col: 0}
-	},
+	source: demoSource,
+	pos: emptyPos,
 	history: [
 		{
 			type: 'js',
-			source: 'console.log("Hello World!")',
-			pos: {
-				start: {row: 0, col: 0},
-				end: {row: 0, col: 0}
-			}
+			source: demoSource,
+			pos: emptyPos
 		}
 	],
-	filesTree: [{
-		name: 'src',
-		isDir: true,
-		ext: false,
-		expanded: false,
-		files: [
-			{
-				name: 'index.js',
-				ext: 'js',
-				source: `
-const foo = bar => bar + 1;
-
-function xyz () {
-	console.log('abc')
-}
-
-const zyn = foo(3);
-`
-			},
-			{
-				name: 'ui',
-				isDir: true,
-				expanded: true,
-				files: [
-					{
-						name: 'index.js',
-						ext: 'js',
-						source: `
-const bar = baz => baz * 2;
-
-function jcl () {
-	const bob = bar(3);
-	console.log('bob', bob)
-}
-
-jcl(3);
-		`
-					}
-				]
-			}
-		]
-	}],
-	viewport: {
-		screen: {
-			width: 0,
-			height: 0,
-			size: 'xs'
-		}
-	}
+	filesTree: DEMO_TREE
 };
 
 const set = (key, value) => state => obj.patch(state, key, value);
@@ -91,22 +59,44 @@ const arrToggle = (key, value) => state =>
 const loadFile = file => state => Object.assign({}, state, {
 	file,
 	source: file.source,
-	type: file.ext,
+	type: file.ext || 'js',
+	dirty: false,
 	index: state.index + 1,
 	maxIndex: state.index + 1,
-	pos: initial.pos,
+	pos: emptyPos,
 	history: [].concat(
 		state.history.slice(0, state.index + 1),
 		[{
-			type: file.ext,
+			type: file.ext || 'js',
 			source: file.source,
-			pos: initial.pos
+			pos: emptyPos
 		}]
 	)
 });
 
-const updateSource = (source, pos = initial.pos) => state => Object.assign({}, state, {
+const openFile = file => {
+	if (!file || file.isDir) return state => state;
+	if (typeof file.source === 'string') return loadFile(file);
+	if (file.readable === false) return state => state;
+	if (file.ext && !isTextFile(file.name, file.ext)) return state => state;
+
+	const fs = getFs();
+	return fs.readFile(file)
+		.then(source => {
+			if (typeof source !== 'string') {
+				throw new Error('File read did not return text');
+			}
+			return loadFile(Object.assign({}, file, {source}));
+		})
+		.catch(err => {
+			console.error('openFile failed', file && file.path, err);
+			return state => state;
+		});
+};
+
+const updateSource = (source, pos = emptyPos) => state => Object.assign({}, state, {
 	source,
+	dirty: true,
 	index: state.index + 1,
 	maxIndex: state.index + 1,
 	pos,
@@ -125,28 +115,16 @@ const updatePos = pos => state => Object.assign({}, state, {
 });
 
 const undo = () => state => Object.assign({}, state, {
-	index: state.index > 0 ? state.index - 1 : 0
+	index: state.index > 0 ? state.index - 1 : 0,
+	dirty: true
 }, state.history[state.index > 0 ? state.index - 1 : 0]);
 
 const redo = () => state => Object.assign({}, state, {
-	index: state.index < state.maxIndex ? state.index + 1 : state.index
+	index: state.index < state.maxIndex ? state.index + 1 : state.index,
+	dirty: true
 }, state.history[state.index < state.maxIndex ? state.index + 1 : state.index]);
 
-const treePatchAt = ({list = [], path = [], nodesProp = 'nodes', key, value}) => path.length > 0 ? fn.pipe(
-	() => path instanceof Array ? path.slice(0, 1).pop() : path,
-	index => [].concat(
-		list.slice(0, index),
-		[{...list[index], [
-			path.length > 1 ? nodesProp : key
-		]: path.length > 1
-			? treePatchAt({list: list[index][nodesProp], path: path.slice(1), nodesProp, key, value})
-			: value
-		}],
-		(index < list.length - 1) ? list.slice(index + 1) : []
-	)
-)() : list;
-
-const toggleFolder = (path = [], expanded = false) => state => obj.patch(state, 'filesTree', treePatchAt({
+const toggleFolder = (path = [], expanded = false) => state => obj.patch(state, 'filesTree', patchAt({
 	list: obj.sub(state, 'filesTree') || [],
 	path,
 	nodesProp: 'files',
@@ -161,17 +139,76 @@ const toggleTheme = () => state => obj.patch(
 	state.themeMode === 'dark' ? 'light' : 'dark'
 );
 
+const openFolder = () => {
+	const fs = getFs();
+	if (!fs.canOpenFolder) {
+		return Promise.resolve(state => Object.assign({}, state, probeCapabilities()));
+	}
+	return fs.openFolder()
+		.then(result => {
+			if (!result) return state => Object.assign({}, state, probeCapabilities());
+			const recentRoots = pushRecent({
+				id: result.id,
+				name: result.name,
+				path: result.path
+			});
+			return state => Object.assign({}, state, {
+				fsBackend: fs.id,
+				canOpenFolder: true,
+				canWrite: result.writable !== false && !!fs.canWrite,
+				project: {
+					id: result.id,
+					name: result.name,
+					path: result.path
+				},
+				filesTree: result.filesTree,
+				recentRoots,
+				sideBar: true,
+				dirty: false
+			});
+		})
+		.catch(err => {
+			console.error(err);
+			return state => Object.assign({}, state, probeCapabilities());
+		});
+};
+
+const refreshFsCapabilities = () => state => Object.assign({}, state, probeCapabilities());
+
+const saveFile = (file, source) => {
+	const fs = getFs();
+	if (!file || !fs.canWrite || file.id === 'untitled' || file.id === 'demo') {
+		return Promise.resolve(state => state);
+	}
+	if (fs.id === 'memory') {
+		return Promise.resolve(state => state);
+	}
+	return fs.writeFile(file, source)
+		.then(() => state => Object.assign({}, state, {
+			dirty: false,
+			file: Object.assign({}, file, {source})
+		}))
+		.catch(err => {
+			console.error(err);
+			return state => state;
+		});
+};
+
 module.exports = {
 	initial,
 	set,
 	toggle,
 	arrToggle,
 	loadFile,
+	openFile,
 	updateSource,
 	updatePos,
 	undo,
 	redo,
 	toggleFolder,
 	setThemeMode,
-	toggleTheme
+	toggleTheme,
+	openFolder,
+	saveFile,
+	refreshFsCapabilities
 };
