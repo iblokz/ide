@@ -12,7 +12,7 @@
     "check": "biome check ./src"
   },
   "author": "Alex Milanov <alex@i4web.biz>",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "packageManager": "pnpm@10.28.1",
   "dependencies": {
     "@fontsource/fira-code": "^5.2.7",
