@@ -1,12 +1,10 @@
 'use strict';
 
 const {obj, arr, fn} = require('iblokz-data');
+const {getInitialThemeMode} = require('../util/theme');
 
-// namespaces=
-const counter = require('./counter');
-
-// initial
 const initial = {
+	themeMode: getInitialThemeMode(),
 	file: {
 		name: 'Untitled.js',
 		ext: 'js',
@@ -73,10 +71,16 @@ jcl(3);
 				]
 			}
 		]
-	}]
+	}],
+	viewport: {
+		screen: {
+			width: 0,
+			height: 0,
+			size: 'xs'
+		}
+	}
 };
 
-// actions
 const set = (key, value) => state => obj.patch(state, key, value);
 const toggle = key => state => obj.patch(state, key, !obj.sub(state, key));
 const arrToggle = (key, value) => state =>
@@ -150,9 +154,15 @@ const toggleFolder = (path = [], expanded = false) => state => obj.patch(state, 
 	value: !expanded
 }));
 
+const setThemeMode = mode => state => obj.patch(state, 'themeMode', mode);
+const toggleTheme = () => state => obj.patch(
+	state,
+	'themeMode',
+	state.themeMode === 'dark' ? 'light' : 'dark'
+);
+
 module.exports = {
 	initial,
-	counter,
 	set,
 	toggle,
 	arrToggle,
@@ -161,5 +171,7 @@ module.exports = {
 	updatePos,
 	undo,
 	redo,
-	toggleFolder
+	toggleFolder,
+	setThemeMode,
+	toggleTheme
 };

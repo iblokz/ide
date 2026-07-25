@@ -1,11 +1,6 @@
 'use strict';
 
-const {obj} = require('iblokz-data');
-
-// dom
-const {
-	h
-} = require('iblokz-snabbdom-helpers');
+const {h} = require('iblokz-snabbdom-helpers');
 
 module.exports = ({state = 0, stroke = '#333', strokeWidth = '10px', size = 64}) => h(`svg`, {
 	attrs: {

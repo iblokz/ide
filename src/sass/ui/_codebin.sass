@@ -1,47 +1,64 @@
 .codebin
 	position: absolute
-	left: 0px
-	right: 0px
+	left: 0
+	right: 0
 	top: $header-height
-	bottom: 0px
-	display: inline-block
-	transition: .3s
-	code
+	bottom: 0
+	display: flex
+	overflow: hidden
+	transition: left .28s ease
+	background: var(--app-bg-page)
+
+	> code.source
+		flex: 1 1 50%
+		min-width: 0
+		height: 100%
+		overflow: auto
 		font-family: 'Fira Code', monospace
-		font-size: 1em
+		font-size: 0.95em
 		white-space: pre
-		display: inline-block
-		height: 100%
-		width: 50%
-		float: left
-		overflow-y: auto
-		padding: 10px 5px
-		color: #3e434c
+		padding: 12px 10px
+		color: var(--app-editor-text)
+		background: var(--app-editor-bg)
 		tab-size: 2
-		transition: .3s
-		border: 1px solid #ccc
+		transition: background-color .25s ease, color .25s ease, border-color .25s ease
+		border: 1px solid var(--app-border)
 		box-sizing: border-box
-		&.source
-			min-width: 400px
-			box-shadow: inset 0px 0px 0px #949fa9, 2px 2px 3px rgba(0,0,0,0)
-			&:focus
-				outline: none
-				// box-shadow: inset 0px 0px 55px #949fa9, 2px 2px 3px #8a8f96
+		&:focus
+			outline: none
+
 	.output
-		text-align: left
+		flex: 1 1 50%
+		min-width: 0
 		height: 100%
-		width: 50%
-		display: inline-block
-		float: left
+		display: flex
+		flex-direction: column
+		overflow: hidden
+		text-align: left
+
 		code.console
+			flex: 1 1 50%
+			min-height: 0
 			width: 100%
-			height: 50%
-			border: 1px solid #ccc
+			overflow: auto
+			font-family: 'Fira Code', monospace
+			font-size: 0.95em
+			white-space: pre
+			padding: 12px 10px
+			border: 1px solid var(--app-border)
+			border-bottom: none
+			box-sizing: border-box
+			background: var(--app-console-bg)
+			color: var(--app-editor-text)
 			.err
-				color: #800
+				color: var(--app-danger)
 				font-size: inherit
+
 		iframe
+			flex: 1 1 50%
+			min-height: 0
 			width: 100%
-			height: 50%
 			display: block
-			border: 1px solid #ccc
+			border: 1px solid var(--app-border)
+			box-sizing: border-box
+			background: var(--app-bg-panel)

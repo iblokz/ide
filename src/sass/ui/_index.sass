@@ -1,19 +1,25 @@
 
-
 #ui
 	@import 'header'
 	@import 'codebin'
 	@import 'side-bar'
+
+	position: relative
+	min-height: 100vh
+	overflow: hidden
+	background: var(--app-bg-page)
+	color: var(--app-text)
+	font-family: 'Fira Code', monospace
+	transition: background-color .25s ease, color .25s ease
+
 	.side-bar
 		width: 260px
 		margin-left: -260px
-		transition: .3s .3s ease-in-out
+		transition: margin-left .28s ease, box-shadow .28s ease, background-color .25s ease
 		& ~ *
-			transition: left .3s .3s ease-in-out
-			left: 0px
+			transition: left .28s ease
+			left: 0
 		&.toggled
-			margin-left: 0px
+			margin-left: 0
 			& ~ *
 				left: 260px
-				button
-					box-shadow: 0px 1px 1px #ccc, 0px 2px 3px #f5f5f5

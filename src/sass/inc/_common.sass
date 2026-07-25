@@ -1,8 +1,10 @@
 
 body
 	+reset
-	font-family: 'Fira Code'
-	background: #fafafa
+	font-family: 'Fira Code', monospace
+	background: var(--app-bg-page, #f4f6f8)
+	color: var(--app-text, #2a3038)
+	min-height: 100vh
 
 .left
 	float: left
@@ -14,4 +16,6 @@ body
 	text-align: right
 
 h1, h2, h3, h4
-	font-weight: 400
+	font-weight: 500
+	color: var(--app-text-strong, inherit)
+	letter-spacing: -0.02em

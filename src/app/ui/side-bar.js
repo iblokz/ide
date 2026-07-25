@@ -1,32 +1,14 @@
 'use strict';
 
 const {obj} = require('iblokz-data');
-
-// dom
 const {
-	h1, a, div, label, img,
-	section, button, span,
-	select, option, header,
-	ul, li, h3, i
+	div, a, span, ul, li, i
 } = require('iblokz-snabbdom-helpers');
-
-const filesTree = [{
-	name: 'src',
-	isDir: true,
-	ext: false,
-	expanded: false,
-	files: [
-		{
-			name: 'index.js',
-			type: 'file',
-			ext: 'js'
-		}
-	]
-}];
 
 const fileSort = (a, b) => !a.isDir && b.isDir ? 1 : -1;
 
-const levelUp = fn => (path = [], level, cb) => (item, index) => fn(...[item, [].concat(path, index), level + 1, cb]);
+const levelUp = fn => (path = [], level, cb) =>
+	(item, index) => fn(...[item, [].concat(path, index), level + 1, cb]);
 
 const treeMap = (item, path = [], level = 0, cb) => li([].concat(
 	a({
@@ -58,7 +40,6 @@ module.exports = ({state, actions}) => div('.side-bar', {
 		toggled: state.sideBar
 	}
 }, [
-	// h3('File List'),
 	ul('.file-list',
 		state.filesTree.sort(fileSort).map((item, index) => treeMap(item, [index], 0,
 			(item, path, level) => item.isDir ? actions.toggleFolder(path, item.expanded) : actions.loadFile(item)

@@ -1,8 +1,19 @@
 'use strict';
 
 // lib
-const Rx = require('rx');
-const $ = Rx.Observable;
+const Rx = require('rxjs');
+const {
+	ReplaySubject,
+	fromEvent,
+	merge
+} = Rx;
+const {
+	map,
+	takeUntil,
+	share,
+	debounceTime,
+	catchError
+} = require('rxjs/operators');
 
 const {str, obj} = require('iblokz-data');
 
@@ -52,6 +63,9 @@ const throwError = msg => {
 // components
 const vdom = require('iblokz-snabbdom-helpers');
 const {section, button, span, code, h} = vdom;
+
+// Playground global: RxJS namespace (replaces classic `rx` Observable ctor)
+const $ = Rx;
 
 const unprettify = html => {
 	const tDiv = document.createElement('div');
@@ -122,12 +136,12 @@ const prepOutput = parentNode => {
 };
 
 const process = (type, sourceCode, iframe) => {
-	const console$ = new Rx.ReplaySubject();
+	const console$ = new ReplaySubject();
 	if (type === 'js') {
 		sandbox(sourceCode, iframe, {}, ({res, log, err}) => {
-			if (err) console$.onNext(`<p class="err">${err}</p>\n`);
+			if (err) console$.next(`<p class="err">${err}</p>\n`);
 			if (log) log.map(l => prettify.prettyPrintOne(JSON.stringify(l)))
-				.forEach(l => console$.onNext(`${l}\n`));
+				.forEach(l => console$.next(`${l}\n`));
 		});
 	}
 	return console$;
@@ -164,19 +178,26 @@ module.exports = ({
 					redo();
 				}
 			},
-			focus: ({target}) => [$.fromEvent(target, 'input')
-				.map(ev => ev.target)
-				.takeUntil($.fromEvent(target, 'blur'))
-				.share()
-			].map(inputs$ => $.merge(
-					inputs$.debounce(200).map(el => {
+			focus: ({target}) => [fromEvent(target, 'input')
+				.pipe(
+					map(ev => ev.target),
+					takeUntil(fromEvent(target, 'blur')),
+					share()
+				)
+			].map(inputs$ => merge(
+				inputs$.pipe(
+					debounceTime(200),
+					map(el => {
 						const pos = caret.get(el);
 						const sourceCode = unprettify(el.innerHTML);
 						el.innerHTML = prettify.prettyPrintOne(sourceCode, type, true);
 						caret.set(el, pos);
 						return 1;
-					}),
-					inputs$.debounce(500).map(el => {
+					})
+				),
+				inputs$.pipe(
+					debounceTime(500),
+					map(el => {
 						const pos = caret.get(el);
 						console.log(pos);
 						let sourceCode = unprettify(el.innerHTML);
@@ -189,7 +210,10 @@ module.exports = ({
 
 						// process code
 						process(type, sourceCode, iframe)
-							.catch(err => console.log(err))
+							.pipe(catchError(err => {
+								console.log(err);
+								return [];
+							}))
 							.subscribe(l => {
 								console.log(l);
 								el.parentNode.querySelector('.console').innerHTML += l;
@@ -198,6 +222,7 @@ module.exports = ({
 
 						return 1;
 					})
+				)
 			)).pop().subscribe(),
 			keyup: ev => {
 				const pos = caret.get(ev.target);
@@ -221,7 +246,10 @@ module.exports = ({
 
 					// process code
 					process(type, cleanupCode(source), iframe)
-						.catch(err => console.log(err))
+						.pipe(catchError(err => {
+							console.log(err);
+							return [];
+						}))
 						.subscribe(l => {
 							console.log(l);
 							elm.innerHTML += l;
@@ -233,7 +261,10 @@ module.exports = ({
 
 					// process code
 					process(type, cleanupCode(source), iframe)
-						.catch(err => console.log(err))
+						.pipe(catchError(err => {
+							console.log(err);
+							return [];
+						}))
 						.subscribe(l => {
 							console.log(l);
 							elm.innerHTML += l;
