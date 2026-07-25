@@ -22,6 +22,11 @@
 	--app-icon-hover: #12161c
 	--app-header-height: #{$header-height}
 
+	.codebin > code.source,
+	.codebin .console,
+	.side-bar > ul.file-list
+		+scrollbar(6px, #2a3038)
+
 .theme-dark
 	color-scheme: dark
 	--app-bg-page: #1a1d23
@@ -43,3 +48,8 @@
 	--app-icon: #9aa3b2
 	--app-icon-hover: #f0f2f5
 	--app-header-height: #{$header-height}
+
+	.codebin > code.source,
+	.codebin .console,
+	.side-bar > ul.file-list
+		+scrollbar(6px, #f0f2f5)

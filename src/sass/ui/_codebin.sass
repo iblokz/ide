@@ -1,17 +1,16 @@
 .codebin
-	position: absolute
-	left: 0
-	right: 0
-	top: $header-height
-	bottom: 0
+	position: relative
+	flex: 1 1 auto
+	min-width: 0
+	height: calc(100vh - #{$header-height})
+	margin-top: $header-height
 	display: flex
 	overflow: hidden
-	transition: left .28s ease
 	background: var(--app-bg-page)
 
 	> code.source
-		flex: 1 1 50%
-		min-width: 0
+		flex: 0 0 50%
+		min-width: 8rem
 		height: 100%
 		overflow: auto
 		font-family: 'Fira Code', monospace
@@ -27,18 +26,25 @@
 		&:focus
 			outline: none
 
+	&.panes-editor
+		> code.source
+			min-width: 0
+
 	.output
-		flex: 1 1 50%
-		min-width: 0
+		flex: 1 1 auto
+		min-width: 8rem
 		height: 100%
 		display: flex
 		flex-direction: column
 		overflow: hidden
 		text-align: left
 
+		&.hidden
+			display: none
+
 		code.console
-			flex: 1 1 50%
-			min-height: 0
+			flex: 1 1 auto
+			min-height: 4rem
 			width: 100%
 			overflow: auto
 			font-family: 'Fira Code', monospace
@@ -50,15 +56,21 @@
 			box-sizing: border-box
 			background: var(--app-console-bg)
 			color: var(--app-editor-text)
+			&.hidden
+				display: none
 			.err
 				color: var(--app-danger)
 				font-size: inherit
 
 		iframe
-			flex: 1 1 50%
-			min-height: 0
+			flex: 0 0 50%
+			min-height: 4rem
 			width: 100%
 			display: block
 			border: 1px solid var(--app-border)
 			box-sizing: border-box
 			background: var(--app-bg-panel)
+
+	&.panes-preview
+		.output iframe
+			min-height: 0

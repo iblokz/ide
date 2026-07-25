@@ -4,6 +4,7 @@ const {obj, arr} = require('iblokz-data');
 const {getInitialThemeMode} = require('../util/theme');
 const {patchAt, isTextFile} = require('../util/file-tree');
 const {loadRecent, pushRecent} = require('../util/recent');
+const {loadLayout, saveLayout, clampLayout, nextPanes} = require('../util/layout');
 const {getFs, DEMO_TREE, probeCapabilities, resetFs} = require('../services/fs');
 
 const emptyPos = {
@@ -33,6 +34,7 @@ const initial = {
 	},
 	dirty: false,
 	sideBar: false,
+	layout: loadLayout(),
 	type: 'js',
 	example: false,
 	index: 0,
@@ -175,6 +177,18 @@ const openFolder = () => {
 
 const refreshFsCapabilities = () => state => Object.assign({}, state, probeCapabilities());
 
+const setLayout = patch => state => {
+	const layout = saveLayout(clampLayout(Object.assign({}, state.layout, patch)));
+	return Object.assign({}, state, {layout});
+};
+
+const cyclePanes = () => state => {
+	const layout = saveLayout(clampLayout(Object.assign({}, state.layout, {
+		panes: nextPanes(state.layout && state.layout.panes)
+	})));
+	return Object.assign({}, state, {layout});
+};
+
 const saveFile = (file, source) => {
 	const fs = getFs();
 	if (!file || !fs.canWrite || file.id === 'untitled' || file.id === 'demo') {
@@ -210,5 +224,7 @@ module.exports = {
 	toggleTheme,
 	openFolder,
 	saveFile,
-	refreshFsCapabilities
+	refreshFsCapabilities,
+	setLayout,
+	cyclePanes
 };

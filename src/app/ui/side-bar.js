@@ -47,7 +47,7 @@ const treeMap = (item, path = [], level = 0, cb) => {
 	return li(children);
 };
 
-module.exports = ({state, actions}) => {
+module.exports = ({state, actions, width}) => {
 	const recent = (state.recentRoots || []).filter(root => root && root.name);
 	const tree = (state.filesTree || [])
 		.slice()
@@ -63,9 +63,19 @@ module.exports = ({state, actions}) => {
 		? 'Open Project'
 		: (state.project.name || 'Project');
 
+	const open = !!state.sideBar;
+	const resolvedWidth = open
+		? (typeof width === 'number' ? width : (state.layout && state.layout.sideBar) || 260)
+		: 0;
+
 	return div('.side-bar', {
 		class: {
-			toggled: state.sideBar
+			toggled: open
+		},
+		style: {
+			width: `${resolvedWidth}px`,
+			minWidth: open ? '140px' : '0px',
+			maxWidth: open ? '480px' : '0px'
 		}
 	}, [
 		header([

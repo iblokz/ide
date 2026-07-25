@@ -1,10 +1,12 @@
-
 #ui
 	@import 'header'
 	@import 'codebin'
 	@import 'side-bar'
+	@import 'split-gutter'
 
-	display: block
+	display: flex
+	flex-direction: row
+	align-items: stretch
 	width: 100%
 	position: relative
 	min-height: 100vh
@@ -15,13 +17,15 @@
 	transition: background-color .25s ease, color .25s ease
 
 	.side-bar
-		width: 260px
-		margin-left: -260px
-		transition: margin-left .28s ease, box-shadow .28s ease, background-color .25s ease
-		& ~ *
-			transition: left .28s ease
-			left: 0
-		&.toggled
-			margin-left: 0
-			& ~ *
-				left: 260px
+		flex: 0 0 auto
+		position: relative
+		height: calc(100vh - #{$header-height})
+		margin-top: $header-height
+		overflow: hidden
+		transition: box-shadow .28s ease, background-color .25s ease, border-color .25s ease
+
+		&:not(.toggled)
+			overflow: hidden
+			border: none
+			box-shadow: none
+			pointer-events: none

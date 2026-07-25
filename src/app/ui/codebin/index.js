@@ -20,6 +20,8 @@ const {str, obj} = require('iblokz-data');
 const prettify = require('code-prettify');
 const vm = require('../../util/vm');
 const caret = require('../../util/caret');
+const {clamp} = require('../../util/split-drag');
+const splitGutter = require('../comp/split-gutter');
 
 const acorn = require('acorn');
 const infer = require('tern/lib/infer.js');
@@ -118,17 +120,13 @@ const removeChildren = (el, selector = '*') => Array.from(el.querySelectorAll(se
 	el.removeChild(child);
 });
 
-const createBefore = (type, el) => {
-	removeChildren(el.parentNode, 'iframe');
-	let newEl = document.createElement(type);
-	el.parentNode.insertBefore(newEl, el);
-	return newEl;
-};
-
 	// clear and prep output and console
 const prepOutput = parentNode => {
 	removeChildren(parentNode, 'iframe');
-	let iframe = createBefore('IFRAME', parentNode.querySelector('.console'));
+	let iframe = document.createElement('IFRAME');
+	iframe.className = 'sandbox';
+	// Keep split gutters after the preview: insert as first child
+	parentNode.insertBefore(iframe, parentNode.firstChild);
 	iframe.contentWindow.document.body.innerHTML =
 		'<style>* {font-size: 24px;}</style><section id="ui"></section>';
 	parentNode.querySelector('.console').innerHTML = '';
@@ -150,142 +148,224 @@ const process = (type, sourceCode, iframe) => {
 // ui
 module.exports = ({
 	source, pos, type,
+	layout = {},
+	setLayout = () => {},
 	change = code => {},
 	updatePos = pos => {},
 	undo = () => {},
 	redo = () => {}
-}) => span('.codebin', [
-	code(`.source[type="${type}"][contenteditable="true"][spellcheck="false"]`, {
-		hook: {
-			insert: ({elm}) => {
-				elm.innerHTML = prettify.prettyPrintOne(source || '', type, true);
-				caret.set(elm, pos);
-			},
-			update: (oldVnode, vnode) => {
-				const elm = vnode.elm;
-				const prev = oldVnode.data && oldVnode.data.dataset
-					? oldVnode.data.dataset.source
-					: null;
-				const next = source || '';
-				if (prev !== next) {
-					elm.innerHTML = prettify.prettyPrintOne(next, type, true);
-				}
-				caret.set(elm, pos);
-			}
-		},
-		dataset: {
-			source: source || ''
-		},
-		props: {
-			spellcheck: false
-		},
-		on: {
-			keydown: ev => {
-				if (ev.key === 'Tab') {
-					ev.preventDefault();
-					caret.indent(ev.target, ev.shiftKey === true ? 'left' : 'right');
-					ev.target.dispatchEvent(new Event('input'));
-					// document.execCommand('insertHTML', false, '&#009');
-					// document.execCommand('indent');
-				} else if (ev.key === 'z' && ev.ctrlKey) {
-					undo();
-				} else if (ev.key === 'y' && ev.ctrlKey) {
-					redo();
-				}
-			},
-			focus: ({target}) => [fromEvent(target, 'input')
-				.pipe(
-					map(ev => ev.target),
-					takeUntil(fromEvent(target, 'blur')),
-					share()
-				)
-			].map(inputs$ => merge(
-				inputs$.pipe(
-					debounceTime(200),
-					map(el => {
-						const pos = caret.get(el);
-						const sourceCode = unprettify(el.innerHTML);
-						el.innerHTML = prettify.prettyPrintOne(sourceCode, type, true);
-						caret.set(el, pos);
-						return 1;
-					})
-				),
-				inputs$.pipe(
-					debounceTime(500),
-					map(el => {
-						const pos = caret.get(el);
-						console.log(pos);
-						let sourceCode = unprettify(el.innerHTML);
-						change(sourceCode, pos);
-						// setTimeout(() => caret.set(el, pos));
-						/*
-						sourceCode = cleanupCode(sourceCode);
-						// clear and prep output and console
-						let iframe = prepOutput(el.parentNode.querySelector('.output'));
+}) => {
+	const panes = layout.panes === 'editor' || layout.panes === 'preview'
+		? layout.panes
+		: 'full';
+	const editorOnly = panes === 'editor';
+	const showConsole = panes === 'full';
+	const editorPct = Math.round(((layout.editor != null ? layout.editor : 0.5) * 1000)) / 10;
+	const previewPct = Math.round(((layout.preview != null ? layout.preview : 0.5) * 1000)) / 10;
+	const iframeFlex = showConsole ? `0 0 ${previewPct}%` : '1 1 auto';
 
-						// process code
-						process(type, sourceCode, iframe)
+	return span(`.codebin.panes-${panes}`, [
+		code(`.source[type="${type}"][contenteditable="true"][spellcheck="false"]`, {
+			style: {
+				flex: editorOnly ? '1 1 auto' : `0 0 ${editorPct}%`
+			},
+			hook: {
+				insert: ({elm}) => {
+					elm.innerHTML = prettify.prettyPrintOne(source || '', type, true);
+					caret.set(elm, pos);
+				},
+				update: (oldVnode, vnode) => {
+					const elm = vnode.elm;
+					const prev = oldVnode.data && oldVnode.data.dataset
+						? oldVnode.data.dataset.source
+						: null;
+					const next = source || '';
+					if (prev !== next) {
+						elm.innerHTML = prettify.prettyPrintOne(next, type, true);
+					}
+					caret.set(elm, pos);
+				}
+			},
+			dataset: {
+				source: source || ''
+			},
+			props: {
+				spellcheck: false
+			},
+			on: {
+				keydown: ev => {
+					if (ev.key === 'Tab') {
+						ev.preventDefault();
+						caret.indent(ev.target, ev.shiftKey === true ? 'left' : 'right');
+						ev.target.dispatchEvent(new Event('input'));
+					} else if (ev.key === 'z' && ev.ctrlKey) {
+						undo();
+					} else if (ev.key === 'y' && ev.ctrlKey) {
+						redo();
+					}
+				},
+				focus: ({target}) => [fromEvent(target, 'input')
+					.pipe(
+						map(ev => ev.target),
+						takeUntil(fromEvent(target, 'blur')),
+						share()
+					)
+				].map(inputs$ => merge(
+					inputs$.pipe(
+						debounceTime(200),
+						map(el => {
+							const pos = caret.get(el);
+							const sourceCode = unprettify(el.innerHTML);
+							el.innerHTML = prettify.prettyPrintOne(sourceCode, type, true);
+							caret.set(el, pos);
+							return 1;
+						})
+					),
+					inputs$.pipe(
+						debounceTime(500),
+						map(el => {
+							const pos = caret.get(el);
+							console.log(pos);
+							let sourceCode = unprettify(el.innerHTML);
+							change(sourceCode, pos);
+							return 1;
+						})
+					)
+				)).pop().subscribe(),
+				keyup: ev => {
+					const pos = caret.get(ev.target);
+					console.log(pos);
+				}
+			}
+		}),
+		splitGutter({
+			axis: 'x',
+			hidden: editorOnly,
+			onStart: () => {
+				const bin = document.querySelector('.codebin');
+				const editor = document.querySelector('code.source');
+				const binW = bin ? bin.getBoundingClientRect().width : 1;
+				const startPct = editor
+					? editor.getBoundingClientRect().width / binW
+					: (layout.editor != null ? layout.editor : 0.5);
+				return {bin, editor, binW, startPct};
+			},
+			onMove: (delta, ev, ctx) => {
+				if (!ctx || !ctx.editor || !ctx.binW) return;
+				const next = clamp(ctx.startPct + (delta / ctx.binW), 0.2, 0.8);
+				ctx.editor.style.flex = `0 0 ${next * 100}%`;
+				ctx.pending = next;
+			},
+			onEnd: (delta, ev, ctx) => {
+				const next = clamp(
+					(ctx && ctx.pending != null)
+						? ctx.pending
+						: (ctx.startPct + (delta / (ctx.binW || 1))),
+					0.2,
+					0.8
+				);
+				if (ctx && ctx.editor) ctx.editor.style.flex = `0 0 ${next * 100}%`;
+				setLayout({editor: next});
+			}
+		}),
+		span('.output', {
+			class: {
+				hidden: editorOnly
+			}
+		}, [
+			h('iframe.sandbox', {
+				style: {
+					flex: iframeFlex
+				},
+				hook: {
+					insert: ({elm}) => {
+						elm.contentWindow.document.body.innerHTML = '<section id="ui"></section>';
+					}
+				}
+			}),
+			splitGutter({
+				axis: 'y',
+				hidden: !showConsole,
+				onStart: () => {
+					const out = document.querySelector('.codebin .output');
+					const iframe = document.querySelector('.codebin iframe.sandbox');
+					const outH = out ? out.getBoundingClientRect().height : 1;
+					const startPct = iframe
+						? iframe.getBoundingClientRect().height / outH
+						: (layout.preview != null ? layout.preview : 0.5);
+					return {out, iframe, outH, startPct};
+				},
+				onMove: (delta, ev, ctx) => {
+					if (!ctx || !ctx.iframe || !ctx.outH) return;
+					const next = clamp(ctx.startPct + (delta / ctx.outH), 0.2, 0.8);
+					ctx.iframe.style.flex = `0 0 ${next * 100}%`;
+					ctx.pending = next;
+				},
+				onEnd: (delta, ev, ctx) => {
+					const next = clamp(
+						(ctx && ctx.pending != null)
+							? ctx.pending
+							: (ctx.startPct + (delta / (ctx.outH || 1))),
+						0.2,
+						0.8
+					);
+					if (ctx && ctx.iframe) ctx.iframe.style.flex = `0 0 ${next * 100}%`;
+					setLayout({preview: next});
+				}
+			}),
+			code('.console', {
+				class: {
+					hidden: !showConsole
+				},
+				style: {
+					flex: '1 1 auto'
+				},
+				hook: {
+					insert: ({elm}) => {
+						let iframe = prepOutput(elm.parentNode);
+						iframe.style.flex = iframeFlex;
+
+						process(type, cleanupCode(source), iframe)
 							.pipe(catchError(err => {
 								console.log(err);
 								return [];
 							}))
 							.subscribe(l => {
 								console.log(l);
-								el.parentNode.querySelector('.console').innerHTML += l;
+								elm.innerHTML += l;
 							});
-						*/
+					},
+					update: (oldVnode, vnode) => {
+						const elm = vnode.elm;
+						const prev = oldVnode.data && oldVnode.data.dataset
+							? oldVnode.data.dataset.source
+							: null;
+						const next = source || '';
+						let iframe = elm.parentNode.querySelector('iframe');
+						if (!iframe) {
+							iframe = prepOutput(elm.parentNode);
+						}
+						iframe.style.flex = iframeFlex;
+						if (prev === next) return;
 
-						return 1;
-					})
-				)
-			)).pop().subscribe(),
-			keyup: ev => {
-				const pos = caret.get(ev.target);
-				console.log(pos);
-			}
-		}
-	}),
-	span('.output', [
-		h('iframe.sandbox', {
-			hook: {
-				insert: ({elm}) => {
-					elm.contentWindow.document.body.innerHTML = '<section id="ui"></section>';
-				}
-			}
-		}),
-		code('.console', {
-			hook: {
-				insert: ({elm}) => {
-					// clear and prep output and console
-					let iframe = prepOutput(elm.parentNode);
+						iframe = prepOutput(elm.parentNode);
+						iframe.style.flex = iframeFlex;
 
-					// process code
-					process(type, cleanupCode(source), iframe)
-						.pipe(catchError(err => {
-							console.log(err);
-							return [];
-						}))
-						.subscribe(l => {
-							console.log(l);
-							elm.innerHTML += l;
-						});
+						process(type, cleanupCode(source), iframe)
+							.pipe(catchError(err => {
+								console.log(err);
+								return [];
+							}))
+							.subscribe(l => {
+								console.log(l);
+								elm.innerHTML += l;
+							});
+					}
 				},
-				update: ({elm}) => {
-					// clear and prep output and console
-					let iframe = prepOutput(elm.parentNode);
-
-					// process code
-					process(type, cleanupCode(source), iframe)
-						.pipe(catchError(err => {
-							console.log(err);
-							return [];
-						}))
-						.subscribe(l => {
-							console.log(l);
-							elm.innerHTML += l;
-						});
+				dataset: {
+					source: source || ''
 				}
-			}
-		})
-	])
-]);
+			})
+		])
+	]);
+};

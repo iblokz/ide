@@ -23,3 +23,28 @@
 =desktop
   @media (min-width: #{$desktop-width})
     @content
+
+// Thin scrollbars (media-browser / world-metronome).
+// Use a concrete SASS color — CSS vars are unreliable on ::-webkit-scrollbar.
+=scrollbar($width: 6px, $color: #888)
+  scrollbar-width: thin
+  scrollbar-color: rgba($color, 0.35) transparent
+
+  &::-webkit-scrollbar
+    width: $width
+    height: $width
+
+  &::-webkit-scrollbar-track
+    background: transparent
+
+  &::-webkit-scrollbar-thumb
+    background-color: rgba($color, 0.28)
+    border-radius: $width
+    border: 1px solid transparent
+    background-clip: padding-box
+
+  &::-webkit-scrollbar-thumb:hover
+    background-color: rgba($color, 0.45)
+
+  &::-webkit-scrollbar-corner
+    background: transparent
