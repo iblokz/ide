@@ -26,11 +26,14 @@ const resetFs = () => {
 };
 
 const probeCapabilities = () => {
-	const fs = resetFs();
+	const fs = getFs();
+	if (typeof fs.logCapabilities === 'function') {
+		fs.logCapabilities();
+	}
 	return {
 		fsBackend: fs.id,
-		canOpenFolder: !!fs.canOpenFolder,
-		canWrite: !!fs.canWrite
+		canOpenFolder: !!fs.canOpenFolder
+		// canWrite is project-scoped (set by openFolder), not a backend capability
 	};
 };
 

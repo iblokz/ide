@@ -204,6 +204,22 @@ module.exports = ({
 						redo();
 					}
 				},
+				// Mark dirty without requiring the focus→subscribe dance
+				input: (() => {
+					let timer;
+					return ev => {
+						clearTimeout(timer);
+						timer = setTimeout(() => {
+							const el = ev.target;
+							try {
+								const nextPos = caret.get(el);
+								change(unprettify(el.innerHTML), nextPos);
+							} catch (err) {
+								change(unprettify(el.innerHTML));
+							}
+						}, 300);
+					};
+				})(),
 				focus: ({target}) => [fromEvent(target, 'input')
 					.pipe(
 						map(ev => ev.target),

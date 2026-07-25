@@ -86,7 +86,7 @@ module.exports = ({state, actions, width}) => {
 			}, title),
 			button('.open-folder', {
 				attrs: {
-					title: 'Open folder',
+					title: 'Open folder (Ctrl+O)',
 					'aria-label': 'Open folder',
 					type: 'button'
 				},

@@ -1,6 +1,6 @@
 'use strict';
 
-const {map, distinctUntilChanged} = require('rxjs');
+const {map, distinctUntilChanged, fromEvent, filter} = require('rxjs');
 const {createState, dispatch} = require('iblokz-state');
 const {patchStream} = require('iblokz-snabbdom-helpers');
 const {toVNode} = require('snabbdom');
@@ -13,6 +13,7 @@ const {
 	serializeTheme,
 	applyDocumentTheme
 } = require('./util/theme');
+const {triggerSave} = require('./util/trigger-save');
 
 let {actions, state$} = createState(actionsTree);
 
@@ -28,6 +29,24 @@ state$
 	.subscribe(mode => {
 		applyDocumentTheme(mode);
 		localStorage.setItem(STORAGE_KEY, serializeTheme(mode));
+	});
+
+fromEvent(document, 'keydown')
+	.pipe(
+		filter(ev => ev.ctrlKey || ev.metaKey),
+		filter(ev => !ev.altKey)
+	)
+	.subscribe(ev => {
+		const key = String(ev.key || '').toLowerCase();
+		if (key === 's') {
+			ev.preventDefault();
+			triggerSave({state: state$.getValue(), actions});
+			return;
+		}
+		if (key === 'o') {
+			ev.preventDefault();
+			actions.openFolder();
+		}
 	});
 
 let vnode$ = state$.pipe(map(state => ui({state, actions})));

@@ -36,7 +36,8 @@ const create = () => {
 			if (!app || typeof app.writeFile !== 'function') {
 				throw new Error('Electron writeFile not available');
 			}
-			return app.writeFile(node.path, content);
+			await app.writeFile(node.path, content);
+			return {method: 'handle'};
 		}
 	};
 };

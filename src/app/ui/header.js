@@ -3,12 +3,16 @@
 const {h1, button, header, span, i} = require('iblokz-snabbdom-helpers');
 const svgHamburger = require('./comp/svg/hamburger');
 const {panesLabel, panesIcon, normalizePanes} = require('../util/layout');
+const {canSave, saveHint} = require('../util/save');
+const {triggerSave} = require('../util/trigger-save');
 
 module.exports = ({state, actions}) => {
 	const panes = normalizePanes(state.layout && state.layout.panes);
 	const nextLabel = panesLabel(
 		panes === 'editor' ? 'preview' : panes === 'preview' ? 'full' : 'editor'
 	);
+	const saveEnabled = canSave(state);
+	const saveTitle = state.saveError || saveHint(state);
 
 	return header([
 		button('.menu-toggle', {
@@ -23,7 +27,8 @@ module.exports = ({state, actions}) => {
 				? span('.file-title', [
 					' — ',
 					state.file.name,
-					state.dirty ? ' •' : ''
+					state.dirty ? ' •' : '',
+					state.saveError ? span('.save-error', ` — ${state.saveError}`) : ''
 				])
 				: []
 		]),
@@ -31,17 +36,16 @@ module.exports = ({state, actions}) => {
 			button('.save-file', {
 				attrs: {
 					'aria-label': 'Save file',
-					title: state.canWrite && state.dirty
-						? 'Save'
-						: state.canWrite
-							? 'No changes'
-							: 'Save requires a writable folder (Chromium / Electron)',
-					disabled: (!state.canWrite || !state.dirty || !state.file || state.file.id === 'untitled')
-						? 'disabled'
-						: undefined
+					title: saveTitle
+				},
+				props: {
+					disabled: !saveEnabled
 				},
 				on: {
-					click: () => state.canWrite && state.dirty && actions.saveFile(state.file, state.source)
+					click: ev => {
+						ev.preventDefault();
+						triggerSave({state, actions});
+					}
 				}
 			}, [
 				i('.fa.fa-save')

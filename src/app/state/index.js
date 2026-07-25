@@ -5,6 +5,7 @@ const {getInitialThemeMode} = require('../util/theme');
 const {patchAt, isTextFile} = require('../util/file-tree');
 const {loadRecent, pushRecent} = require('../util/recent');
 const {loadLayout, saveLayout, clampLayout, nextPanes} = require('../util/layout');
+const {isDemoFile} = require('../util/save');
 const {getFs, DEMO_TREE, probeCapabilities, resetFs} = require('../services/fs');
 
 const emptyPos = {
@@ -18,7 +19,8 @@ const initial = {
 	themeMode: getInitialThemeMode(),
 	fsBackend: getFs().id,
 	canOpenFolder: getFs().canOpenFolder,
-	canWrite: getFs().canWrite,
+	// project-scoped: true only after opening a writable folder
+	canWrite: false,
 	project: {
 		id: 'demo',
 		name: 'Demo',
@@ -33,6 +35,7 @@ const initial = {
 		source: demoSource
 	},
 	dirty: false,
+	saveError: null,
 	sideBar: false,
 	layout: loadLayout(),
 	type: 'js',
@@ -99,6 +102,7 @@ const openFile = file => {
 const updateSource = (source, pos = emptyPos) => state => Object.assign({}, state, {
 	source,
 	dirty: true,
+	saveError: null,
 	index: state.index + 1,
 	maxIndex: state.index + 1,
 	pos,
@@ -157,7 +161,8 @@ const openFolder = () => {
 			return state => Object.assign({}, state, {
 				fsBackend: fs.id,
 				canOpenFolder: true,
-				canWrite: result.writable !== false && !!fs.canWrite,
+				canWrite: result.writable === true,
+				projectAccess: result.access || (result.writable ? 'fsa-rw' : 'input'),
 				project: {
 					id: result.id,
 					name: result.name,
@@ -166,7 +171,8 @@ const openFolder = () => {
 				filesTree: result.filesTree,
 				recentRoots,
 				sideBar: true,
-				dirty: false
+				dirty: false,
+				saveError: null
 			});
 		})
 		.catch(err => {
@@ -189,22 +195,22 @@ const cyclePanes = () => state => {
 	return Object.assign({}, state, {layout});
 };
 
-const saveFile = (file, source) => {
+const saveFile = (file, source, pickedHandle) => {
 	const fs = getFs();
-	if (!file || !fs.canWrite || file.id === 'untitled' || file.id === 'demo') {
+	if (!file || isDemoFile(file) || fs.id === 'memory') {
 		return Promise.resolve(state => state);
 	}
-	if (fs.id === 'memory') {
-		return Promise.resolve(state => state);
-	}
-	return fs.writeFile(file, source)
-		.then(() => state => Object.assign({}, state, {
+	return fs.writeFile(file, source, pickedHandle)
+		.then(result => state => Object.assign({}, state, {
 			dirty: false,
+			saveError: null,
+			canWrite: state.canWrite || (result && result.method === 'handle'),
 			file: Object.assign({}, file, {source})
 		}))
 		.catch(err => {
-			console.error(err);
-			return state => state;
+			console.error('saveFile failed', file && file.path, err);
+			const message = (err && err.message) || 'Save failed';
+			return state => Object.assign({}, state, {saveError: message});
 		});
 };
 

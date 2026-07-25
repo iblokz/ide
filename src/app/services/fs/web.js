@@ -28,6 +28,44 @@ const rememberBlob = (id, file) => {
 const getHandle = id => getSession().handles.get(id);
 const getBlob = id => getSession().fileBlobs.get(id);
 
+const hasDirectoryPicker = () =>
+	typeof window !== 'undefined'
+	&& typeof window.showDirectoryPicker === 'function';
+
+const hasSavePicker = () =>
+	typeof window !== 'undefined'
+	&& typeof window.showSaveFilePicker === 'function';
+
+const isBrave = () => {
+	if (typeof navigator === 'undefined') return false;
+	return !!(navigator.brave)
+		|| /Brave/i.test(navigator.userAgent || '');
+};
+
+const fsaMissingHint = () => {
+	if (isBrave()) {
+		return 'Brave disables File System Access by default — enable brave://flags/#file-system-access-api and relaunch for native folder/save pickers.';
+	}
+	return 'This browser has no showDirectoryPicker/showSaveFilePicker (use Chrome/Edge, or enable FSA if available).';
+};
+
+/** Synchronous download — must run inside a user gesture when FSA is unavailable. */
+const downloadText = (filename, content) => {
+	const blob = new Blob([content], {type: 'text/plain;charset=utf-8'});
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = filename || 'untitled.txt';
+	a.rel = 'noopener';
+	const mount = document.body
+		|| document.querySelector('#ui')
+		|| document.documentElement;
+	mount.appendChild(a);
+	a.click();
+	a.remove();
+	setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 const buildNode = async (handle, parentPath = '', depth = 3) => {
 	const path = parentPath ? `${parentPath}/${handle.name}` : handle.name;
 	const id = hashPath(path);
@@ -126,7 +164,8 @@ const buildTreeFromFileList = (fileList) => {
 		name: rootName,
 		path: rootName,
 		filesTree: [root],
-		writable: false
+		writable: false,
+		access: 'input'
 	};
 };
 
@@ -169,24 +208,49 @@ const pickWithInput = () => new Promise(resolve => {
 	input.click();
 });
 
-const pickWithFsa = async () => {
-	if (typeof window.showDirectoryPicker !== 'function') return null;
+const writeToHandle = async (handle, content) => {
+	const writable = await handle.createWritable();
+	await writable.write(content);
+	await writable.close();
+};
 
-	const pick = async mode => {
+const pickWithFsa = async () => {
+	if (!hasDirectoryPicker()) return null;
+
+	const openPicker = async (options) => {
 		try {
-			return {handle: await window.showDirectoryPicker({mode})};
+			const handle = await window.showDirectoryPicker(options || {});
+			return {handle};
 		} catch (err) {
 			if (err && err.name === 'AbortError') return {aborted: true};
 			return {error: err};
 		}
 	};
 
-	let picked = await pick('readwrite');
+	// Prefer read+write. If mode is rejected, retry with default options (still FSA UI).
+	let picked = await openPicker({mode: 'readwrite'});
+	let writable = true;
+
 	if (picked.aborted) return {aborted: true};
+
 	if (!picked.handle) {
-		picked = await pick('read');
+		console.warn('[fs] showDirectoryPicker({mode:"readwrite"}) failed', picked.error);
+		picked = await openPicker({});
+		writable = false;
 		if (picked.aborted) return {aborted: true};
-		if (!picked.handle) return null;
+		if (!picked.handle) {
+			console.warn('[fs] showDirectoryPicker() failed', picked.error);
+			return null;
+		}
+		// Ask for write access on the chosen directory when possible
+		if (typeof picked.handle.requestPermission === 'function') {
+			try {
+				const perm = await picked.handle.requestPermission({mode: 'readwrite'});
+				writable = perm === 'granted';
+			} catch (err) {
+				writable = false;
+			}
+		}
 	}
 
 	const rootHandle = picked.handle;
@@ -211,53 +275,107 @@ const pickWithFsa = async () => {
 			expanded: true,
 			files
 		}],
-		writable: true
+		writable,
+		access: writable ? 'fsa-rw' : 'fsa-ro'
 	};
 };
 
-const create = () => {
-	const canFsa = typeof window !== 'undefined'
-		&& typeof window.showDirectoryPicker === 'function';
+const create = () => ({
+	id: 'web',
+	canOpenFolder: true,
+	// Capability probe — project writability is set after openFolder
+	get canWrite() {
+		return hasDirectoryPicker() || hasSavePicker();
+	},
+	hasDirectoryPicker,
+	hasSavePicker,
+	getHandle,
+	rememberHandle: remember,
+	downloadText,
+	logCapabilities() {
+		if (typeof window !== 'undefined' && window.__iblokzFsCapsLogged) return;
+		if (typeof window !== 'undefined') window.__iblokzFsCapsLogged = true;
+		console.info('[fs] capabilities', {
+			showDirectoryPicker: hasDirectoryPicker(),
+			showSaveFilePicker: hasSavePicker(),
+			secureContext: typeof window !== 'undefined' && window.isSecureContext,
+			brave: isBrave()
+		});
+		if (!hasDirectoryPicker() || !hasSavePicker()) {
+			console.warn('[fs]', fsaMissingHint());
+		}
+	},
+	async openFolder() {
+		if (typeof window === 'undefined') return null;
 
-	return {
-		id: 'web',
-		// input fallback means we can always open a folder in modern browsers
-		canOpenFolder: true,
-		canWrite: canFsa,
-		async openFolder() {
-			if (typeof window === 'undefined') return null;
+		if (hasDirectoryPicker()) {
+			console.info('[fs] opening via showDirectoryPicker');
+			const fsaResult = await pickWithFsa();
+			if (fsaResult && fsaResult.aborted) return null;
+			if (fsaResult) return fsaResult;
+			console.warn('[fs] directory picker unavailable/failed; using read-only input');
+		} else {
+			console.warn(
+				'[fs] showDirectoryPicker missing — using <input webkitdirectory> (read-only).',
+				fsaMissingHint()
+			);
+		}
 
-			if (canFsa) {
-				const fsaResult = await pickWithFsa();
-				if (fsaResult && fsaResult.aborted) return null;
-				if (fsaResult) return fsaResult;
-			}
+		return pickWithInput();
+	},
+	async readFile(node) {
+		const handle = getHandle(node.id);
+		if (handle && handle.kind === 'file') {
+			const file = await handle.getFile();
+			return file.text();
+		}
+		const blob = getBlob(node.id);
+		if (blob) return blob.text();
+		throw new Error(`No file handle for ${node.path || node.name} (${node.id})`);
+	},
+	/**
+	 * Write file contents. Prefer an existing FSA handle.
+	 * Optional `pickedHandle` must be obtained in the same user gesture
+	 * (see util/trigger-save.js) — do not await before opening the picker.
+	 */
+	async writeFile(node, content, pickedHandle) {
+		// Already downloaded in the user gesture (trigger-save)
+		if (pickedHandle && pickedHandle.__downloadDone) {
+			return {method: 'download'};
+		}
 
-			return pickWithInput();
-		},
-		async readFile(node) {
-			const handle = getHandle(node.id);
-			if (handle && handle.kind === 'file') {
-				const file = await handle.getFile();
-				return file.text();
+		const handle = (pickedHandle && pickedHandle.kind === 'file')
+			? pickedHandle
+			: getHandle(node.id);
+
+		if (handle && handle.kind === 'file') {
+			try {
+				await writeToHandle(handle, content);
+				remember(node.id, handle);
+				return {method: 'handle'};
+			} catch (err) {
+				if (typeof handle.requestPermission === 'function') {
+					const perm = await handle.requestPermission({mode: 'readwrite'});
+					if (perm === 'granted') {
+						await writeToHandle(handle, content);
+						remember(node.id, handle);
+						return {method: 'handle'};
+					}
+				}
+				console.warn('[fs] handle write failed', err);
 			}
-			const blob = getBlob(node.id);
-			if (blob) return blob.text();
-			throw new Error(`No file handle for ${node.path || node.name} (${node.id})`);
-		},
-		async writeFile(node, content) {
-			const handle = getHandle(node.id);
-			if (!handle || handle.kind !== 'file') {
-				throw new Error(`No writable file handle for ${node.path || node.name}`);
-			}
-			const writable = await handle.createWritable();
-			await writable.write(content);
-			await writable.close();
-		},
-		getHandle
-	};
-};
+		}
+
+		// Last resort: download (always available)
+		downloadText((node && node.name) || 'untitled.txt', content);
+		return {method: 'download'};
+	}
+});
 
 module.exports = {
-	create
+	create,
+	hasDirectoryPicker,
+	hasSavePicker,
+	downloadText,
+	fsaMissingHint
 };
