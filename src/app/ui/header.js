@@ -52,6 +52,7 @@ module.exports = ({state, actions}) => {
 					' — ',
 					state.file.name,
 					state.dirty ? ' •' : '',
+					state.externalChange ? span('.external-change', ' (changed on disk)') : '',
 					state.saveError ? span('.save-error', ` — ${state.saveError}`) : ''
 				])
 				: []

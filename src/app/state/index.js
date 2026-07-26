@@ -35,6 +35,7 @@ const initial = {
 		source: demoSource
 	},
 	dirty: false,
+	externalChange: null,
 	saveError: null,
 	sideBar: false,
 	layout: loadLayout(),
@@ -76,6 +77,7 @@ const loadFile = file => state => {
 		source: file.source,
 		type: file.ext || 'js',
 		dirty: false,
+		externalChange: null,
 		index: state.index + 1,
 		maxIndex: state.index + 1,
 		pos: emptyPos,
@@ -97,6 +99,7 @@ const loadImage = file => state => {
 		source: '',
 		type: 'image',
 		dirty: false,
+		externalChange: null,
 		saveError: null,
 		index: state.index + 1,
 		maxIndex: state.index + 1,
@@ -158,6 +161,7 @@ const openFile = file => {
 const updateSource = (source, pos) => state => Object.assign({}, state, {
 	source,
 	dirty: true,
+	externalChange: null,
 	saveError: null,
 	index: state.index + 1,
 	maxIndex: state.index + 1,
@@ -259,6 +263,7 @@ const openFolder = () => {
 				recentRoots,
 				sideBar: true,
 				dirty: false,
+				externalChange: null,
 				saveError: null
 			});
 		})
@@ -266,6 +271,46 @@ const openFolder = () => {
 			console.error(err);
 			return state => Object.assign({}, state, probeCapabilities());
 		});
+};
+
+const refreshFilesTree = project => {
+	const fs = getFs();
+	if (!project || !project.path || typeof fs.listDir !== 'function') {
+		return state => state;
+	}
+	const rootNode = {
+		id: project.id,
+		name: project.name,
+		path: project.path,
+		isDir: true
+	};
+	return fs.listDir(rootNode)
+		.then(files => state => Object.assign({}, state, {
+			filesTree: [{
+				id: project.id,
+				name: project.name,
+				path: project.path,
+				isDir: true,
+				ext: false,
+				expanded: true,
+				childrenLoaded: true,
+				files: files || []
+			}]
+		}))
+		.catch(err => {
+			console.error('refreshFilesTree failed', project.path, err);
+			return state => state;
+		});
+};
+
+const markExternalChange = filePath => state => {
+	if (!filePath || !state.file || state.file.path !== filePath) {
+		return state;
+	}
+	if (!state.dirty) {
+		return state;
+	}
+	return Object.assign({}, state, {externalChange: filePath});
 };
 
 const refreshFsCapabilities = () => state => Object.assign({}, state, probeCapabilities());
@@ -290,6 +335,7 @@ const saveFile = (file, source, pickedHandle) => {
 	return fs.writeFile(file, source, pickedHandle)
 		.then(result => state => Object.assign({}, state, {
 			dirty: false,
+			externalChange: null,
 			saveError: null,
 			canWrite: state.canWrite || (result && result.method === 'handle'),
 			file: Object.assign({}, file, {source})
@@ -317,6 +363,8 @@ module.exports = {
 	toggleTheme,
 	openFolder,
 	saveFile,
+	refreshFilesTree,
+	markExternalChange,
 	refreshFsCapabilities,
 	setLayout,
 	cyclePanes

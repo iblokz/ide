@@ -41,6 +41,80 @@ require_pnpm() {
   fi
 }
 
+# Install a built AppImage + .desktop entry for the current user (XDG).
+# Usage: install_electron_appimage /path/to/app.AppImage
+# Expects PROJECT_ROOT set (bin scripts set this before sourcing).
+install_electron_appimage() {
+  local appimage="$1"
+  local app_id="org.iblokz.ide"
+  local product_name="iBloKz IDE"
+  local data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
+  local bin_home="${XDG_BIN_HOME:-$HOME/.local/bin}"
+  local install_dir="$data_home/iblokz-ide"
+  local apps_dir="$data_home/applications"
+  local icons_dir="$data_home/icons/hicolor/512x512/apps"
+  local installed="$install_dir/iblokz-ide.AppImage"
+  local desktop_file="$apps_dir/${app_id}.desktop"
+  local icon_dst="$icons_dir/${app_id}.png"
+  local icon_src="${PROJECT_ROOT:-.}/build/assets/icons/icon-512.png"
+  local bin_link="$bin_home/iblokz-ide"
+
+  if [ -z "$appimage" ] || [ ! -f "$appimage" ]; then
+    echo "AppImage not found: ${appimage:-}" >&2
+    return 1
+  fi
+
+  mkdir -p "$install_dir" "$apps_dir" "$icons_dir" "$bin_home"
+  # Resolve to absolute path so hardlinks / desktop Exec= are stable.
+  appimage="$(cd "$(dirname "$appimage")" && pwd)/$(basename "$appimage")"
+  chmod +x "$appimage"
+  # Same FS → hardlink; else symlink (Projects vs ~/.local); else copy.
+  rm -f "$installed"
+  if ln -f "$appimage" "$installed" 2>/dev/null; then
+    :
+  elif ln -sfn "$appimage" "$installed" 2>/dev/null; then
+    :
+  else
+    cp -f "$appimage" "$installed"
+    chmod +x "$installed"
+  fi
+
+  if [ -f "$icon_src" ]; then
+    cp -f "$icon_src" "$icon_dst"
+  else
+    echo "Warning: icon missing at $icon_src — desktop entry will use generic icon" >&2
+  fi
+
+  ln -sfn "$installed" "$bin_link"
+
+  cat > "$desktop_file" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=${product_name}
+Comment=iBloKz in-browser / desktop code editor
+Exec=${installed}
+Icon=${app_id}
+Terminal=false
+Categories=Development;IDE;
+# Must match Electron Linux WM_CLASS (executable basename from package.json name).
+StartupWMClass=iblokz-ide
+StartupNotify=true
+EOF
+  chmod 644 "$desktop_file"
+
+  if command -v update-desktop-database &>/dev/null; then
+    update-desktop-database "$apps_dir" 2>/dev/null || true
+  fi
+  if command -v gtk-update-icon-cache &>/dev/null && [ -d "$data_home/icons/hicolor" ]; then
+    gtk-update-icon-cache -f -t "$data_home/icons/hicolor" 2>/dev/null || true
+  fi
+
+  echo "Installed AppImage → $installed"
+  echo "Desktop entry     → $desktop_file"
+  echo "Launcher symlink  → $bin_link"
+}
+
 # Prefer an existing SDK; Capacitor/Gradle need ANDROID_HOME (or ANDROID_SDK_ROOT).
 ensure_android_sdk() {
   if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME" ]; then

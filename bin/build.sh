@@ -2,7 +2,7 @@
 # Build native artifacts into artifacts/.
 #
 # Usage:
-#   ./bin/build.sh --electron   # Stage 6: AppImage; until then web build + note
+#   ./bin/build.sh --electron   # AppImage → artifacts/electron/
 #   ./bin/build.sh --android    # Stage 5: APK
 #   ./bin/build.sh --macos      # skeleton
 #   ./bin/build.sh --ios        # skeleton
@@ -24,7 +24,7 @@ DO_IOS=0
 usage() {
   echo "Usage: $0 [--electron] [--android] [--macos] [--ios] [--all] [--help]"
   echo ""
-  echo "  --electron  Web build + AppImage when electron-builder is configured (else note)"
+  echo "  --electron  Web build (./) + Linux AppImage → artifacts/electron/"
   echo "  --android   Web build + Cap sync + debug APK → artifacts/android/ (packaged, no live-reload)"
   echo "  --macos     Skeleton only"
   echo "  --ios       Skeleton only"
@@ -61,19 +61,12 @@ mkdir -p artifacts/electron artifacts/android artifacts/macos artifacts/ios
 NAME=$(node -p "require('./package.json').name")
 
 if [ "$DO_ELECTRON" -eq 1 ]; then
-  echo "Building web app (GitHub Pages public-url /ide/)..."
-  pnpm run build
-  if command -v pnpm >/dev/null && pnpm exec electron-builder --help &>/dev/null 2>&1; then
-    echo "Building Linux AppImage..."
-    pnpm exec electron-builder --linux AppImage --config.directories.output=artifacts/electron
-    echo "Electron artifacts under artifacts/electron/"
-  else
-    echo "[electron] Web dist ready. AppImage via electron-builder lands in Stage 6."
-    echo "           Dev run: pnpm start:electron"
-    echo "           Placeholder: artifacts/electron/${NAME}-dev.txt"
-    echo "Built $(date -Iseconds) from dist/ — use pnpm start:electron for now." \
-      > "artifacts/electron/${NAME}-dev.txt"
-  fi
+  echo "Building web app for Electron (public-url ./)..."
+  pnpm run build:electron
+  echo "Building Linux AppImage..."
+  pnpm exec electron-builder --linux AppImage
+  echo "Electron artifacts under artifacts/electron/"
+  ls -la artifacts/electron/*.AppImage 2>/dev/null || true
 fi
 
 if [ "$DO_ANDROID" -eq 1 ]; then

@@ -1,6 +1,6 @@
 {
   "name": "iblokz-ide",
-  "version": "1.0.0",
+  "version": "1.5.0",
   "description": "in browser / electron app code editor",
   "source": "src/index.pug",
   "main": "electron/main.js",
@@ -19,6 +19,9 @@
     "start:android": "./bin/start.sh --android",
     "build": "parcel build --public-url /ide/ && pnpm run assets:sync",
     "build:cap": "parcel build --public-url ./ && pnpm run assets:sync",
+    "prebuild:electron": "pnpm run assets",
+    "build:electron": "parcel build --public-url ./ && pnpm run assets:sync",
+    "dist:electron": "pnpm run build:electron && electron-builder --linux AppImage",
     "lint": "biome lint ./src && eslint src",
     "lint:fix": "biome lint --write ./src && eslint src --fix",
     "format": "biome format --write ./src",
@@ -26,7 +29,8 @@
     "init:electron": "./bin/init.sh --electron",
     "init:android": "./bin/init.sh --android",
     "build:native": "./bin/build.sh",
-    "deploy:native": "./bin/deploy.sh"
+    "deploy:native": "./bin/deploy.sh",
+    "postversion": "git push && git push --tags"
   },
   "author": "Alex Milanov <alex@i4web.biz>",
   "license": "AGPL-3.0",
@@ -37,6 +41,7 @@
     "@capacitor/filesystem": "^6.0.4",
     "@fontsource/fira-code": "^5.2.7",
     "acorn": "^8.0.1",
+    "chokidar": "^3.6.0",
     "code-prettify": "github:alex-milanov/code-prettify",
     "font-awesome": "4.7.0",
     "iblokz-data": "^1.6.0",
@@ -53,6 +58,7 @@
     "@parcel/transformer-pug": "2.16.4",
     "@parcel/transformer-sass": "2.16.4",
     "electron": "^33.4.11",
+    "electron-builder": "^26.15.3",
     "eslint": "^8.57.0",
     "parcel": "^2.16.4",
     "path-browserify": "^1.0.0",

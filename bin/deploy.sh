@@ -25,7 +25,7 @@ usage() {
   echo "Usage: $0 [--build] [--electron] [--android] [--macos] [--ios] [--all] [--help]"
   echo ""
   echo "  --build     Run ./bin/build.sh for the same targets first"
-  echo "  --electron  Run AppImage if present, else pnpm start:electron"
+  echo "  --electron  Install AppImage + .desktop (~/.local), else pnpm start:electron"
   echo "  --android   adb install latest artifacts/android/*.apk"
   echo "  --macos     Skeleton"
   echo "  --ios       Skeleton"
@@ -67,11 +67,10 @@ if [ "$DO_BUILD" -eq 1 ]; then
 fi
 
 if [ "$DO_ELECTRON" -eq 1 ]; then
-  APPIMAGE=$(ls -1 artifacts/electron/*.AppImage 2>/dev/null | head -n1 || true)
+  # Prefer newest AppImage (mtime) — names may include spaces/version.
+  APPIMAGE=$(ls -1t artifacts/electron/*.AppImage 2>/dev/null | head -n1 || true)
   if [ -n "$APPIMAGE" ]; then
-    echo "Running $APPIMAGE ..."
-    chmod +x "$APPIMAGE"
-    "$APPIMAGE" &
+    install_electron_appimage "$APPIMAGE"
   else
     echo "No AppImage yet — starting dev Electron (needs Parcel on :1234)..."
     pnpm run start:electron

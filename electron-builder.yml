@@ -1,0 +1,34 @@
+appId: org.iblokz.ide
+productName: iBloKz IDE
+copyright: Copyright © iBloKz
+
+directories:
+  output: artifacts/electron
+  buildResources: build/assets
+
+files:
+  - electron/**/*
+  - dist/**/*
+  - build/assets/icons/**/*
+  - src/app/util/file-tree.js
+  - package.json
+
+asar: true
+
+linux:
+  target:
+    - AppImage
+  category: Development
+  icon: build/assets/icons/icon-512.png
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+mac:
+  target:
+    - dmg
+  category: public.app-category.developer-tools
+  icon: build/assets/icons/icon-512.png
+
+win:
+  target:
+    - nsis
+  icon: build/assets/icons/icon.ico
