@@ -1,4 +1,4 @@
-# <img src="assets/icon.png" alt="logo" width="40" height="40" align="bottom"> iBlokz IDE
+# <img src="assets/icon.png" alt="logo" width="40" height="40" align="top"> iBlokz IDE
 
 Browser / Electron / Android code playground on the iBlokz stack.
 
