@@ -6,12 +6,14 @@ const {clamp} = require('../util/split-drag');
 const header = require('./header');
 const sideBar = require('./side-bar');
 const codebin = require('./codebin');
+const imageViewer = require('./image-viewer');
 const splitGutter = require('./comp/split-gutter');
 
 module.exports = ({state, actions}) => {
 	const layout = state.layout || {};
 	const sideBarOpen = !!state.sideBar;
 	const sideBarWidth = sideBarOpen ? (layout.sideBar || 260) : 0;
+	const showingImage = state.type === 'image';
 
 	return body(`#ui.${themeClass(state.themeMode || 'dark')}`, [
 		sideBar({
@@ -40,16 +42,18 @@ module.exports = ({state, actions}) => {
 			}
 		}),
 		header({state, actions}),
-		codebin({
-			source: state.source || '',
-			pos: state.pos,
-			type: state.type || 'js',
-			layout,
-			setLayout: patch => actions.setLayout(patch),
-			change: (source, pos) => actions.updateSource(source, pos),
-			updatePos: pos => actions.updatePos(pos),
-			undo: () => actions.undo(),
-			redo: () => actions.redo()
-		})
+		showingImage
+			? imageViewer({file: state.file})
+			: codebin({
+				source: state.source || '',
+				pos: state.pos,
+				type: state.type || 'js',
+				layout,
+				setLayout: patch => actions.setLayout(patch),
+				change: (source, pos) => actions.updateSource(source, pos),
+				updatePos: pos => actions.updatePos(pos),
+				undo: () => actions.undo(),
+				redo: () => actions.redo()
+			})
 	]);
 };

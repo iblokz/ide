@@ -17,16 +17,41 @@
 	overflow: hidden
 	transition: background-color .25s ease, border-color .25s ease, box-shadow .25s ease
 
+	// Frameless Electron: drag the chrome; interactive bits opt out
+	&::before
+		position: absolute
+		content: ''
+		inset: 0
+		z-index: -1
+		-webkit-app-region: drag
+
+	.header-start,
+	.header-actions,
+	button
+		-webkit-app-region: no-drag
+
+	.header-start
+		flex: 1 1 0
+		min-width: 0
+		display: flex
+		align-items: center
+		justify-content: flex-start
+
 	h1
 		+header-height($header-height)
+		position: absolute
+		left: 50%
+		transform: translateX(-50%)
+		max-width: min(56vw, 640px)
 		margin: 0
 		font-size: 1.05rem
 		font-weight: 600
 		color: var(--app-text-strong)
-		min-width: 0
+		text-align: center
 		overflow: hidden
 		text-overflow: ellipsis
 		white-space: nowrap
+		pointer-events: none
 
 		.file-title
 			font-weight: 400
@@ -38,10 +63,11 @@
 				font-size: 0.9em
 
 	.header-actions
-		margin-left: auto
-		flex: 0 0 auto
+		flex: 1 1 0
+		min-width: 0
 		display: flex
 		align-items: center
+		justify-content: flex-end
 		gap: 6px
 
 	button
@@ -84,3 +110,9 @@
 		&:focus-visible
 			border-color: var(--app-accent)
 			box-shadow: 0 0 0 3px var(--app-accent-soft)
+
+		&.window-close:hover:not(:disabled)
+			background: var(--app-danger)
+			color: #fff
+			i
+				transform: none

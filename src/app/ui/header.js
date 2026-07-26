@@ -6,18 +6,26 @@ const {panesLabel, panesIcon, normalizePanes, nextPanes} = require('../util/layo
 const {canSave, saveHint} = require('../util/save');
 const {triggerSave} = require('../util/trigger-save');
 
+const isElectron = () =>
+	typeof window !== 'undefined'
+	&& window.app
+	&& window.app.platform === 'electron';
+
 module.exports = ({state, actions}) => {
 	const panes = normalizePanes(state.layout && state.layout.panes);
 	const nextLabel = panesLabel(nextPanes(panes));
 	const saveEnabled = canSave(state);
 	const saveTitle = state.saveError || saveHint(state);
+	const electron = isElectron();
 
 	return header([
-		button('.menu-toggle', {
-			attrs: {'aria-label': 'Toggle sidebar'},
-			on: {click: () => actions.toggle('sideBar')}
-		}, [
-			svgHamburger(({state: state.sideBar ? 1 : 0, strokeWidth: '3px', size: 22}))
+		span('.header-start', [
+			button('.menu-toggle', {
+				attrs: {'aria-label': 'Toggle sidebar'},
+				on: {click: () => actions.toggle('sideBar')}
+			}, [
+				svgHamburger(({state: state.sideBar ? 1 : 0, strokeWidth: '3px', size: 22}))
+			])
 		]),
 		h1([
 			'iBloKz IDE',
@@ -65,7 +73,27 @@ module.exports = ({state, actions}) => {
 				on: {click: () => actions.toggleTheme()}
 			}, [
 				i(`.fa.${state.themeMode === 'dark' ? 'fa-sun-o' : 'fa-moon-o'}`)
-			])
+			]),
+			...(electron ? [
+				button('.window-minimize', {
+					attrs: {
+						'aria-label': 'Minimize',
+						title: 'Minimize'
+					},
+					on: {click: () => window.app.minimize()}
+				}, [
+					i('.fa.fa-minus')
+				]),
+				button('.window-close', {
+					attrs: {
+						'aria-label': 'Close',
+						title: 'Close'
+					},
+					on: {click: () => window.app.close()}
+				}, [
+					i('.fa.fa-close')
+				])
+			] : [])
 		])
 	]);
 };

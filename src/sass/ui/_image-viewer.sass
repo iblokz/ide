@@ -1,0 +1,27 @@
+.image-viewer
+	position: relative
+	flex: 1 1 auto
+	min-width: 0
+	height: calc(100vh - #{$header-height})
+	margin-top: $header-height
+	overflow: hidden
+	background: var(--app-bg-page)
+	border: 1px solid var(--app-border)
+	box-sizing: border-box
+	--img-zoom: 1
+	--img-offset-x: -50
+	--img-offset-y: -50
+
+	> img
+		+reset
+		max-width: calc(100% - (#{$header-height} / 2))
+		max-height: calc(100% - (#{$header-height} / 2))
+		min-width: 40%
+		min-height: 40%
+		object-fit: contain
+		position: absolute
+		top: 50%
+		left: 50%
+		transform: translate(calc(var(--img-offset-x) * 1%), calc(var(--img-offset-y) * 1%)) scale(var(--img-zoom))
+		user-select: none
+		pointer-events: none

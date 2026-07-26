@@ -3,3 +3,13 @@ node_modules
 .DS_Store
 .parcel-cache
 dist
+android
+ios
+artifacts/electron/*
+!artifacts/electron/.gitkeep
+artifacts/android/*
+!artifacts/android/.gitkeep
+artifacts/macos/*
+!artifacts/macos/.gitkeep
+artifacts/ios/*
+!artifacts/ios/.gitkeep

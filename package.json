@@ -3,13 +3,21 @@
   "version": "1.0.0",
   "description": "in browser / electron app code editor",
   "source": "src/index.pug",
+  "main": "electron/main.js",
+  "targets": {
+    "main": false
+  },
   "scripts": {
     "start": "parcel",
+    "start:electron": "parcel & sleep 2 && electron .",
     "build": "parcel build --public-url /ide/",
     "lint": "biome lint ./src && eslint src",
     "lint:fix": "biome lint --write ./src && eslint src --fix",
     "format": "biome format --write ./src",
-    "check": "biome check ./src"
+    "check": "biome check ./src",
+    "init:electron": "./bin/init.sh --electron",
+    "build:native": "./bin/build.sh",
+    "deploy:native": "./bin/deploy.sh"
   },
   "author": "Alex Milanov <alex@i4web.biz>",
   "license": "AGPL-3.0",
@@ -31,9 +39,15 @@
     "@biomejs/biome": "^2.4.16",
     "@parcel/transformer-pug": "2.16.4",
     "@parcel/transformer-sass": "2.16.4",
+    "electron": "^33.4.11",
     "eslint": "^8.57.0",
     "parcel": "^2.16.4",
     "path-browserify": "^1.0.0",
     "process": "^0.11.10"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
   }
 }

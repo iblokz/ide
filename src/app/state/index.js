@@ -2,7 +2,7 @@
 
 const {obj, arr} = require('iblokz-data');
 const {getInitialThemeMode} = require('../util/theme');
-const {patchAt, isTextFile} = require('../util/file-tree');
+const {patchAt, isImageFile, fileKind} = require('../util/file-tree');
 const {loadRecent, pushRecent} = require('../util/recent');
 const {loadLayout, saveLayout, clampLayout, nextPanes} = require('../util/layout');
 const {isDemoFile} = require('../util/save');
@@ -61,29 +61,85 @@ const arrToggle = (key, value) => state =>
 		arr.toggle(obj.sub(state, key), value)
 	);
 
-const loadFile = file => state => Object.assign({}, state, {
-	file,
-	source: file.source,
-	type: file.ext || 'js',
-	dirty: false,
-	index: state.index + 1,
-	maxIndex: state.index + 1,
-	pos: emptyPos,
-	history: [].concat(
-		state.history.slice(0, state.index + 1),
-		[{
-			type: file.ext || 'js',
-			source: file.source,
-			pos: emptyPos
-		}]
-	)
-});
+const revokeFileUrl = file => {
+	if (!file || !file.url) return;
+	const fs = getFs();
+	if (typeof fs.revokeObjectUrl === 'function') {
+		fs.revokeObjectUrl(file.url);
+	}
+};
+
+const loadFile = file => state => {
+	if (state.file && state.file !== file) revokeFileUrl(state.file);
+	return Object.assign({}, state, {
+		file,
+		source: file.source,
+		type: file.ext || 'js',
+		dirty: false,
+		index: state.index + 1,
+		maxIndex: state.index + 1,
+		pos: emptyPos,
+		history: [].concat(
+			state.history.slice(0, state.index + 1),
+			[{
+				type: file.ext || 'js',
+				source: file.source,
+				pos: emptyPos
+			}]
+		)
+	});
+};
+
+const loadImage = file => state => {
+	if (state.file && state.file !== file) revokeFileUrl(state.file);
+	return Object.assign({}, state, {
+		file,
+		source: '',
+		type: 'image',
+		dirty: false,
+		saveError: null,
+		index: state.index + 1,
+		maxIndex: state.index + 1,
+		pos: emptyPos,
+		history: [].concat(
+			state.history.slice(0, state.index + 1),
+			[{
+				type: 'image',
+				source: '',
+				pos: emptyPos
+			}]
+		)
+	});
+};
+
+const openImage = file => {
+	if (typeof file.url === 'string' && file.url) {
+		return loadImage(file);
+	}
+	const fs = getFs();
+	if (typeof fs.getObjectUrl !== 'function') {
+		console.error('getObjectUrl not available on FS backend', fs.id);
+		return state => state;
+	}
+	return fs.getObjectUrl(file)
+		.then(url => loadImage(Object.assign({}, file, {url, kind: 'image'})))
+		.catch(err => {
+			console.error('openImage failed', file && file.path, err);
+			return state => state;
+		});
+};
 
 const openFile = file => {
 	if (!file || file.isDir) return state => state;
+
+	const kind = file.kind || fileKind(file.name, file.ext);
+	if (kind === 'image' || isImageFile(file.name, file.ext)) {
+		return openImage(file);
+	}
+	if (kind === 'binary' || file.readable === false) {
+		return state => state;
+	}
 	if (typeof file.source === 'string') return loadFile(file);
-	if (file.readable === false) return state => state;
-	if (file.ext && !isTextFile(file.name, file.ext)) return state => state;
 
 	const fs = getFs();
 	return fs.readFile(file)
@@ -91,7 +147,7 @@ const openFile = file => {
 			if (typeof source !== 'string') {
 				throw new Error('File read did not return text');
 			}
-			return loadFile(Object.assign({}, file, {source}));
+			return loadFile(Object.assign({}, file, {source, kind: 'text'}));
 		})
 		.catch(err => {
 			console.error('openFile failed', file && file.path, err);

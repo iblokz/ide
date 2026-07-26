@@ -1,42 +1,53 @@
 'use strict';
 
 /**
- * Electron bridge stub (Stage 4 fills window.app IPC).
- * Preferred when preload exposes selectRootFolder / readFile / writeFile.
+ * Electron FS backend — used when preload exposes window.app.
  */
 
 const create = () => {
-	const app = typeof window !== 'undefined' ? window.app : null;
-	const canOpen = !!(app && typeof app.selectRootFolder === 'function');
+	const bridge = typeof window !== 'undefined' ? window.app : null;
+	const canOpen = !!(bridge && typeof bridge.selectRootFolder === 'function');
 
 	return {
 		id: 'electron',
 		canOpenFolder: canOpen,
-		canWrite: !!(app && typeof app.writeFile === 'function'),
+		canWrite: !!(bridge && typeof bridge.writeFile === 'function'),
 		async openFolder() {
 			if (!canOpen) return null;
-			const result = await app.selectRootFolder();
+			const result = await bridge.selectRootFolder();
 			if (!result) return null;
-			// Stage 4 shapes this; accept { name, path, filesTree } or tree array
-			if (result.filesTree) return result;
+			if (result.filesTree) {
+				return Object.assign({
+					writable: result.writable !== false,
+					access: result.access || 'electron'
+				}, result);
+			}
 			return {
 				id: result.path || result.name,
 				name: result.name,
 				path: result.path || result.name,
-				filesTree: result.tree || result.files || []
+				filesTree: result.tree || result.files || [],
+				writable: true,
+				access: 'electron'
 			};
 		},
 		async readFile(node) {
-			if (!app || typeof app.readFile !== 'function') {
+			if (!bridge || typeof bridge.readFile !== 'function') {
 				throw new Error('Electron readFile not available');
 			}
-			return app.readFile(node.path);
+			return bridge.readFile(node.path);
+		},
+		async getObjectUrl(node) {
+			if (!bridge || typeof bridge.readFileDataUrl !== 'function') {
+				throw new Error('Electron readFileDataUrl not available');
+			}
+			return bridge.readFileDataUrl(node.path);
 		},
 		async writeFile(node, content) {
-			if (!app || typeof app.writeFile !== 'function') {
+			if (!bridge || typeof bridge.writeFile !== 'function') {
 				throw new Error('Electron writeFile not available');
 			}
-			await app.writeFile(node.path, content);
+			await bridge.writeFile(node.path, content);
 			return {method: 'handle'};
 		}
 	};

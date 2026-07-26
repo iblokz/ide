@@ -3,6 +3,7 @@
 const {
 	div, a, span, ul, li, i, button, header
 } = require('iblokz-snabbdom-helpers');
+const {fileIcon} = require('../util/file-tree');
 
 const fileSort = (a, b) => !a.isDir && b.isDir ? 1 : -1;
 
@@ -29,12 +30,14 @@ const treeMap = (item, path = [], level = 0, cb) => {
 			}
 		}, [
 			item.isDir ? i(`.fa.${item.expanded ? 'fa-caret-down' : 'fa-caret-right'}`) : null,
-			i(`.fa.${item.isDir ? 'fa-folder-o' : 'fa-file-o'}`, {
+			i(`.fa.${fileIcon(item)}`, {
 				style: {
 					marginLeft: item.isDir ? '0px' : '16px'
 				}
 			}),
-			span(String(item.name))
+			// Pass text as a child array — names like ".env" must not be
+			// treated as hyperscript selectors (span('.env') → empty span.env).
+			span([String(item.name)])
 		].filter(Boolean))
 	];
 

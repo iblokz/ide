@@ -25,6 +25,7 @@ const canUseSavePicker = () =>
 
 const canSave = state => {
 	if (!state || !state.dirty || !state.file || isDemoFile(state.file)) return false;
+	if (state.type === 'image') return false;
 	if (state.project && state.project.id === 'demo') return false;
 	// Always allow save for project files: handle, picker, or download fallback
 	return true;

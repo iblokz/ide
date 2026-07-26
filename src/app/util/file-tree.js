@@ -13,7 +13,7 @@ const hashPath = path => {
 };
 
 const extOf = name => {
-	const i = name.lastIndexOf('.');
+	const i = String(name || '').lastIndexOf('.');
 	return i > 0 ? name.slice(i + 1).toLowerCase() : false;
 };
 
@@ -36,16 +36,83 @@ const SKIP_NAMES = new Set([
 	'coverage', '.next', '.cache'
 ]);
 
-const TEXT_EXTS = new Set([
-	'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'json', 'md', 'txt', 'css', 'sass', 'scss',
-	'html', 'htm', 'pug', 'svg', 'yml', 'yaml', 'sh', 'bash', 'zsh', 'env', 'xml',
-	'csv', 'toml', 'ini', 'cfg', 'conf', 'gitignore', 'npmrc', 'editorconfig'
+/** Raster / display images (opened in the image viewer). SVG stays editable text. */
+const IMAGE_EXTS = new Set([
+	'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'avif', 'tif', 'tiff'
 ]);
 
-const isTextFile = (name, ext) => {
-	if (TEXT_EXTS.has(ext)) return true;
-	if (!ext && name.startsWith('.')) return true;
-	return false;
+/** Known non-text blobs we don't try to open as source. */
+const BINARY_EXTS = new Set([
+	'pdf', 'zip', 'gz', 'tgz', 'tar', '7z', 'rar', 'bz2',
+	'woff', 'woff2', 'ttf', 'otf', 'eot',
+	'mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a',
+	'mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v',
+	'exe', 'dll', 'so', 'dylib', 'bin', 'wasm',
+	'sqlite', 'db', 'dat', 'class', 'o', 'a'
+]);
+
+const CODE_EXTS = new Set([
+	'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'json', 'css', 'sass', 'scss',
+	'html', 'htm', 'pug', 'svg', 'yml', 'yaml', 'xml', 'sh', 'bash', 'zsh',
+	'toml', 'ini', 'cfg', 'conf', 'py', 'rb', 'go', 'rs', 'java', 'kt', 'c', 'h',
+	'cpp', 'hpp', 'cs', 'php', 'sql', 'graphql', 'vue', 'svelte'
+]);
+
+const TEXT_ICON_EXTS = new Set([
+	'md', 'txt', 'log', 'csv', 'rst', 'rtf', 'env', 'gitignore', 'npmrc',
+	'editorconfig', 'dockerignore', 'lock'
+]);
+
+const ARCHIVE_EXTS = new Set(['zip', 'gz', 'tgz', 'tar', '7z', 'rar', 'bz2']);
+const AUDIO_EXTS = new Set(['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a']);
+const VIDEO_EXTS = new Set(['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v']);
+
+const isImageFile = (name, ext) => IMAGE_EXTS.has(ext || extOf(name));
+
+const isBinaryFile = (name, ext) => {
+	const e = ext || extOf(name);
+	if (!e) return false;
+	return BINARY_EXTS.has(e) || IMAGE_EXTS.has(e);
+};
+
+/** Open in the editor as text — anything that isn't a known binary/image. */
+const isTextFile = (name, ext) => !isBinaryFile(name, ext);
+
+const fileKind = (name, ext) => {
+	const e = ext || extOf(name);
+	if (IMAGE_EXTS.has(e)) return 'image';
+	if (BINARY_EXTS.has(e)) return 'binary';
+	return 'text';
+};
+
+const MIME_BY_EXT = {
+	png: 'image/png',
+	jpg: 'image/jpeg',
+	jpeg: 'image/jpeg',
+	gif: 'image/gif',
+	webp: 'image/webp',
+	bmp: 'image/bmp',
+	ico: 'image/x-icon',
+	avif: 'image/avif',
+	tif: 'image/tiff',
+	tiff: 'image/tiff'
+};
+
+const mimeOf = (name, ext) => MIME_BY_EXT[ext || extOf(name)] || 'application/octet-stream';
+
+const fileIcon = (item = {}) => {
+	if (item.isDir) return item.expanded ? 'fa-folder-open-o' : 'fa-folder-o';
+	const ext = item.ext || extOf(item.name);
+	if (IMAGE_EXTS.has(ext)) return 'fa-file-image-o';
+	if (CODE_EXTS.has(ext)) return 'fa-file-code-o';
+	if (TEXT_ICON_EXTS.has(ext) || (!ext && String(item.name || '').startsWith('.'))) {
+		return 'fa-file-text-o';
+	}
+	if (ext === 'pdf') return 'fa-file-pdf-o';
+	if (ARCHIVE_EXTS.has(ext)) return 'fa-file-archive-o';
+	if (AUDIO_EXTS.has(ext)) return 'fa-file-audio-o';
+	if (VIDEO_EXTS.has(ext)) return 'fa-file-video-o';
+	return 'fa-file-o';
 };
 
 module.exports = {
@@ -53,6 +120,12 @@ module.exports = {
 	extOf,
 	patchAt,
 	SKIP_NAMES,
-	TEXT_EXTS,
-	isTextFile
+	IMAGE_EXTS,
+	BINARY_EXTS,
+	isImageFile,
+	isBinaryFile,
+	isTextFile,
+	fileKind,
+	mimeOf,
+	fileIcon
 };

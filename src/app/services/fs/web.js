@@ -1,6 +1,6 @@
 'use strict';
 
-const {hashPath, extOf, SKIP_NAMES, isTextFile} = require('../../util/file-tree');
+const {hashPath, extOf, SKIP_NAMES, fileKind} = require('../../util/file-tree');
 
 const getSession = () => {
 	if (typeof window === 'undefined') {
@@ -91,13 +91,15 @@ const buildNode = async (handle, parentPath = '', depth = 3) => {
 	}
 
 	const ext = extOf(handle.name);
+	const kind = fileKind(handle.name, ext);
 	return {
 		id,
 		name: handle.name,
 		path,
 		isDir: false,
 		ext,
-		readable: isTextFile(handle.name, ext)
+		kind,
+		readable: kind !== 'binary'
 	};
 };
 
@@ -149,13 +151,15 @@ const buildTreeFromFileList = (fileList) => {
 		const id = hashPath(path);
 		const ext = extOf(fileName);
 		rememberBlob(id, file);
+		const kind = fileKind(fileName, ext);
 		parent.files.push({
 			id,
 			name: fileName,
 			path,
 			isDir: false,
 			ext,
-			readable: isTextFile(fileName, ext)
+			kind,
+			readable: kind !== 'binary'
 		});
 	});
 
@@ -332,6 +336,33 @@ const create = () => ({
 		const blob = getBlob(node.id);
 		if (blob) return blob.text();
 		throw new Error(`No file handle for ${node.path || node.name} (${node.id})`);
+	},
+	async getObjectUrl(node) {
+		const handle = getHandle(node.id);
+		let file = null;
+		if (handle && handle.kind === 'file') {
+			file = await handle.getFile();
+		} else {
+			file = getBlob(node.id);
+		}
+		if (!file) {
+			throw new Error(`No file blob for ${node.path || node.name} (${node.id})`);
+		}
+		const url = URL.createObjectURL(file);
+		const session = getSession();
+		if (!session.objectUrls) session.objectUrls = new Set();
+		session.objectUrls.add(url);
+		return url;
+	},
+	revokeObjectUrl(url) {
+		if (!url || String(url).indexOf('blob:') !== 0) return;
+		try {
+			URL.revokeObjectURL(url);
+		} catch (err) {
+			/* ignore */
+		}
+		const session = getSession();
+		if (session.objectUrls) session.objectUrls.delete(url);
 	},
 	/**
 	 * Write file contents. Prefer an existing FSA handle.
