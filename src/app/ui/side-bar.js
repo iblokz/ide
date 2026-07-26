@@ -109,7 +109,17 @@ module.exports = ({state, actions, width}) => {
 			? div('.recent-roots', [
 				span('.label', 'Recent'),
 				ul(recent.map(root =>
-					li([span({attrs: {title: root.path || root.name}}, root.name)])
+					li([
+						a({
+							attrs: {title: root.path || root.name, href: '#'},
+							on: {
+								click: ev => {
+									ev.preventDefault();
+									actions.openRecent(root);
+								}
+							}
+						}, [span([String(root.name)])])
+					])
 				))
 			])
 			: null

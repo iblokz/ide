@@ -31,6 +31,27 @@ const create = () => {
 				access: 'electron'
 			};
 		},
+		async openFolderByPath(dirPath) {
+			if (!bridge || typeof bridge.openRootFolder !== 'function') {
+				return null;
+			}
+			const result = await bridge.openRootFolder(dirPath);
+			if (!result) return null;
+			if (result.filesTree) {
+				return Object.assign({
+					writable: result.writable !== false,
+					access: result.access || 'electron'
+				}, result);
+			}
+			return {
+				id: result.path || result.name,
+				name: result.name,
+				path: result.path || result.name,
+				filesTree: result.tree || result.files || [],
+				writable: true,
+				access: 'electron'
+			};
+		},
 		async listDir(node) {
 			if (!bridge || typeof bridge.listDir !== 'function') {
 				throw new Error('Electron listDir not available');

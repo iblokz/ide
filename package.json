@@ -1,6 +1,6 @@
 {
   "name": "iblokz-ide",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "in browser / electron app code editor",
   "source": "src/index.pug",
   "main": "electron/main.js",

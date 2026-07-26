@@ -1,4 +1,4 @@
-# iBlokz IDE
+# <img src="assets/icon.png" alt="logo" width="32" height="32"> iBlokz IDE
 
 Browser / Electron / Android code playground on the iBlokz stack.
 
@@ -8,6 +8,7 @@ Successor to earlier CodeMirror / PHP experiments, expanded from a slide-framewo
 
 ## Features
 
+- Start screen: open a project, reopen recent folders (Electron), or try the in-memory demo
 - Contenteditable editor with syntax highlighting (code-prettify) and live preview / console
 - Open a local folder (desktop full FS via Electron; browser File System Access API or directory input; Android Documents workspace via Capacitor)
 - File tree, open / save (when the backend is writable), recent project names

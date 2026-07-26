@@ -59,6 +59,7 @@ require_pnpm
 mkdir -p artifacts/electron artifacts/android artifacts/macos artifacts/ios
 
 NAME=$(node -p "require('./package.json').name")
+VERSION=$(node -p "require('./package.json').version")
 
 # Favicons / icons live in gitignored src/assets — always generate before Parcel.
 # (pnpm prebuild:* also runs assets; this covers direct parcel invocations.)
@@ -97,9 +98,10 @@ if [ "$DO_ANDROID" -eq 1 ]; then
   echo "Installing Android launcher icons..."
   "$SCRIPT_DIR/assets.sh" --sync-android
   (cd android && ./gradlew assembleDebug)
-  cp android/app/build/outputs/apk/debug/app-debug.apk \
-    "artifacts/android/${NAME}-debug.apk"
-  echo "Android APK: artifacts/android/${NAME}-debug.apk"
+  # Same slug pattern as AppImage: <name>-<version>-<platform>…
+  APK_OUT="artifacts/android/${NAME}-${VERSION}-android-debug.apk"
+  cp android/app/build/outputs/apk/debug/app-debug.apk "$APK_OUT"
+  echo "Android APK: $APK_OUT"
 fi
 
 if [ "$DO_MACOS" -eq 1 ]; then

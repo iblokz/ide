@@ -23,7 +23,7 @@ linux:
     - AppImage
   category: Development
   icon: build/assets/icons/icon-512.png
-  artifactName: ${productName}-${version}-${arch}.${ext}
+  artifactName: ${name}-${version}-linux-${arch}.${ext}
 
 mac:
   target:

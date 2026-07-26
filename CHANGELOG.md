@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### (none)
+### Added
+
+- Start screen (open project, recent list, open demo) instead of booting straight into the demo editor
+
+### Changed
+
+- Native artifact names share one pattern: `iblokz-ide-<version>-linux-<arch>.AppImage` and `iblokz-ide-<version>-android-debug.apk`
+
+---
+
+## [1.5.1] - 2026-07-26
+
+### Fixed
+
+- CI: generate favicons (`prebuild:cap`) and install ImageMagick on runners
+- Electron CI: disable electron-builder publish (`--publish never`; workflow attaches assets)
 
 ---
 
@@ -119,7 +134,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/iblokz/ide/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/iblokz/ide/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/iblokz/ide/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/iblokz/ide/compare/v1.2.0...v1.3.0

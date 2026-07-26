@@ -1,6 +1,7 @@
 'use strict';
 
 const {getFs} = require('../services/fs');
+const {isStartView} = require('./project');
 
 const isDemoFile = file =>
 	!file
@@ -24,15 +25,17 @@ const canUseSavePicker = () =>
 	&& typeof window.showSaveFilePicker === 'function';
 
 const canSave = state => {
-	if (!state || !state.dirty || !state.file || isDemoFile(state.file)) return false;
+	if (!state || isStartView(state) || !state.dirty || !state.file || isDemoFile(state.file)) {
+		return false;
+	}
 	if (state.type === 'image') return false;
 	if (state.project && state.project.id === 'demo') return false;
-	// Always allow save for project files: handle, picker, or download fallback
 	return true;
 };
 
 const saveHint = state => {
-	if (!state || !state.dirty) return 'No changes';
+	if (!state || isStartView(state)) return 'Open a project to save';
+	if (!state.dirty) return 'No changes';
 	if (!state.file || isDemoFile(state.file) || (state.project && state.project.id === 'demo')) {
 		return 'Open a project file before saving';
 	}

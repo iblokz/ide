@@ -4,6 +4,7 @@ const {h1, button, header, span, i} = require('iblokz-snabbdom-helpers');
 const svgHamburger = require('./comp/svg/hamburger');
 const {panesLabel, panesIcon, normalizePanes, nextPanes} = require('../util/layout');
 const {canSave, saveHint} = require('../util/save');
+const {isStartView} = require('../util/project');
 const {triggerSave} = require('../util/trigger-save');
 
 const isElectron = () =>
@@ -17,10 +18,10 @@ module.exports = ({state, actions}) => {
 	const saveEnabled = canSave(state);
 	const saveTitle = state.saveError || saveHint(state);
 	const electron = isElectron();
+	const onStart = isStartView(state);
 
 	return header({
 		on: electron ? {
-			// Fallback when dblclick lands outside the drag region (e.g. Linux quirks)
 			dblclick: ev => {
 				const t = ev.target;
 				if (!t || !t.closest) return;
@@ -38,16 +39,18 @@ module.exports = ({state, actions}) => {
 					'aria-label': 'iBloKz IDE'
 				}
 			}),
-			button('.menu-toggle', {
-				attrs: {'aria-label': 'Toggle sidebar'},
-				on: {click: () => actions.toggle('sideBar')}
-			}, [
-				svgHamburger(({state: state.sideBar ? 1 : 0, strokeWidth: '3px', size: 22}))
-			])
-		]),
+			onStart
+				? null
+				: button('.menu-toggle', {
+					attrs: {'aria-label': 'Toggle sidebar'},
+					on: {click: () => actions.toggle('sideBar')}
+				}, [
+					svgHamburger(({state: state.sideBar ? 1 : 0, strokeWidth: '3px', size: 22}))
+				])
+		].filter(Boolean)),
 		h1([
 			'iBloKz IDE',
-			state.file && state.file.name
+			!onStart && state.file && state.file.name
 				? span('.file-title', [
 					' — ',
 					state.file.name,
@@ -58,31 +61,33 @@ module.exports = ({state, actions}) => {
 				: []
 		]),
 		span('.header-actions', [
-			button('.save-file', {
-				attrs: {
-					'aria-label': 'Save file',
-					title: saveTitle
-				},
-				props: {
-					disabled: !saveEnabled
-				},
-				on: {
-					click: ev => {
-						ev.preventDefault();
-						triggerSave({state, actions});
+			...(onStart ? [] : [
+				button('.save-file', {
+					attrs: {
+						'aria-label': 'Save file',
+						title: saveTitle
+					},
+					props: {
+						disabled: !saveEnabled
+					},
+					on: {
+						click: ev => {
+							ev.preventDefault();
+							triggerSave({state, actions});
+						}
 					}
-				}
-			}, [
-				i('.fa.fa-save')
-			]),
-			button('.panes-toggle', {
-				attrs: {
-					'aria-label': `Layout: ${panesLabel(panes)}. Click for ${nextLabel}`,
-					title: `${panesLabel(panes)} → ${nextLabel}`
-				},
-				on: {click: () => actions.cyclePanes()}
-			}, [
-				i(`.fa.${panesIcon(panes)}`)
+				}, [
+					i('.fa.fa-save')
+				]),
+				button('.panes-toggle', {
+					attrs: {
+						'aria-label': `Layout: ${panesLabel(panes)}. Click for ${nextLabel}`,
+						title: `${panesLabel(panes)} → ${nextLabel}`
+					},
+					on: {click: () => actions.cyclePanes()}
+				}, [
+					i(`.fa.${panesIcon(panes)}`)
+				])
 			]),
 			button('.theme-toggle', {
 				attrs: {

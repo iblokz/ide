@@ -17,6 +17,7 @@ const demoSource = 'console.log("Hello World!")';
 
 const initial = {
 	themeMode: getInitialThemeMode(),
+	view: 'start',
 	fsBackend: getFs().id,
 	canOpenFolder: getFs().canOpenFolder,
 	// project-scoped: true only after opening a writable folder
@@ -236,6 +237,32 @@ const toggleTheme = () => state => obj.patch(
 	state.themeMode === 'dark' ? 'light' : 'dark'
 );
 
+const applyProjectResult = (fs, result) => {
+	const recentRoots = pushRecent({
+		id: result.id,
+		name: result.name,
+		path: result.path
+	});
+	return state => Object.assign({}, state, {
+		view: 'workspace',
+		fsBackend: fs.id,
+		canOpenFolder: true,
+		canWrite: result.writable === true,
+		projectAccess: result.access || (result.writable ? 'fsa-rw' : 'input'),
+		project: {
+			id: result.id,
+			name: result.name,
+			path: result.path
+		},
+		filesTree: result.filesTree,
+		recentRoots,
+		sideBar: true,
+		dirty: false,
+		externalChange: null,
+		saveError: null
+	});
+};
+
 const openFolder = () => {
 	const fs = getFs();
 	if (!fs.canOpenFolder) {
@@ -244,34 +271,69 @@ const openFolder = () => {
 	return fs.openFolder()
 		.then(result => {
 			if (!result) return state => Object.assign({}, state, probeCapabilities());
-			const recentRoots = pushRecent({
-				id: result.id,
-				name: result.name,
-				path: result.path
-			});
-			return state => Object.assign({}, state, {
-				fsBackend: fs.id,
-				canOpenFolder: true,
-				canWrite: result.writable === true,
-				projectAccess: result.access || (result.writable ? 'fsa-rw' : 'input'),
-				project: {
-					id: result.id,
-					name: result.name,
-					path: result.path
-				},
-				filesTree: result.filesTree,
-				recentRoots,
-				sideBar: true,
-				dirty: false,
-				externalChange: null,
-				saveError: null
-			});
+			return applyProjectResult(fs, result);
 		})
 		.catch(err => {
 			console.error(err);
 			return state => Object.assign({}, state, probeCapabilities());
 		});
 };
+
+const openRecent = root => {
+	const fs = getFs();
+	if (!root || !root.path) {
+		return openFolder();
+	}
+	if (typeof fs.openFolderByPath === 'function') {
+		return fs.openFolderByPath(root.path)
+			.then(result => {
+				if (!result) return openFolder();
+				return applyProjectResult(fs, result);
+			})
+			.catch(err => {
+				console.error('openRecent failed', root.path, err);
+				return openFolder();
+			});
+	}
+	// Web / backends without path reopen: fall through to picker
+	return openFolder();
+};
+
+const openDemo = () => state => Object.assign({}, state, {
+	view: 'workspace',
+	fsBackend: getFs().id,
+	canWrite: false,
+	projectAccess: 'demo',
+	project: {
+		id: 'demo',
+		name: 'Demo',
+		path: 'demo'
+	},
+	file: {
+		id: 'untitled',
+		name: 'Untitled.js',
+		path: 'Untitled.js',
+		ext: 'js',
+		source: demoSource
+	},
+	source: demoSource,
+	type: 'js',
+	dirty: false,
+	externalChange: null,
+	saveError: null,
+	sideBar: true,
+	index: 0,
+	maxIndex: 0,
+	pos: emptyPos,
+	history: [
+		{
+			type: 'js',
+			source: demoSource,
+			pos: emptyPos
+		}
+	],
+	filesTree: DEMO_TREE
+});
 
 const refreshFilesTree = project => {
 	const fs = getFs();
@@ -362,6 +424,8 @@ module.exports = {
 	setThemeMode,
 	toggleTheme,
 	openFolder,
+	openRecent,
+	openDemo,
 	saveFile,
 	refreshFilesTree,
 	markExternalChange,

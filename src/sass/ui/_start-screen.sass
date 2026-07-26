@@ -1,0 +1,162 @@
+.start-screen
+	flex: 1 1 auto
+	min-width: 0
+	display: flex
+	align-items: center
+	justify-content: center
+	margin-top: $header-height
+	height: calc(100vh - #{$header-height})
+	padding: 24px 16px
+	box-sizing: border-box
+	overflow: auto
+	background: var(--app-bg-page)
+
+	.start-panel
+		width: 100%
+		max-width: 22rem
+		display: flex
+		flex-direction: column
+		align-items: stretch
+		gap: 12px
+		text-align: center
+
+	.start-logo
+		align-self: center
+		width: 72px
+		height: 72px
+		flex: 0 0 auto
+		border-radius: 50%
+		background: url('../../assets/icon.png') center / contain no-repeat
+
+	h1
+		margin: 0
+		font-size: 1.35rem
+		font-weight: 600
+		color: var(--app-text-strong)
+		letter-spacing: 0.02em
+
+	.start-tagline
+		margin: 0 0 4px
+		font-size: 0.85rem
+		color: var(--app-text-muted)
+		line-height: 1.4
+
+	.start-actions
+		display: flex
+		flex-direction: column
+		gap: 8px
+		margin-top: 4px
+
+		button
+			display: inline-flex
+			align-items: center
+			justify-content: center
+			gap: 8px
+			width: 100%
+			padding: 10px 14px
+			border-radius: 6px
+			font: inherit
+			font-size: 0.9rem
+			cursor: pointer
+			border: 1px solid transparent
+			transition: background-color .15s ease, border-color .15s ease, opacity .15s ease
+
+			&:disabled
+				opacity: 0.45
+				cursor: not-allowed
+
+			i
+				font-size: 1.05em
+
+			&.primary
+				background: var(--app-accent)
+				color: var(--app-text-on-accent, #fff)
+				border-color: var(--app-accent)
+
+				&:hover:not(:disabled)
+					filter: brightness(1.08)
+
+			&.secondary
+				background: var(--app-bg-panel)
+				color: var(--app-text)
+				border-color: var(--app-border)
+
+				&:hover:not(:disabled)
+					background: var(--app-bg-muted)
+					border-color: var(--app-accent-soft, var(--app-border))
+
+	.start-recent
+		margin-top: 16px
+		text-align: left
+		border-top: 1px solid var(--app-border)
+		padding-top: 12px
+
+		.label
+			display: block
+			font-size: 0.75rem
+			font-weight: 600
+			text-transform: uppercase
+			letter-spacing: 0.04em
+			color: var(--app-text-muted)
+			margin-bottom: 6px
+
+		ul
+			list-style: none
+			margin: 0
+			padding: 0
+			display: flex
+			flex-direction: column
+			gap: 2px
+
+		.recent-item
+			display: flex
+			align-items: center
+			gap: 8px
+			width: 100%
+			padding: 8px 10px
+			border: none
+			border-radius: 4px
+			background: transparent
+			color: var(--app-text)
+			font: inherit
+			font-size: 0.85rem
+			text-align: left
+			cursor: pointer
+
+			&:hover
+				background: var(--app-bg-muted)
+
+			i
+				flex: 0 0 auto
+				color: var(--app-text-muted)
+
+			.name
+				flex: 0 1 auto
+				overflow: hidden
+				text-overflow: ellipsis
+				white-space: nowrap
+				font-weight: 500
+
+			.path
+				flex: 1 1 auto
+				min-width: 0
+				overflow: hidden
+				text-overflow: ellipsis
+				white-space: nowrap
+				font-size: 0.75rem
+				color: var(--app-text-muted)
+				text-align: right
+
+	// Desktop Electron: tighter panel, less viewport chrome
+	&.desktop
+		padding: 16px
+
+		.start-panel
+			max-width: 20rem
+
+		.start-logo
+			width: 56px
+			height: 56px
+
+		h1
+			font-size: 1.2rem

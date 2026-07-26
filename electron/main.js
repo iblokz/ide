@@ -175,6 +175,17 @@ const createWindow = () => {
 
 app.whenReady().then(() => {
 	ipcMain.handle('selectRootFolder', () => selectRootFolder());
+	ipcMain.handle('openRootFolder', async (_ev, dirPath) => {
+		if (!dirPath || typeof dirPath !== 'string') return null;
+		try {
+			const root = await fileUtil.openRoot(dirPath);
+			if (root && root.path) startWatch(root.path);
+			return root;
+		} catch (err) {
+			console.error('openRootFolder failed', dirPath, err);
+			return null;
+		}
+	});
 	ipcMain.handle('listDir', (_ev, dirPath) => fileUtil.listDir(dirPath));
 	ipcMain.handle('readFile', (_ev, filePath) => fileUtil.read(filePath));
 	ipcMain.handle('readFileDataUrl', (_ev, filePath) => fileUtil.readDataUrl(filePath));

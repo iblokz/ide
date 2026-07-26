@@ -67,7 +67,7 @@ if [ "$DO_BUILD" -eq 1 ]; then
 fi
 
 if [ "$DO_ELECTRON" -eq 1 ]; then
-  # Prefer newest AppImage (mtime) — names may include spaces/version.
+  # Prefer newest AppImage (mtime).
   APPIMAGE=$(ls -1t artifacts/electron/*.AppImage 2>/dev/null | head -n1 || true)
   if [ -n "$APPIMAGE" ]; then
     install_electron_appimage "$APPIMAGE"

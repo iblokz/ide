@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('app', {
 		electron: process.versions.electron
 	},
 	selectRootFolder: () => ipcRenderer.invoke('selectRootFolder'),
+	openRootFolder: dirPath => ipcRenderer.invoke('openRootFolder', dirPath),
 	listDir: dirPath => ipcRenderer.invoke('listDir', dirPath),
 	readFile: filePath => ipcRenderer.invoke('readFile', filePath),
 	readFileDataUrl: filePath => ipcRenderer.invoke('readFileDataUrl', filePath),
