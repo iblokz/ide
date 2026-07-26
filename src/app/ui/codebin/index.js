@@ -22,6 +22,7 @@ const vm = require('../../util/vm');
 const caret = require('../../util/caret');
 const {clamp} = require('../../util/split-drag');
 const splitGutter = require('../comp/split-gutter');
+const {normalizePanes} = require('../../util/layout');
 
 const acorn = require('acorn');
 const infer = require('tern/lib/infer.js');
@@ -211,19 +212,25 @@ module.exports = ({
 	undo = () => {},
 	redo = () => {}
 }) => {
-	const panes = layout.panes === 'editor' || layout.panes === 'preview'
-		? layout.panes
-		: 'full';
+	const panes = normalizePanes(layout.panes);
 	const editorOnly = panes === 'editor';
-	const showConsole = panes === 'full';
+	const consoleOnly = panes === 'console';
+	const showPreview = panes === 'preview' || panes === 'full';
+	const showConsole = panes === 'console' || panes === 'full';
 	const editorPct = Math.round(((layout.editor != null ? layout.editor : 0.5) * 1000)) / 10;
 	const previewPct = Math.round(((layout.preview != null ? layout.preview : 0.5) * 1000)) / 10;
-	const iframeFlex = showConsole ? `0 0 ${previewPct}%` : '1 1 auto';
+	// Horizontal modes: editor width. Console mode: editor height within the column.
+	const editorFlex = editorOnly
+		? '1 1 auto'
+		: `0 0 ${editorPct}%`;
+	const iframeFlex = showConsole && showPreview
+		? `0 0 ${previewPct}%`
+		: '1 1 auto';
 
 	return span(`.codebin.panes-${panes}`, [
 		code(`.source[type="${type}"][contenteditable="true"][spellcheck="false"]`, {
 			style: {
-				flex: editorOnly ? '1 1 auto' : `0 0 ${editorPct}%`
+				flex: editorFlex
 			},
 			hook: {
 				insert: ({elm}) => {
@@ -339,28 +346,38 @@ module.exports = ({
 			}
 		}),
 		splitGutter({
-			axis: 'x',
+			axis: consoleOnly ? 'y' : 'x',
 			hidden: editorOnly,
 			onStart: () => {
 				const bin = document.querySelector('.codebin');
 				const editor = document.querySelector('code.source');
+				if (consoleOnly) {
+					const binH = bin ? bin.getBoundingClientRect().height : 1;
+					const startPct = editor
+						? editor.getBoundingClientRect().height / binH
+						: (layout.editor != null ? layout.editor : 0.5);
+					return {bin, editor, binH, startPct, vertical: true};
+				}
 				const binW = bin ? bin.getBoundingClientRect().width : 1;
 				const startPct = editor
 					? editor.getBoundingClientRect().width / binW
 					: (layout.editor != null ? layout.editor : 0.5);
-				return {bin, editor, binW, startPct};
+				return {bin, editor, binW, startPct, vertical: false};
 			},
 			onMove: (delta, ev, ctx) => {
-				if (!ctx || !ctx.editor || !ctx.binW) return;
-				const next = clamp(ctx.startPct + (delta / ctx.binW), 0.2, 0.8);
+				if (!ctx || !ctx.editor) return;
+				const size = ctx.vertical ? ctx.binH : ctx.binW;
+				if (!size) return;
+				const next = clamp(ctx.startPct + (delta / size), 0.2, 0.8);
 				ctx.editor.style.flex = `0 0 ${next * 100}%`;
 				ctx.pending = next;
 			},
 			onEnd: (delta, ev, ctx) => {
+				const size = ctx && (ctx.vertical ? ctx.binH : ctx.binW);
 				const next = clamp(
 					(ctx && ctx.pending != null)
 						? ctx.pending
-						: (ctx.startPct + (delta / (ctx.binW || 1))),
+						: (ctx.startPct + (delta / (size || 1))),
 					0.2,
 					0.8
 				);
@@ -374,8 +391,12 @@ module.exports = ({
 			}
 		}, [
 			h('iframe.sandbox', {
+				class: {
+					hidden: !showPreview
+				},
 				style: {
-					flex: iframeFlex
+					flex: iframeFlex,
+					display: showPreview ? 'block' : 'none'
 				},
 				hook: {
 					insert: ({elm}) => {
@@ -385,7 +406,7 @@ module.exports = ({
 			}),
 			splitGutter({
 				axis: 'y',
-				hidden: !showConsole,
+				hidden: !(showConsole && showPreview),
 				onStart: () => {
 					const out = document.querySelector('.codebin .output');
 					const iframe = document.querySelector('.codebin iframe.sandbox');

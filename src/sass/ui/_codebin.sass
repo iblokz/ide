@@ -30,6 +30,26 @@
 		> code.source
 			min-width: 0
 
+	&.panes-console
+		flex-direction: column
+		> code.source
+			width: 100%
+			min-width: 0
+			min-height: 6rem
+			height: auto
+		.output
+			width: 100%
+			min-width: 0
+			min-height: 6rem
+			iframe.sandbox
+				display: none !important
+				flex: 0 0 0
+				min-height: 0
+				height: 0
+				border: none
+			code.console
+				min-height: 6rem
+
 	.output
 		flex: 1 1 auto
 		min-width: 8rem

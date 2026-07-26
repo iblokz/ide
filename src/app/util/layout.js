@@ -2,7 +2,8 @@
 
 const LAYOUT_KEY = 'iblokz-ide.layout';
 
-const PANE_MODES = ['editor', 'preview', 'full'];
+// Cycle: editor only → editor|preview → editor/console → full
+const PANE_MODES = ['editor', 'preview', 'console', 'full'];
 
 const defaults = {
 	sideBar: 260,
@@ -48,12 +49,14 @@ const nextPanes = panes => {
 const panesLabel = panes => ({
 	editor: 'Editor only',
 	preview: 'Editor & preview',
+	console: 'Editor & console',
 	full: 'Editor, preview & console'
 }[normalizePanes(panes)]);
 
 const panesIcon = panes => ({
 	editor: 'fa-file-code-o',
 	preview: 'fa-columns',
+	console: 'fa-list-alt',
 	full: 'fa-th-large'
 }[normalizePanes(panes)]);
 

@@ -2,15 +2,13 @@
 
 const {h1, button, header, span, i} = require('iblokz-snabbdom-helpers');
 const svgHamburger = require('./comp/svg/hamburger');
-const {panesLabel, panesIcon, normalizePanes} = require('../util/layout');
+const {panesLabel, panesIcon, normalizePanes, nextPanes} = require('../util/layout');
 const {canSave, saveHint} = require('../util/save');
 const {triggerSave} = require('../util/trigger-save');
 
 module.exports = ({state, actions}) => {
 	const panes = normalizePanes(state.layout && state.layout.panes);
-	const nextLabel = panesLabel(
-		panes === 'editor' ? 'preview' : panes === 'preview' ? 'full' : 'editor'
-	);
+	const nextLabel = panesLabel(nextPanes(panes));
 	const saveEnabled = canSave(state);
 	const saveTitle = state.saveError || saveHint(state);
 
