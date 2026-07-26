@@ -15,6 +15,29 @@ const emptyPos = {
 
 const demoSource = 'console.log("Hello World!")';
 
+/** Cleared buffer when opening / switching to a real project (no file selected). */
+const clearOpenFile = state => {
+	revokeFileUrl(state && state.file);
+	return {
+		file: null,
+		source: '',
+		type: 'js',
+		dirty: false,
+		externalChange: null,
+		saveError: null,
+		index: 0,
+		maxIndex: 0,
+		pos: emptyPos,
+		history: [
+			{
+				type: 'js',
+				source: '',
+				pos: emptyPos
+			}
+		]
+	};
+};
+
 const initial = {
 	themeMode: getInitialThemeMode(),
 	view: 'start',
@@ -28,13 +51,7 @@ const initial = {
 		path: 'demo'
 	},
 	recentRoots: loadRecent(),
-	file: {
-		id: 'untitled',
-		name: 'Untitled.js',
-		path: 'Untitled.js',
-		ext: 'js',
-		source: demoSource
-	},
+	file: null,
 	dirty: false,
 	externalChange: null,
 	saveError: null,
@@ -44,12 +61,12 @@ const initial = {
 	example: false,
 	index: 0,
 	maxIndex: 0,
-	source: demoSource,
+	source: '',
 	pos: emptyPos,
 	history: [
 		{
 			type: 'js',
-			source: demoSource,
+			source: '',
 			pos: emptyPos
 		}
 	],
@@ -243,7 +260,7 @@ const applyProjectResult = (fs, result) => {
 		name: result.name,
 		path: result.path
 	});
-	return state => Object.assign({}, state, {
+	return state => Object.assign({}, state, clearOpenFile(state), {
 		view: 'workspace',
 		fsBackend: fs.id,
 		canOpenFolder: true,
@@ -256,10 +273,7 @@ const applyProjectResult = (fs, result) => {
 		},
 		filesTree: result.filesTree,
 		recentRoots,
-		sideBar: true,
-		dirty: false,
-		externalChange: null,
-		saveError: null
+		sideBar: true
 	});
 };
 

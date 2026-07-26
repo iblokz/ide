@@ -7,9 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### (none)
+
+---
+
+## [1.6.1] - 2026-07-26
+
 ### Added
 
-- Start screen (open project, recent list, open demo) instead of booting straight into the demo editor
+- Empty editor placeholder when a project is open but no file is selected
+- Documented release order (bump → commit → tag) in `docs/RELEASE.md` and `.cursor/rules/releases.mdc`
+
+### Fixed
+
+- Header title rendering `undefined` on the start screen
+- `package.json` version now matches the release tag so AppImage/APK names stay in sync
+
+### Changed
+
+- Opening / switching real projects clears the open file (demo still opens Untitled.js)
+
+---
+
+## [1.6.0] - 2026-07-26
+
+### Added
+
+- Start screen: open project, recent list, and open in-memory demo (no longer boots into the demo editor)
+- Electron recent reopen by path (`openRootFolder` / `openFolderByPath`)
+- README logo in the title
 
 ### Changed
 
@@ -134,7 +160,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/iblokz/ide/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/iblokz/ide/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/iblokz/ide/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/iblokz/ide/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/iblokz/ide/compare/v1.3.0...v1.4.0

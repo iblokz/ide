@@ -20,6 +20,20 @@ module.exports = ({state, actions}) => {
 	const electron = isElectron();
 	const onStart = isStartView(state);
 
+	const fileTitle = !onStart && state.file && state.file.name
+		? span('.file-title', [
+			' — ',
+			String(state.file.name),
+			state.dirty ? ' •' : null,
+			state.externalChange
+				? span('.external-change', ' (changed on disk)')
+				: null,
+			state.saveError
+				? span('.save-error', ` — ${state.saveError}`)
+				: null
+		].filter(Boolean))
+		: null;
+
 	return header({
 		on: electron ? {
 			dblclick: ev => {
@@ -48,18 +62,7 @@ module.exports = ({state, actions}) => {
 					svgHamburger(({state: state.sideBar ? 1 : 0, strokeWidth: '3px', size: 22}))
 				])
 		].filter(Boolean)),
-		h1([
-			'iBloKz IDE',
-			!onStart && state.file && state.file.name
-				? span('.file-title', [
-					' — ',
-					state.file.name,
-					state.dirty ? ' •' : '',
-					state.externalChange ? span('.external-change', ' (changed on disk)') : '',
-					state.saveError ? span('.save-error', ` — ${state.saveError}`) : ''
-				])
-				: []
-		]),
+		h1(fileTitle ? ['iBloKz IDE', fileTitle] : ['iBloKz IDE']),
 		span('.header-actions', [
 			...(onStart ? [] : [
 				button('.save-file', {

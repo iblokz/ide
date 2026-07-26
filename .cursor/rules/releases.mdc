@@ -1,0 +1,43 @@
+---
+description: Release order — bump package.json, prepare commit message, then tag
+alwaysApply: true
+---
+
+# Releases
+
+Full detail: [docs/RELEASE.md](docs/RELEASE.md).
+
+AppImage / APK filenames use **`package.json` `version`**, not the git tag. Never tag a commit that still has the previous version.
+
+## Agent workflow
+
+1. Bump `package.json` + update `CHANGELOG.md`
+2. Stage release files
+3. Prepare a commit message for the developer (do not run `git commit` / `git tag` / `git push` unless explicitly asked)
+4. After they commit, provide tag + push commands
+
+## Order (required)
+
+1. **Bump** `package.json` `"version"` and move `[Unreleased]` → `## [X.Y.Z]` in `CHANGELOG.md`
+2. **Commit** — stage release files; use a normal project message; do not tag yet
+3. **Tag** that commit: `vX.Y.Z` must equal `package.json` version
+4. **Push** branch + tag
+
+```bash
+# After the bump commit is on HEAD:
+node -p "require('./package.json').version"   # confirm
+git tag -a "v$(node -p "require('./package.json').version")" -m "v…"
+git push origin master
+git push origin "v$(node -p "require('./package.json').version")"
+```
+
+## Do not
+
+- Commit, tag, or push without an explicit request
+- Tag first, then bump
+- Tag an older commit that still has the previous `version`
+
+## Expected artifacts
+
+`iblokz-ide-<version>-linux-<arch>.AppImage`  
+`iblokz-ide-<version>-android-debug.apk`

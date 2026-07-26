@@ -1,4 +1,4 @@
-# <img src="assets/icon.png" alt="logo" width="32" height="32"> iBlokz IDE
+# <img src="assets/icon.png" alt="logo" width="42" height="42"> iBlokz IDE
 
 Browser / Electron / Android code playground on the iBlokz stack.
 
@@ -65,7 +65,7 @@ pnpm run lint              # Biome + ESLint
 
 ## Versioning
 
-SemVer + [Keep a Changelog](CHANGELOG.md). Cut releases with `pnpm version patch|minor|major` (see [docs/RELEASE.md](docs/RELEASE.md)). Tags are `vX.Y.Z`; pushing a tag builds AppImage/APK for the GitHub Release.
+SemVer + [Keep a Changelog](CHANGELOG.md). Release order: **bump `package.json` → commit → tag `vX.Y.Z`** (see [docs/RELEASE.md](docs/RELEASE.md)). Artifact names come from `package.json`, so the tag must sit on the bump commit. Pushing a `v*` tag builds AppImage/APK for the GitHub Release.
 
 ## License
 

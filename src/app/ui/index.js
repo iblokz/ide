@@ -9,6 +9,7 @@ const sideBar = require('./side-bar');
 const codebin = require('./codebin');
 const imageViewer = require('./image-viewer');
 const startScreen = require('./start-screen');
+const emptyEditor = require('./empty-editor');
 const splitGutter = require('./comp/split-gutter');
 
 module.exports = ({state, actions}) => {
@@ -17,6 +18,7 @@ module.exports = ({state, actions}) => {
 	const sideBarOpen = !onStart && !!state.sideBar;
 	const sideBarWidth = sideBarOpen ? (layout.sideBar || 260) : 0;
 	const showingImage = state.type === 'image';
+	const hasFile = !!(state.file && state.file.name);
 
 	return body(`#ui.${themeClass(state.themeMode || 'dark')}${onStart ? '.start' : ''}`, [
 		onStart
@@ -51,18 +53,20 @@ module.exports = ({state, actions}) => {
 		header({state, actions}),
 		onStart
 			? startScreen({state, actions})
-			: showingImage
-				? imageViewer({file: state.file})
-				: codebin({
-					source: state.source || '',
-					pos: state.pos,
-					type: state.type || 'js',
-					layout,
-					setLayout: patch => actions.setLayout(patch),
-					change: (source, pos) => actions.updateSource(source, pos),
-					updatePos: pos => actions.updatePos(pos),
-					undo: () => actions.undo(),
-					redo: () => actions.redo()
-				})
+			: !hasFile
+				? emptyEditor()
+				: showingImage
+					? imageViewer({file: state.file})
+					: codebin({
+						source: state.source || '',
+						pos: state.pos,
+						type: state.type || 'js',
+						layout,
+						setLayout: patch => actions.setLayout(patch),
+						change: (source, pos) => actions.updateSource(source, pos),
+						updatePos: pos => actions.updatePos(pos),
+						undo: () => actions.undo(),
+						redo: () => actions.redo()
+					})
 	].filter(Boolean));
 };
