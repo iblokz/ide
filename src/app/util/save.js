@@ -39,6 +39,14 @@ const saveHint = state => {
 	if (state.canWrite || hasWritableHandle(state.file)) {
 		return 'Save (Ctrl+S)';
 	}
+	try {
+		const fs = getFs();
+		if (fs.id === 'electron' && state.file && state.file.path) {
+			return 'Save (Ctrl+S)';
+		}
+	} catch (err) {
+		/* ignore */
+	}
 	if (canUseSavePicker()) {
 		return 'Save via file picker (Ctrl+S)';
 	}

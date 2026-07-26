@@ -5,9 +5,13 @@ const {canSave, canUseSavePicker, hasWritableHandle} = require('./save');
 
 /**
  * Run save from a user gesture (click / Ctrl+S).
- * Opens showSaveFilePicker BEFORE any other await when no write handle exists,
- * so the browser keeps transient user activation.
- * When FSA is missing (e.g. Brave default), downloads synchronously in-gesture.
+ *
+ * Web: open showSaveFilePicker BEFORE any other await when no write handle
+ * exists, so the browser keeps transient user activation. When FSA is missing,
+ * download synchronously in-gesture.
+ *
+ * Electron: write straight to file.path via IPC — never use the Chromium
+ * Save As picker (it is present but wrong for native FS).
  */
 const triggerSave = async ({state, actions}) => {
 	if (!canSave(state)) {
@@ -26,6 +30,12 @@ const triggerSave = async ({state, actions}) => {
 	const file = state.file;
 	const source = state.source;
 	let pickedHandle = null;
+
+	// Native path write (Electron) — in-place save, no picker/download.
+	if (fs.id === 'electron' && file && file.path) {
+		actions.saveFile(file, source);
+		return;
+	}
 
 	const existing = fs.getHandle && fs.getHandle(file.id);
 	const hasFileHandle = !!(existing && existing.kind === 'file');

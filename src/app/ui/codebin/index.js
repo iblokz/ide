@@ -103,6 +103,13 @@ const clearEmptyLinePads = html => {
 	return wrap.innerHTML;
 };
 
+/** Escape raw source before prettyPrintOne — it injects via innerHTML
+ *  (`'<pre>' + source + '</pre>'`), so unescaped SVG/HTML/XML tags become DOM. */
+const escapeHtml = s => String(s)
+	.replace(/&/g, '&amp;')
+	.replace(/</g, '&lt;')
+	.replace(/>/g, '&gt;');
+
 /**
  * code-prettify numberLines() drops a single trailing \\n, so "hello\\n"
  * renders as one line. Pad so EOF Enter can create a visible blank line.
@@ -111,7 +118,9 @@ const clearEmptyLinePads = html => {
 const prettifySource = (source, type) => {
 	const src = source || '';
 	const padded = src.endsWith('\n') ? `${src}\n` : src;
-	return clearEmptyLinePads(prettify.prettyPrintOne(padded, type, true));
+	// Map svg → xml so markup highlighting applies after escape.
+	const lang = type === 'svg' ? 'xml' : type;
+	return clearEmptyLinePads(prettify.prettyPrintOne(escapeHtml(padded), lang, true));
 };
 
 const insertNewlineAtPos = (source, pos) => {

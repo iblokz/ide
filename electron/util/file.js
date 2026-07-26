@@ -27,20 +27,19 @@ const listEntries = async dirPath => {
 	return entries.filter(Boolean);
 };
 
-const buildNode = async (entry, depth) => {
+/** One level only — directories are stubs until expand loads them. */
+const buildNodeShallow = entry => {
 	const id = hashPath(entry.path);
 	if (entry.isDir) {
-		const files = depth > 0
-			? await mapAsync(await listEntries(entry.path), child => buildNode(child, depth - 1))
-			: [];
 		return {
 			id,
 			name: entry.name,
 			path: entry.path,
 			isDir: true,
 			ext: false,
-			expanded: depth >= 2,
-			files
+			expanded: false,
+			childrenLoaded: false,
+			files: []
 		};
 	}
 	const ext = extOf(entry.name);
@@ -56,16 +55,30 @@ const buildNode = async (entry, depth) => {
 	};
 };
 
-const openRoot = async (rootPath, depth = 3) => {
+const listDir = async dirPath => {
+	const entries = await listEntries(dirPath);
+	return entries.map(buildNodeShallow);
+};
+
+const openRoot = async rootPath => {
 	if (!rootPath) return null;
 	const name = path.basename(rootPath);
-	const root = await buildNode({name, path: rootPath, isDir: true}, depth);
-	root.expanded = true;
+	const id = hashPath(rootPath);
+	const files = await listDir(rootPath);
 	return {
-		id: root.id,
-		name: root.name,
-		path: root.path,
-		filesTree: [root],
+		id,
+		name,
+		path: rootPath,
+		filesTree: [{
+			id,
+			name,
+			path: rootPath,
+			isDir: true,
+			ext: false,
+			expanded: true,
+			childrenLoaded: true,
+			files
+		}],
 		writable: true,
 		access: 'electron'
 	};
@@ -86,9 +99,10 @@ const write = async (filePath, content, enc = 'utf-8') => {
 
 module.exports = {
 	openRoot,
+	listDir,
 	read,
 	readDataUrl,
 	write,
 	listEntries,
-	buildNode
+	buildNodeShallow
 };

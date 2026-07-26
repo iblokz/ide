@@ -11,6 +11,7 @@ const DEMO_TREE = [{
 	isDir: true,
 	ext: false,
 	expanded: false,
+	childrenLoaded: true,
 	files: [
 		{
 			id: 'demo-src-index',
@@ -34,6 +35,7 @@ const zyn = foo(3);
 			path: 'src/ui',
 			isDir: true,
 			expanded: true,
+			childrenLoaded: true,
 			ext: false,
 			files: [
 				{

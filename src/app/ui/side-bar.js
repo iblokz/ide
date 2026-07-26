@@ -7,8 +7,10 @@ const {fileIcon} = require('../util/file-tree');
 
 const fileSort = (a, b) => !a.isDir && b.isDir ? 1 : -1;
 
-const levelUp = fn => (path = [], level, cb) =>
-	(item, index) => fn(...[item, [].concat(path, index), level + 1, cb]);
+/** Sort for display but keep each node's index in the unsorted state array. */
+const sortedWithIndex = (list = []) => list
+	.map((item, index) => ({item, index}))
+	.sort((a, b) => fileSort(a.item, b.item));
 
 const treeMap = (item, path = [], level = 0, cb) => {
 	if (!item || !item.name) return null;
@@ -43,7 +45,9 @@ const treeMap = (item, path = [], level = 0, cb) => {
 
 	if (item.isDir && item.expanded && Array.isArray(item.files) && item.files.length) {
 		children.push(
-			ul(item.files.slice().sort(fileSort).map(levelUp(treeMap)(path, level, cb)).filter(Boolean))
+			ul(sortedWithIndex(item.files).map(({item: child, index}) =>
+				treeMap(child, [].concat(path, index), level + 1, cb)
+			).filter(Boolean))
 		);
 	}
 
@@ -52,12 +56,10 @@ const treeMap = (item, path = [], level = 0, cb) => {
 
 module.exports = ({state, actions, width}) => {
 	const recent = (state.recentRoots || []).filter(root => root && root.name);
-	const tree = (state.filesTree || [])
-		.slice()
-		.sort(fileSort)
-		.map((item, index) => treeMap(item, [index], 0,
+	const tree = sortedWithIndex(state.filesTree || [])
+		.map(({item, index}) => treeMap(item, [index], 0,
 			(item, path, level) => item.isDir
-				? actions.toggleFolder(path, item.expanded)
+				? actions.toggleFolder(path, item)
 				: actions.openFile(item)
 		))
 		.filter(Boolean);

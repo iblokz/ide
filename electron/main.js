@@ -14,7 +14,7 @@ const selectRootFolder = async () => {
 	if (result.canceled || !result.filePaths || !result.filePaths[0]) {
 		return null;
 	}
-	return fileUtil.openRoot(result.filePaths[0], 3);
+	return fileUtil.openRoot(result.filePaths[0]);
 };
 
 const createWindow = () => {
@@ -43,6 +43,7 @@ app.whenReady().then(() => {
 	let win;
 
 	ipcMain.handle('selectRootFolder', () => selectRootFolder());
+	ipcMain.handle('listDir', (_ev, dirPath) => fileUtil.listDir(dirPath));
 	ipcMain.handle('readFile', (_ev, filePath) => fileUtil.read(filePath));
 	ipcMain.handle('readFileDataUrl', (_ev, filePath) => fileUtil.readDataUrl(filePath));
 	ipcMain.handle('writeFile', (_ev, filePath, content) => fileUtil.write(filePath, content));

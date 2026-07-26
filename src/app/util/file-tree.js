@@ -31,6 +31,33 @@ const patchAt = ({list = [], path = [], nodesProp = 'nodes', key, value}) => pat
 	)
 )() : list;
 
+/** Merge props onto the tree node at `path` (indices into nested `nodesProp` arrays). */
+const mergeAt = ({list = [], path = [], nodesProp = 'files', patch = {}}) => {
+	if (!path.length) return list;
+	const index = path[0];
+	if (index < 0 || index >= list.length || !list[index]) return list;
+	if (path.length === 1) {
+		return [].concat(
+			list.slice(0, index),
+			[Object.assign({}, list[index], patch)],
+			list.slice(index + 1)
+		);
+	}
+	const node = list[index];
+	return [].concat(
+		list.slice(0, index),
+		[Object.assign({}, node, {
+			[nodesProp]: mergeAt({
+				list: node[nodesProp] || [],
+				path: path.slice(1),
+				nodesProp,
+				patch
+			})
+		})],
+		list.slice(index + 1)
+	);
+};
+
 const SKIP_NAMES = new Set([
 	'node_modules', '.git', '.parcel-cache', 'dist', '.pnpm-store',
 	'coverage', '.next', '.cache'
@@ -119,6 +146,7 @@ module.exports = {
 	hashPath,
 	extOf,
 	patchAt,
+	mergeAt,
 	SKIP_NAMES,
 	IMAGE_EXTS,
 	BINARY_EXTS,

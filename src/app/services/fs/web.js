@@ -66,41 +66,50 @@ const downloadText = (filename, content) => {
 	setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-const buildNode = async (handle, parentPath = '', depth = 3) => {
-	const path = parentPath ? `${parentPath}/${handle.name}` : handle.name;
-	const id = hashPath(path);
+const toFileNode = (handle, filePath) => {
+	const id = hashPath(filePath);
 	remember(id, handle);
-
-	if (handle.kind === 'directory') {
-		const files = [];
-		if (depth > 0) {
-			for await (const entry of handle.values()) {
-				if (SKIP_NAMES.has(entry.name)) continue;
-				files.push(await buildNode(entry, path, depth - 1));
-			}
-		}
-		return {
-			id,
-			name: handle.name,
-			path,
-			isDir: true,
-			ext: false,
-			expanded: depth >= 2,
-			files
-		};
-	}
-
 	const ext = extOf(handle.name);
 	const kind = fileKind(handle.name, ext);
 	return {
 		id,
 		name: handle.name,
-		path,
+		path: filePath,
 		isDir: false,
 		ext,
 		kind,
 		readable: kind !== 'binary'
 	};
+};
+
+const toDirStub = (handle, dirPath) => {
+	const id = hashPath(dirPath);
+	remember(id, handle);
+	return {
+		id,
+		name: handle.name,
+		path: dirPath,
+		isDir: true,
+		ext: false,
+		expanded: false,
+		childrenLoaded: false,
+		files: []
+	};
+};
+
+/** List immediate children of a directory handle (one level). */
+const listHandleChildren = async (dirHandle, parentPath) => {
+	const files = [];
+	for await (const entry of dirHandle.values()) {
+		if (SKIP_NAMES.has(entry.name)) continue;
+		const childPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
+		if (entry.kind === 'directory') {
+			files.push(toDirStub(entry, childPath));
+		} else {
+			files.push(toFileNode(entry, childPath));
+		}
+	}
+	return files;
 };
 
 const buildTreeFromFileList = (fileList) => {
@@ -113,6 +122,7 @@ const buildTreeFromFileList = (fileList) => {
 		isDir: true,
 		ext: false,
 		expanded: true,
+		childrenLoaded: true,
 		files: []
 	};
 
@@ -131,7 +141,8 @@ const buildTreeFromFileList = (fileList) => {
 			path: dirPath,
 			isDir: true,
 			ext: false,
-			expanded: parts.length < 3,
+			expanded: false,
+			childrenLoaded: true,
 			files: []
 		};
 		parent.files.push(node);
@@ -260,11 +271,7 @@ const pickWithFsa = async () => {
 	const rootHandle = picked.handle;
 	const rootId = hashPath(rootHandle.name);
 	remember(rootId, rootHandle);
-	const files = [];
-	for await (const entry of rootHandle.values()) {
-		if (SKIP_NAMES.has(entry.name)) continue;
-		files.push(await buildNode(entry, rootHandle.name, 3));
-	}
+	const files = await listHandleChildren(rootHandle, rootHandle.name);
 
 	return {
 		id: rootId,
@@ -277,6 +284,7 @@ const pickWithFsa = async () => {
 			isDir: true,
 			ext: false,
 			expanded: true,
+			childrenLoaded: true,
 			files
 		}],
 		writable,
@@ -326,6 +334,13 @@ const create = () => ({
 		}
 
 		return pickWithInput();
+	},
+	async listDir(node) {
+		const handle = getHandle(node.id);
+		if (!handle || handle.kind !== 'directory') {
+			throw new Error(`No directory handle for ${node.path || node.name} (${node.id})`);
+		}
+		return listHandleChildren(handle, node.path || handle.name);
 	},
 	async readFile(node) {
 		const handle = getHandle(node.id);

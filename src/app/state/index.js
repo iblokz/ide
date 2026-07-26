@@ -2,7 +2,7 @@
 
 const {obj, arr} = require('iblokz-data');
 const {getInitialThemeMode} = require('../util/theme');
-const {patchAt, isImageFile, fileKind} = require('../util/file-tree');
+const {mergeAt, isImageFile, fileKind} = require('../util/file-tree');
 const {loadRecent, pushRecent} = require('../util/recent');
 const {loadLayout, saveLayout, clampLayout, nextPanes} = require('../util/layout');
 const {isDemoFile} = require('../util/save');
@@ -186,13 +186,44 @@ const redo = () => state => Object.assign({}, state, {
 	dirty: true
 }, state.history[state.index < state.maxIndex ? state.index + 1 : state.index]);
 
-const toggleFolder = (path = [], expanded = false) => state => obj.patch(state, 'filesTree', patchAt({
-	list: obj.sub(state, 'filesTree') || [],
-	path,
-	nodesProp: 'files',
-	key: 'expanded',
-	value: !expanded
-}));
+const toggleFolder = (path = [], item) => {
+	if (!item || !item.isDir) return state => state;
+
+	const patchTree = (state, patch) => obj.patch(
+		state,
+		'filesTree',
+		mergeAt({
+			list: obj.sub(state, 'filesTree') || [],
+			path,
+			nodesProp: 'files',
+			patch
+		})
+	);
+
+	if (item.expanded) {
+		return state => patchTree(state, {expanded: false});
+	}
+
+	if (item.childrenLoaded) {
+		return state => patchTree(state, {expanded: true});
+	}
+
+	const fs = getFs();
+	if (typeof fs.listDir !== 'function') {
+		return state => patchTree(state, {expanded: true, childrenLoaded: true});
+	}
+
+	return fs.listDir(item)
+		.then(files => state => patchTree(state, {
+			expanded: true,
+			childrenLoaded: true,
+			files: files || []
+		}))
+		.catch(err => {
+			console.error('listDir failed', item && item.path, err);
+			return state => state;
+		});
+};
 
 const setThemeMode = mode => state => obj.patch(state, 'themeMode', mode);
 const toggleTheme = () => state => obj.patch(

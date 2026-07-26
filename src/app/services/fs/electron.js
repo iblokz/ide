@@ -31,6 +31,12 @@ const create = () => {
 				access: 'electron'
 			};
 		},
+		async listDir(node) {
+			if (!bridge || typeof bridge.listDir !== 'function') {
+				throw new Error('Electron listDir not available');
+			}
+			return bridge.listDir(node.path);
+		},
 		async readFile(node) {
 			if (!bridge || typeof bridge.readFile !== 'function') {
 				throw new Error('Electron readFile not available');
