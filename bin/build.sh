@@ -74,7 +74,7 @@ if [ "$DO_ELECTRON" -eq 1 ]; then
   echo "Building web app for Electron (public-url ./)..."
   pnpm run build:electron
   echo "Building Linux AppImage..."
-  pnpm exec electron-builder --linux AppImage
+  pnpm exec electron-builder --linux AppImage --publish never
   echo "Electron artifacts under artifacts/electron/"
   ls -la artifacts/electron/*.AppImage 2>/dev/null || true
 fi

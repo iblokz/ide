@@ -22,7 +22,7 @@
     "build:cap": "parcel build --public-url ./ && pnpm run assets:sync",
     "prebuild:electron": "pnpm run assets",
     "build:electron": "parcel build --public-url ./ && pnpm run assets:sync",
-    "dist:electron": "pnpm run build:electron && electron-builder --linux AppImage",
+    "dist:electron": "pnpm run build:electron && electron-builder --linux AppImage --publish never",
     "lint": "biome lint ./src && eslint src",
     "lint:fix": "biome lint --write ./src && eslint src --fix",
     "format": "biome format --write ./src",

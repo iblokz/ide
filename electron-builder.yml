@@ -15,6 +15,9 @@ files:
 
 asar: true
 
+# Artifact upload is handled by GitHub Actions (native.yml), not electron-builder.
+publish: null
+
 linux:
   target:
     - AppImage
