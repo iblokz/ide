@@ -17,11 +17,12 @@ cd "$PROJECT_ROOT"
 source "$SCRIPT_DIR/inc/common.sh"
 
 TARGET=web
+PARCEL_PORT=1234
 
 usage() {
   echo "Usage: $0 [--electron|--android|--macos|--ios] [--help]"
   echo ""
-  echo "  (no flags)  Web: Parcel at http://127.0.0.1:1234"
+  echo "  (no flags)  Web: Parcel at http://127.0.0.1:${PARCEL_PORT}"
   echo "  --electron  Parcel + Electron shell"
   echo "  --android   Capacitor Android run (Stage 5; stub until Cap is added)"
   echo "  --macos     Skeleton only"
@@ -41,18 +42,63 @@ done
 
 require_pnpm
 
+"$SCRIPT_DIR/assets.sh"
+
+wait_for_port() {
+  local port="${1:-$PARCEL_PORT}"
+  local host="${2:-127.0.0.1}"
+  local deadline=$((SECONDS + 45))
+  echo "Waiting for http://${host}:${port} ..."
+  while (( SECONDS < deadline )); do
+    if command -v curl &>/dev/null; then
+      if curl -sf -o /dev/null "http://${host}:${port}/"; then
+        return 0
+      fi
+    else
+      if (echo >/dev/tcp/"$host"/"$port") 2>/dev/null; then
+        return 0
+      fi
+    fi
+    sleep 0.25
+  done
+  echo "Timed out waiting for port ${port}" >&2
+  return 1
+}
+
+stop_parcel() {
+  # Prefer tracked pid; also clean orphans bound to our port
+  if [ -n "${PARCEL_PID:-}" ]; then
+    kill "$PARCEL_PID" 2>/dev/null || true
+    wait "$PARCEL_PID" 2>/dev/null || true
+  fi
+  pkill -f "parcel --port ${PARCEL_PORT}" 2>/dev/null || true
+}
+
 case "$TARGET" in
   web)
     echo "Starting web (Parcel)..."
-    exec pnpm start
+    exec pnpm exec parcel --port "$PARCEL_PORT"
     ;;
   electron)
     if [ ! -f electron/main.js ] || [ ! -f electron/preload.js ]; then
       echo "Missing electron/ shell — run: ./bin/init.sh --electron" >&2
       exit 1
     fi
+    if [ ! -x node_modules/.bin/electron ] && [ ! -f node_modules/electron/cli.js ]; then
+      echo "Electron not installed — run: pnpm install" >&2
+      exit 1
+    fi
     echo "Starting Electron (Parcel + shell)..."
-    exec pnpm start:electron
+    stop_parcel
+    sleep 0.3
+    pnpm exec parcel --port "$PARCEL_PORT" &
+    PARCEL_PID=$!
+    trap stop_parcel EXIT INT TERM
+    if ! wait_for_port "$PARCEL_PORT"; then
+      stop_parcel
+      exit 1
+    fi
+    pnpm exec electron .
     ;;
   android)
     if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then

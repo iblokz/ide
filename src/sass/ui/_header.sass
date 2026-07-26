@@ -17,7 +17,8 @@
 	overflow: hidden
 	transition: background-color .25s ease, border-color .25s ease, box-shadow .25s ease
 
-	// Frameless Electron: drag the chrome; interactive bits opt out
+	// Frameless Electron: drag empty chrome (dblclick maximize/restore like media-browser);
+	// only interactive controls punch no-drag holes
 	&::before
 		position: absolute
 		content: ''
@@ -25,8 +26,6 @@
 		z-index: -1
 		-webkit-app-region: drag
 
-	.header-start,
-	.header-actions,
 	button
 		-webkit-app-region: no-drag
 
@@ -36,6 +35,21 @@
 		display: flex
 		align-items: center
 		justify-content: flex-start
+		gap: 6px
+
+	.app-icon
+		flex: 0 0 auto
+		width: $panel-row-height
+		height: $panel-row-height
+		border-radius: 6px
+		display: block
+		user-select: none
+		pointer-events: none
+		background-color: transparent
+		background-image: url('../../assets/icon.png')
+		background-position: center
+		background-repeat: no-repeat
+		background-size: contain
 
 	h1
 		+header-height($header-height)

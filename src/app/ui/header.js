@@ -18,8 +18,26 @@ module.exports = ({state, actions}) => {
 	const saveTitle = state.saveError || saveHint(state);
 	const electron = isElectron();
 
-	return header([
+	return header({
+		on: electron ? {
+			// Fallback when dblclick lands outside the drag region (e.g. Linux quirks)
+			dblclick: ev => {
+				const t = ev.target;
+				if (!t || !t.closest) return;
+				if (t.closest('button, a, input')) return;
+				if (typeof window.app.toggleMaximize === 'function') {
+					window.app.toggleMaximize();
+				}
+			}
+		} : {}
+	}, [
 		span('.header-start', [
+			span('.app-icon', {
+				attrs: {
+					role: 'img',
+					'aria-label': 'iBloKz IDE'
+				}
+			}),
 			button('.menu-toggle', {
 				attrs: {'aria-label': 'Toggle sidebar'},
 				on: {click: () => actions.toggle('sideBar')}

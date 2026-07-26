@@ -8,9 +8,14 @@
     "main": false
   },
   "scripts": {
-    "start": "parcel",
-    "start:electron": "parcel & sleep 2 && electron .",
-    "build": "parcel build --public-url /ide/",
+    "assets": "./bin/assets.sh",
+    "assets:sync": "./bin/assets.sh --sync-only",
+    "icons": "./bin/icons.sh",
+    "prestart": "pnpm run assets",
+    "prebuild": "pnpm run assets",
+    "start": "parcel --port 1234",
+    "start:electron": "pnpm run assets && parcel --port 1234",
+    "build": "parcel build --public-url /ide/ && pnpm run assets:sync",
     "lint": "biome lint ./src && eslint src",
     "lint:fix": "biome lint --write ./src && eslint src --fix",
     "format": "biome format --write ./src",

@@ -3,6 +3,7 @@ node_modules
 .DS_Store
 .parcel-cache
 dist
+build
 android
 ios
 artifacts/electron/*
@@ -13,3 +14,11 @@ artifacts/macos/*
 !artifacts/macos/.gitkeep
 artifacts/ios/*
 !artifacts/ios/.gitkeep
+
+# Assets: commit sources only (assets/icon.png, assets/static/**)
+# Built copies: build/assets + src/assets (via pnpm assets)
+assets/*.png~
+assets/dist/
+assets/icons/
+src/assets/**
+!src/assets/.gitkeep

@@ -15,5 +15,6 @@ contextBridge.exposeInMainWorld('app', {
 	readFileDataUrl: filePath => ipcRenderer.invoke('readFileDataUrl', filePath),
 	writeFile: (filePath, content) => ipcRenderer.invoke('writeFile', filePath, content),
 	minimize: () => ipcRenderer.invoke('minimize'),
+	toggleMaximize: () => ipcRenderer.invoke('toggleMaximize'),
 	close: () => ipcRenderer.invoke('close')
 });
