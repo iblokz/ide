@@ -60,7 +60,17 @@ mkdir -p artifacts/electron artifacts/android artifacts/macos artifacts/ios
 
 NAME=$(node -p "require('./package.json').name")
 
+# Favicons / icons live in gitignored src/assets — always generate before Parcel.
+# (pnpm prebuild:* also runs assets; this covers direct parcel invocations.)
+ensure_web_assets() {
+  if [ ! -f src/assets/favicon-32.png ]; then
+    echo "Generating web assets (src/assets/)…"
+    "$SCRIPT_DIR/assets.sh"
+  fi
+}
+
 if [ "$DO_ELECTRON" -eq 1 ]; then
+  ensure_web_assets
   echo "Building web app for Electron (public-url ./)..."
   pnpm run build:electron
   echo "Building Linux AppImage..."
@@ -76,6 +86,7 @@ if [ "$DO_ANDROID" -eq 1 ]; then
   fi
   require_java
   ensure_android_sdk
+  ensure_web_assets
   echo "Building web app for Android (public-url ./)..."
   pnpm run build:cap
   if [ ! -d android ]; then
