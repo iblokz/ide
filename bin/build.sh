@@ -25,7 +25,7 @@ usage() {
   echo "Usage: $0 [--electron] [--android] [--macos] [--ios] [--all] [--help]"
   echo ""
   echo "  --electron  Web build + AppImage when electron-builder is configured (else note)"
-  echo "  --android   Web build + Cap sync + debug APK → artifacts/android/"
+  echo "  --android   Web build + Cap sync + debug APK → artifacts/android/ (packaged, no live-reload)"
   echo "  --macos     Skeleton only"
   echo "  --ios       Skeleton only"
   echo "  --all       electron + android (INCLUDE_APPLE=1 also runs macos/ios stubs)"
@@ -58,12 +58,11 @@ fi
 require_pnpm
 mkdir -p artifacts/electron artifacts/android artifacts/macos artifacts/ios
 
-echo "Building web app..."
-pnpm run build
-
 NAME=$(node -p "require('./package.json').name")
 
 if [ "$DO_ELECTRON" -eq 1 ]; then
+  echo "Building web app (GitHub Pages public-url /ide/)..."
+  pnpm run build
   if command -v pnpm >/dev/null && pnpm exec electron-builder --help &>/dev/null 2>&1; then
     echo "Building Linux AppImage..."
     pnpm exec electron-builder --linux AppImage --config.directories.output=artifacts/electron
@@ -79,18 +78,24 @@ fi
 
 if [ "$DO_ANDROID" -eq 1 ]; then
   if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
-    stub_target "android (Capacitor not configured yet — Stage 5)" "artifacts/android"
-  else
-    require_java
-    if [ ! -d android ]; then
-      npx cap add android
-    fi
-    npx cap sync android
-    (cd android && ./gradlew assembleDebug)
-    cp android/app/build/outputs/apk/debug/app-debug.apk \
-      "artifacts/android/${NAME}-debug.apk"
-    echo "Android APK: artifacts/android/${NAME}-debug.apk"
+    echo "Missing capacitor.config.json — run Stage 5 setup first" >&2
+    exit 1
   fi
+  require_java
+  ensure_android_sdk
+  echo "Building web app for Android (public-url ./)..."
+  pnpm run build:cap
+  if [ ! -d android ]; then
+    pnpm exec cap add android
+  fi
+  pnpm exec cap sync android
+  ensure_android_cleartext
+  echo "Installing Android launcher icons..."
+  "$SCRIPT_DIR/assets.sh" --sync-android
+  (cd android && ./gradlew assembleDebug)
+  cp android/app/build/outputs/apk/debug/app-debug.apk \
+    "artifacts/android/${NAME}-debug.apk"
+  echo "Android APK: artifacts/android/${NAME}-debug.apk"
 fi
 
 if [ "$DO_MACOS" -eq 1 ]; then

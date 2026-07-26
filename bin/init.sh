@@ -36,7 +36,7 @@ usage() {
   echo ""
   echo "  (no flags)  Same as --all"
   echo "  --electron  Ensure Electron deps and electron/ shell"
-  echo "  --android   Capacitor Android init (Stage 5; stub until Cap is added)"
+  echo "  --android   Capacitor Android init (requires JDK + Android SDK)"
   echo "  --macos     Skeleton only"
   echo "  --ios       Skeleton only"
   echo "  --all       electron + android (set INCLUDE_APPLE=1 to also run macos/ios stubs)"
@@ -80,17 +80,24 @@ fi
 
 if [ "$DO_ANDROID" -eq 1 ]; then
   if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
-    stub_target "android (Capacitor not configured yet — Stage 5)" "artifacts/android"
-  else
-    require_java
-    echo "Building web app for Cap sync..."
-    pnpm run build
-    if [ ! -d android ]; then
-      npx cap add android
-    fi
-    npx cap sync android
-    echo "Android ready. Build APK: ./bin/build.sh --android"
+    echo "Missing capacitor.config.json" >&2
+    exit 1
   fi
+  require_java
+  ensure_android_sdk
+  echo "Building web app for Cap sync (public-url ./)..."
+  pnpm run build:cap
+  if [ ! -d android ]; then
+    echo "Adding Android platform..."
+    pnpm exec cap add android
+  fi
+  pnpm exec cap sync android
+  ensure_android_cleartext
+  echo "Installing Android launcher icons..."
+  "$SCRIPT_DIR/assets.sh" --sync-android
+  echo "Android ready."
+  echo "  Live-reload:  ./bin/start.sh --android"
+  echo "  Packaged APK: ./bin/build.sh --android && ./bin/deploy.sh --android"
 fi
 
 if [ "$DO_MACOS" -eq 1 ]; then

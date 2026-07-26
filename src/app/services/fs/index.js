@@ -3,10 +3,14 @@
 const memory = require('./memory');
 const web = require('./web');
 const electron = require('./electron');
+const capacitor = require('./capacitor');
 
 const detect = () => {
 	const electronFs = electron.create();
 	if (electronFs.canOpenFolder) return electronFs;
+
+	const capFs = capacitor.create();
+	if (capFs.canOpenFolder) return capFs;
 
 	if (typeof window !== 'undefined') return web.create();
 

@@ -58,15 +58,14 @@ if (module.hot) {
 		viewport.stop();
 		patchSubscription.unsubscribe();
 		state$.complete();
-		document.body.innerHTML = document.body.innerHTML;
-	});
-	module.hot.accept('./ui', function() {
-		ui = require('./ui');
-		dispatch(state => state);
+		document.body.innerHTML = '';
 	});
 	module.hot.accept(function() {
+		ui = require('./ui');
 		if (module.hot.data && module.hot.data.state) {
 			dispatch(() => module.hot.data.state);
+		} else {
+			dispatch(state => state);
 		}
 		viewport.start();
 	});

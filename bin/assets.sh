@@ -23,22 +23,35 @@ SOURCE_ICON="${ICON_SOURCE:-assets/icon.png}"
 STATIC_DIR="assets/static"
 OUT_DIR="build/assets"
 WEB_DIR="src/assets"
-SIZES=(16 32 48 64 128 180 256 512 1024)
+# Web/Electron + Android mipmap densities (mdpi…xxxhdpi)
+SIZES=(16 32 48 64 72 96 128 144 180 192 256 512 1024)
+ANDROID_MIPMAPS=(
+  "mipmap-mdpi:48"
+  "mipmap-hdpi:72"
+  "mipmap-xhdpi:96"
+  "mipmap-xxhdpi:144"
+  "mipmap-xxxhdpi:192"
+)
+# Adaptive icon background (matches dark chrome)
+ANDROID_ICON_BG="${ANDROID_ICON_BG:-#12161c}"
 SYNC_DIST=0
 SYNC_ONLY=0
+SYNC_ANDROID=0
 FORCE=0
 
 for arg in "$@"; do
   case "$arg" in
     --sync-dist) SYNC_DIST=1 ;;
     --sync-only) SYNC_ONLY=1; SYNC_DIST=1 ;;
+    --sync-android) SYNC_ANDROID=1 ;;
     --force|-f) FORCE=1 ;;
     -h|--help)
-      echo "Usage: $0 [--force] [--sync-dist|--sync-only]"
+      echo "Usage: $0 [--force] [--sync-dist|--sync-only] [--sync-android]"
       echo "  Build assets into build/assets/ (+ stage src/assets for Parcel)."
-      echo "  --force      rebuild even if outputs look fresh"
-      echo "  --sync-dist  rebuild (if needed), then copy → dist/assets/"
-      echo "  --sync-only  only copy build/assets → dist/assets/"
+      echo "  --force         rebuild even if outputs look fresh"
+      echo "  --sync-dist     rebuild (if needed), then copy → dist/assets/"
+      echo "  --sync-only     only copy build/assets → dist/assets/"
+      echo "  --sync-android  install launcher mipmaps into android/ (if present)"
       exit 0
       ;;
     *)
@@ -72,6 +85,51 @@ stage_web_assets() {
   echo "Staged → $WEB_DIR/"
 }
 
+# Install launcher icons into Capacitor android/ mipmaps (regenerated platform tree).
+sync_android_icons() {
+  local res="android/app/src/main/res"
+  if [ ! -d "$res" ]; then
+    echo "android/ res missing — skip launcher icons (run cap add android first)"
+    return 0
+  fi
+  if [ ! -f "$OUT_DIR/icons/icon-192.png" ]; then
+    echo "Built icons missing — run $0 first" >&2
+    return 1
+  fi
+
+  local entry density size src out_dir inner
+  for entry in "${ANDROID_MIPMAPS[@]}"; do
+    density="${entry%%:*}"
+    size="${entry##*:}"
+    src="$OUT_DIR/icons/icon-${size}.png"
+    out_dir="$res/$density"
+    mkdir -p "$out_dir"
+    cp -f "$src" "$out_dir/ic_launcher.png"
+    cp -f "$src" "$out_dir/ic_launcher_round.png"
+    # Adaptive foreground: ~72% inset so the mask doesn't clip the logo
+    inner=$((size * 72 / 100))
+    convert "$src" \
+      -resize "${inner}x${inner}" \
+      -background none \
+      -gravity center \
+      -extent "${size}x${size}" \
+      -strip \
+      "$out_dir/ic_launcher_foreground.png"
+    cp -f "$out_dir/ic_launcher_foreground.png" \
+      "$out_dir/ic_launcher_round_foreground.png"
+    echo "  $density (${size}px)"
+  done
+
+  mkdir -p "$res/values"
+  cat > "$res/values/ic_launcher_background.xml" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">${ANDROID_ICON_BG}</color>
+</resources>
+EOF
+  echo "Android launcher icons → $res/mipmap-* (bg ${ANDROID_ICON_BG})"
+}
+
 assets_fresh() {
   [ -f "$OUT_DIR/icons/icon-256.png" ] || return 1
   [ -f "$OUT_DIR/icon.png" ] || return 1
@@ -91,6 +149,9 @@ assets_fresh() {
 
 if [ "$SYNC_ONLY" -eq 1 ]; then
   sync_to_parcel_dist
+  if [ "$SYNC_ANDROID" -eq 1 ]; then
+    sync_android_icons
+  fi
   exit 0
 fi
 
@@ -98,6 +159,9 @@ if [ "$FORCE" -eq 0 ] && assets_fresh; then
   echo "Assets up to date — skip rebuild (use --force to regenerate)"
   if [ "$SYNC_DIST" -eq 1 ]; then
     sync_to_parcel_dist
+  fi
+  if [ "$SYNC_ANDROID" -eq 1 ]; then
+    sync_android_icons
   fi
   exit 0
 fi
@@ -171,6 +235,10 @@ trap - EXIT
 echo "Assets build done → $OUT_DIR"
 
 stage_web_assets
+
+if [ "$SYNC_ANDROID" -eq 1 ] || [ -d android/app/src/main/res ]; then
+  sync_android_icons
+fi
 
 # Asset identity/content changed — drop Parcel LMDB cache to avoid "key not found"
 if [ -d .parcel-cache ]; then
