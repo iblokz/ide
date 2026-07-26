@@ -99,16 +99,16 @@ const openFile = file => {
 		});
 };
 
-const updateSource = (source, pos = emptyPos) => state => Object.assign({}, state, {
+const updateSource = (source, pos) => state => Object.assign({}, state, {
 	source,
 	dirty: true,
 	saveError: null,
 	index: state.index + 1,
 	maxIndex: state.index + 1,
-	pos,
+	pos: pos || state.pos || emptyPos,
 	history: [].concat(
 		state.history.slice(0, state.index + 1),
-		[{type: state.type, source, pos}]
+		[{type: state.type, source, pos: pos || state.pos || emptyPos}]
 	)
 });
 

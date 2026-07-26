@@ -71,19 +71,75 @@ const $ = Rx;
 
 const unprettify = html => {
 	const tDiv = document.createElement('div');
-	tDiv.innerHTML = html
-		.replace(/<\/?ol[^>]*>/g, '')
-		.replace(/<li[^>]*>/g, '')
-		.replace(/<\/li>/g, '^^nl^^')
-		.replace('<br>', '');
-	// console.log(tDiv.innerHTML);
-	const text = tDiv.textContent
-		.replace(/\^\^nl\^\^/g, '\n');
-	// console.log(text);
-	// tDiv.innerHTML = html;
-	// const text = tDiv.textContent;
-	return text;
+	tDiv.innerHTML = html;
+	const lis = tDiv.querySelectorAll('li');
+	// Prefer LI text so we don't add a trailing newline per </li>
+	// (that drifted row/col after Enter + re-prettify).
+	if (lis.length) {
+		return Array.from(lis)
+			.map(li => {
+				const raw = li.textContent || '';
+				// Empty / br-only / leftover nbsp pads → blank line
+				if (!raw || raw === '\xA0' || raw === '\u00a0') return '';
+				return raw.replace(/\u00a0/g, ' ');
+			})
+			.join('\n');
+	}
+	return (tDiv.textContent || '')
+		.replace(/\u00a0/g, ' ');
 };
+
+/** Replace code-prettify's \\xA0 empty-line pad with <br> so col stays 0-only. */
+const clearEmptyLinePads = html => {
+	const wrap = document.createElement('div');
+	wrap.innerHTML = html;
+	Array.from(wrap.querySelectorAll('li')).forEach(li => {
+		const raw = li.textContent || '';
+		if (!raw || raw === '\xA0' || raw === '\u00a0') {
+			li.innerHTML = '<br>';
+		}
+	});
+	return wrap.innerHTML;
+};
+
+/**
+ * code-prettify numberLines() drops a single trailing \\n, so "hello\\n"
+ * renders as one line. Pad so EOF Enter can create a visible blank line.
+ * Also strip \\xA0 empty pads (those create a bogus col 1 on blank lines).
+ */
+const prettifySource = (source, type) => {
+	const src = source || '';
+	const padded = src.endsWith('\n') ? `${src}\n` : src;
+	return clearEmptyLinePads(prettify.prettyPrintOne(padded, type, true));
+};
+
+const insertNewlineAtPos = (source, pos) => {
+	const lines = String(source || '').split('\n');
+	const maxRow = Math.max(0, lines.length - 1);
+	const startRow = Math.max(0, Math.min(pos.start.row, maxRow));
+	const endRow = Math.max(0, Math.min(pos.end.row, maxRow));
+
+	const startLine = lines[startRow] || '';
+	const endLine = lines[endRow] || '';
+	const startCol = Math.max(0, Math.min(pos.start.col, startLine.length));
+	const endCol = Math.max(0, Math.min(pos.end.col, endLine.length));
+
+	const head = lines.slice(0, startRow);
+	const tail = lines.slice(endRow + 1);
+	const before = startLine.slice(0, startCol);
+	const after = endLine.slice(endCol);
+	const nextSource = [].concat(head, [before, after], tail).join('\n');
+	const nextPos = {
+		start: {row: startRow + 1, col: 0},
+		end: {row: startRow + 1, col: 0}
+	};
+	return {source: nextSource, pos: nextPos};
+};
+
+// Debounced input sync must not overwrite structural edits (Enter) —
+// especially right after Backspace, when state.source can still equal the
+// post-Enter string while the live DOM has not been rewritten yet.
+let inputSyncGen = 0;
 
 const sandbox = (source, iframe, context = {}, cb) => {
 	let log = [];
@@ -171,7 +227,7 @@ module.exports = ({
 			},
 			hook: {
 				insert: ({elm}) => {
-					elm.innerHTML = prettify.prettyPrintOne(source || '', type, true);
+					elm.innerHTML = prettifySource(source || '', type);
 					caret.set(elm, pos);
 				},
 				update: (oldVnode, vnode) => {
@@ -180,9 +236,10 @@ module.exports = ({
 						? oldVnode.data.dataset.source
 						: null;
 					const next = source || '';
-					if (prev !== next) {
-						elm.innerHTML = prettify.prettyPrintOne(next, type, true);
-					}
+					// Only rewrite + restore caret when source changed.
+					// Always calling caret.set fights live typing / Enter.
+					if (prev === next) return;
+					elm.innerHTML = prettifySource(next, type);
 					caret.set(elm, pos);
 				}
 			},
@@ -196,62 +253,89 @@ module.exports = ({
 				keydown: ev => {
 					if (ev.key === 'Tab') {
 						ev.preventDefault();
+						inputSyncGen += 1;
 						caret.indent(ev.target, ev.shiftKey === true ? 'left' : 'right');
 						ev.target.dispatchEvent(new Event('input'));
+					} else if (ev.key === 'Enter' && !ev.shiftKey && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+						// Avoid contenteditable's unpredictable Enter (breaks LI structure /
+						// caret.get). Insert newline via source+pos and re-render.
+						ev.preventDefault();
+						inputSyncGen += 1;
+						try {
+							const el = ev.target;
+							const curSource = unprettify(el.innerHTML) || source || '';
+							let cur;
+							try {
+								cur = caret.get(el);
+							} catch (err) {
+								// EOF caret often isn't inside an LI — append after last line
+								const lines = curSource.split('\n');
+								const row = Math.max(0, lines.length - 1);
+								const col = (lines[row] || '').length;
+								cur = {
+									start: {row, col},
+									end: {row, col}
+								};
+							}
+							const next = insertNewlineAtPos(curSource, cur);
+							// Apply DOM immediately: after Backspace, state may already
+							// equal next.source (stale trailing \\n), so the snabbdom
+							// update hook would skip and Enter would look like a no-op.
+							el.innerHTML = prettifySource(next.source, type);
+							caret.set(el, next.pos);
+							change(next.source, next.pos);
+						} catch (err) {
+							console.warn('[codebin] Enter failed', err);
+						}
 					} else if (ev.key === 'z' && ev.ctrlKey) {
 						undo();
 					} else if (ev.key === 'y' && ev.ctrlKey) {
 						redo();
 					}
 				},
-				// Mark dirty without requiring the focus→subscribe dance
-				input: (() => {
-					let timer;
-					return ev => {
-						clearTimeout(timer);
-						timer = setTimeout(() => {
-							const el = ev.target;
-							try {
-								const nextPos = caret.get(el);
-								change(unprettify(el.innerHTML), nextPos);
-							} catch (err) {
-								change(unprettify(el.innerHTML));
-							}
-						}, 300);
-					};
-				})(),
 				focus: ({target}) => [fromEvent(target, 'input')
 					.pipe(
-						map(ev => ev.target),
+						map(ev => ({el: ev.target, gen: inputSyncGen})),
 						takeUntil(fromEvent(target, 'blur')),
 						share()
 					)
 				].map(inputs$ => merge(
 					inputs$.pipe(
 						debounceTime(200),
-						map(el => {
-							const pos = caret.get(el);
+						map(({el, gen}) => {
+							if (gen !== inputSyncGen) return 0;
+							if (!el || !el.isConnected) return 0;
+							let nextPos;
+							try {
+								nextPos = caret.get(el);
+							} catch (err) {
+								return 0;
+							}
+							if (gen !== inputSyncGen) return 0;
 							const sourceCode = unprettify(el.innerHTML);
-							el.innerHTML = prettify.prettyPrintOne(sourceCode, type, true);
-							caret.set(el, pos);
+							el.innerHTML = prettifySource(sourceCode, type);
+							if (gen !== inputSyncGen) return 0;
+							caret.set(el, nextPos);
 							return 1;
 						})
 					),
 					inputs$.pipe(
 						debounceTime(500),
-						map(el => {
-							const pos = caret.get(el);
-							console.log(pos);
-							let sourceCode = unprettify(el.innerHTML);
-							change(sourceCode, pos);
+						map(({el, gen}) => {
+							if (gen !== inputSyncGen) return 0;
+							if (!el || !el.isConnected) return 0;
+							let nextPos;
+							try {
+								nextPos = caret.get(el);
+							} catch (err) {
+								return 0;
+							}
+							if (gen !== inputSyncGen) return 0;
+							change(unprettify(el.innerHTML), nextPos);
 							return 1;
 						})
 					)
-				)).pop().subscribe(),
-				keyup: ev => {
-					const pos = caret.get(ev.target);
-					console.log(pos);
-				}
+				)).pop().subscribe()
 			}
 		}),
 		splitGutter({

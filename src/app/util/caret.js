@@ -1,8 +1,11 @@
 'use strict';
 
-const getParent = (el, tagName) => (el.parentNode.tagName === tagName)
-	? el.parentNode
-	: getParent(el.parentNode, tagName);
+const getParent = (el, tagName) => {
+	if (!el || !el.parentNode || el.parentNode.nodeType !== 1) return null;
+	return (el.parentNode.tagName === tagName)
+		? el.parentNode
+		: getParent(el.parentNode, tagName);
+};
 
 const getElIndex = el => Array.from(el.parentNode.children).indexOf(el);
 
@@ -18,47 +21,97 @@ const getRangePoint = (el, offset) =>
 			{el, offset}
 		);
 
+const lineLen = li =>
+	((li && li.textContent) || '').replace(/\u00a0/g, '').length;
+
+const endOfLastLine = el => {
+	const lis = el.querySelectorAll('li');
+	if (!lis.length) {
+		return {
+			start: {row: 0, col: 0},
+			end: {row: 0, col: 0}
+		};
+	}
+	const row = lis.length - 1;
+	const col = lineLen(lis[row]);
+	return {
+		start: {row, col},
+		end: {row, col}
+	};
+};
+
 const get = el => {
-	let range = window.getSelection().getRangeAt(0);
+	const sel = window.getSelection();
+	if (!sel || sel.rangeCount < 1) {
+		throw new Error('No selection');
+	}
+	let range = sel.getRangeAt(0);
 	// start
 	let startLi = (range.startContainer.tagName === 'LI')
 		? range.startContainer : getParent(range.startContainer, 'LI');
+	let endLi = (range.endContainer.tagName === 'LI')
+		? range.endContainer : getParent(range.endContainer, 'LI');
+
+	// At EOF / after last character, browsers often park the caret on the
+	// OL/CODE instead of the last LI — treat that as end of the last line.
+	if (!startLi || !endLi) {
+		if (el.contains(range.startContainer) || el === range.startContainer) {
+			return endOfLastLine(el);
+		}
+		throw new Error('Caret not inside LI');
+	}
+
 	let startColRange = document.createRange();
 	startColRange.setStart(startLi, 0);
 	startColRange.setEnd(range.startContainer, range.startOffset);
-	// end
-	let endLi = (range.endContainer.tagName === 'LI')
-		? range.endContainer : getParent(range.endContainer, 'LI');
 	let endColRange = document.createRange();
 	endColRange.setStart(endLi, 0);
 	endColRange.setEnd(range.endContainer, range.endOffset);
+
+	let startCol = startColRange.toString().replace(/\u00a0/g, '').length;
+	let endCol = endColRange.toString().replace(/\u00a0/g, '').length;
+
+	// If the range claims the end of an LI but offset sits past content
+	// (or on the padded \xA0), clamp to the real line length.
+	startCol = Math.min(startCol, lineLen(startLi));
+	endCol = Math.min(endCol, lineLen(endLi));
+
 	return {
 		start: {
 			row: getElIndex(startLi),
-			col: startColRange.toString().length
+			col: startCol
 		},
 		end: {
 			row: getElIndex(endLi),
-			col: endColRange.toString().length
+			col: endCol
 		}
 	};
 };
 
 const set = (el, pos) => {
-	const startLi = Array.from(el.querySelectorAll('li'))[pos.start.row];
-	const endLi = Array.from(el.querySelectorAll('li'))[pos.end.row];
+	if (!pos || !pos.start || !el) return;
+	const lis = Array.from(el.querySelectorAll('li'));
+	const startLi = lis[pos.start.row];
+	const endLi = lis[pos.end.row] || startLi;
 	if (!startLi) return;
-	const startRp = getRangePoint(startLi, pos.start.col);
-	const endRp = getRangePoint(endLi, pos.end.col);
-	// console.log(rp);
+
 	let range = document.createRange();
 	try {
-		range.setStart(startRp.el, startRp.offset);
-		range.setEnd(endRp.el, endRp.offset);
+		// Blank lines use <br> (no \\xA0) — only col 0 is valid
+		if (lineLen(startLi) === 0) {
+			range.setStart(startLi, 0);
+			range.collapse(true);
+		} else {
+			const startRp = getRangePoint(startLi, pos.start.col);
+			const endRp = getRangePoint(endLi, (pos.end && pos.end.col) || 0);
+			range.setStart(startRp.el, startRp.offset);
+			range.setEnd(endRp.el, endRp.offset);
+		}
 	} catch (e) {
 		console.log(e);
-		range.setStart(startRp.el, 0);
-		range.setEnd(endRp.el, 0);
+		// Prefer start of the target line over document 0,0
+		range.selectNodeContents(startLi);
+		range.collapse(true);
 	}
 	const sel = window.getSelection();
 	sel.removeAllRanges();
