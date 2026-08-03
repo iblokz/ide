@@ -3,24 +3,358 @@
 # Source from a script that has set SCRIPT_DIR:
 #   source "$SCRIPT_DIR/inc/common.sh"
 
-stub_target() {
+is_darwin() {
+  [ "$(uname -s)" = "Darwin" ]
+}
+
+is_linux() {
+  [ "$(uname -s)" = "Linux" ]
+}
+
+# Soft skip under --all: print reason, return 1.
+skip_target() {
   local target="$1"
-  local dir="$2"
-  mkdir -p "$dir"
-  echo "[stub] $target is not implemented yet (skeleton only)."
-  echo "       Reserved output dir: $dir"
-  echo "       See the IDE stack modernization plan for enabling this target."
+  local reason="$2"
+  echo "[skip] ${target}: ${reason}"
+  return 1
+}
+
+hint_java_install() {
+  echo "Install examples:" >&2
+  echo "  macOS (MacPorts):  sudo port install openjdk21" >&2
+  echo "  macOS (Homebrew):  brew install openjdk@21" >&2
+  echo "  Linux (Debian/Ubuntu):  sudo apt install openjdk-21-jdk" >&2
+}
+
+hint_adb_install() {
+  echo "  macOS (MacPorts):  sudo port install android-platform-tools" >&2
+  echo "  macOS (Homebrew):  brew install android-platform-tools" >&2
+  echo "  Linux (Debian/Ubuntu):  sudo apt install adb" >&2
+}
+
+hint_imagemagick_install() {
+  echo "  macOS (MacPorts):  sudo port install ImageMagick" >&2
+  echo "  macOS (Homebrew):  brew install imagemagick" >&2
+  echo "  Linux (Debian/Ubuntu):  sudo apt install imagemagick" >&2
+}
+
+hint_cocoapods_install() {
+  # No MacPorts cocoapods port. System Ruby (2.6) on Monterey often fails native gems.
+  echo "  Prefer MacPorts Ruby 3.x, then gem:" >&2
+  echo "    sudo port install ruby33 +yjit" >&2
+  echo "    sudo port select --set ruby ruby33" >&2
+  echo "    sudo gem install cocoapods" >&2
+  echo "  Or Homebrew:  brew install cocoapods" >&2
+  echo "  Avoid: sudo gem install with /usr/bin/ruby (Apple Ruby 2.6)" >&2
+}
+
+# Same hints on stdout (for init preflight reports).
+hint_java_install_out() {
+  echo "            macOS (MacPorts):  sudo port install openjdk21"
+  echo "            macOS (Homebrew):  brew install openjdk@21"
+  echo "            Linux (Debian/Ubuntu):  sudo apt install openjdk-21-jdk"
+}
+
+hint_adb_install_out() {
+  echo "            macOS (MacPorts):  sudo port install android-platform-tools"
+  echo "            macOS (Homebrew):  brew install android-platform-tools"
+  echo "            Linux (Debian/Ubuntu):  sudo apt install adb"
+}
+
+hint_imagemagick_install_out() {
+  echo "            macOS (MacPorts):  sudo port install ImageMagick"
+  echo "            macOS (Homebrew):  brew install imagemagick"
+  echo "            Linux (Debian/Ubuntu):  sudo apt install imagemagick"
+}
+
+hint_cocoapods_install_out() {
+  echo "            sudo port install ruby33 && sudo port select --set ruby ruby33"
+  echo "            sudo gem install cocoapods"
+  echo "            or Homebrew: brew install cocoapods"
+  echo "            (no MacPorts cocoapods port; avoid Apple /usr/bin/ruby)"
+}
+
+hint_android_sdk_out() {
+  echo "            Set ANDROID_HOME, or install Android Studio / cmdline-tools"
+  echo "            Typical path: ~/Library/Android/sdk  or  ~/Android/Sdk"
+}
+
+hint_xcode_out() {
+  echo "            Install Xcode from the App Store, then: xcode-select --install"
+}
+
+# Capacitor 5 requires Xcode 14.1+. Cap 6+ needs Xcode 15 (not available on Monterey).
+CAP_IOS_MIN_XCODE_MAJOR=14
+CAP_IOS_MIN_XCODE_MINOR=1
+
+hint_xcode_for_capacitor_ios() {
+  echo "  Capacitor 5 iOS requires Xcode ${CAP_IOS_MIN_XCODE_MAJOR}.${CAP_IOS_MIN_XCODE_MINOR}+ (this host: $(xcodebuild -version 2>/dev/null | head -n1 || echo unknown))." >&2
+  echo "  Install Xcode ${CAP_IOS_MIN_XCODE_MAJOR}.${CAP_IOS_MIN_XCODE_MINOR}+ from the App Store / developer.apple.com." >&2
+}
+
+hint_xcode_for_capacitor_ios_out() {
+  echo "            Capacitor 5 needs Xcode ${CAP_IOS_MIN_XCODE_MAJOR}.${CAP_IOS_MIN_XCODE_MINOR}+ (this project uses Cap 5 for Monterey / Xcode 14.2)."
+}
+
+hint_core_simulator_out() {
+  echo "            sudo xcodebuild -license accept"
+  echo "            sudo xcodebuild -runFirstLaunch"
+  echo "            (or open Xcode once and install additional components)"
+  echo "            Then confirm: ls /Library/Developer/PrivateFrameworks/CoreSimulator.framework"
+}
+
+hint_core_simulator_install() {
+  echo "  sudo xcodebuild -license accept" >&2
+  echo "  sudo xcodebuild -runFirstLaunch" >&2
+  echo "  Or open Xcode once and let it install components." >&2
+  echo "  Confirm: ls /Library/Developer/PrivateFrameworks/CoreSimulator.framework" >&2
+}
+
+has_imagemagick() {
+  command -v convert &>/dev/null
+}
+
+# Returns 0 if a usable JDK is on PATH.
+has_java() {
+  local java_ver
+  java_ver=$(java -version 2>&1) || true
+  if [ -z "$java_ver" ] || echo "$java_ver" | grep -qi "unable to locate a java runtime\|no java runtime present"; then
+    return 1
+  fi
+  return 0
+}
+
+# Locate Android SDK without exiting. Sets ANDROID_HOME / ANDROID_SDK_ROOT on success.
+find_android_sdk() {
+  if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME" ]; then
+    return 0
+  fi
+  if [ -n "${ANDROID_SDK_ROOT:-}" ] && [ -d "$ANDROID_SDK_ROOT" ]; then
+    export ANDROID_HOME="$ANDROID_SDK_ROOT"
+    return 0
+  fi
+  local candidate
+  for candidate in \
+    "$HOME/Android/Sdk" \
+    "$HOME/Library/Android/sdk" \
+    /usr/lib/android-sdk \
+    /opt/local/share/java/android-sdk
+  do
+    if [ -d "$candidate" ]; then
+      export ANDROID_HOME="$candidate"
+      export ANDROID_SDK_ROOT="$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Prefer an existing SDK; Capacitor/Gradle need ANDROID_HOME (or ANDROID_SDK_ROOT).
+ensure_android_sdk() {
+  if find_android_sdk; then
+    return 0
+  fi
+  echo "Android SDK not found. Set ANDROID_HOME or install Android Studio / cmdline-tools." >&2
+  echo "  Typical path: ~/Android/Sdk  or  ~/Library/Android/sdk" >&2
+  exit 1
+}
+
+has_electron_shell() {
+  [ -f "${PROJECT_ROOT:-.}/electron/main.js" ] &&
+    [ -f "${PROJECT_ROOT:-.}/electron/preload.js" ] &&
+    [ -d "${PROJECT_ROOT:-.}/node_modules/electron" ]
+}
+
+has_electron_builder() {
+  [ -d "${PROJECT_ROOT:-.}/node_modules/electron-builder" ] ||
+    [ -x "${PROJECT_ROOT:-.}/node_modules/.bin/electron-builder" ]
+}
+
+has_xcode() {
+  command -v xcodebuild &>/dev/null && xcodebuild -version &>/dev/null
+}
+
+# Major.minor from "Xcode 14.2" → major=14 minor=2. Empty major if unparsable.
+xcode_version_parts() {
+  local ver major minor
+  ver=$(xcodebuild -version 2>/dev/null | head -n1 | awk '{print $2}')
+  major=${ver%%.*}
+  if [ "$ver" = "$major" ]; then
+    minor=0
+  else
+    minor=${ver#*.}
+    minor=${minor%%.*}
+  fi
+  case "$major" in
+    ''|*[!0-9]*) echo "" ;;
+    *)
+      case "$minor" in
+        ''|*[!0-9]*) minor=0 ;;
+      esac
+      echo "$major $minor"
+      ;;
+  esac
+}
+
+xcode_major_version() {
+  local parts
+  parts=$(xcode_version_parts)
+  echo "${parts%% *}"
+}
+
+# Capacitor 5 (@capacitor/ios) needs Xcode 14.1+.
+has_xcode_for_capacitor_ios() {
+  local parts major minor
+  parts=$(xcode_version_parts)
+  [ -n "$parts" ] || return 1
+  major=${parts%% *}
+  minor=${parts#* }
+  if [ "$major" -gt "$CAP_IOS_MIN_XCODE_MAJOR" ]; then
+    return 0
+  fi
+  if [ "$major" -eq "$CAP_IOS_MIN_XCODE_MAJOR" ] && [ "$minor" -ge "$CAP_IOS_MIN_XCODE_MINOR" ]; then
+    return 0
+  fi
+  return 1
+}
+
+# Xcode.app can be present while first-launch packages (CoreSimulator) were never installed.
+has_core_simulator() {
+  [ -d /Library/Developer/PrivateFrameworks/CoreSimulator.framework ]
+}
+
+has_cocoapods() {
+  command -v pod &>/dev/null
+}
+
+# Soft capability checks (return 0 = capable). On failure, print reason to stdout via skip helper caller.
+# Usage: can_app_image || true — sets CAN_*_REASON when failing if you call check_* that echo reason.
+can_app_image() {
+  if ! has_electron_shell; then
+    echo "Electron shell or node_modules/electron missing (pnpm install / ./bin/init.sh --electron)"
+    return 1
+  fi
+  if ! has_electron_builder; then
+    echo "electron-builder not installed (pnpm install)"
+    return 1
+  fi
+  return 0
+}
+
+can_macos() {
+  if ! is_darwin; then
+    echo "macOS DMG packaging requires Darwin"
+    return 1
+  fi
+  if ! has_electron_shell; then
+    echo "Electron shell or node_modules/electron missing (pnpm install / ./bin/init.sh --electron)"
+    return 1
+  fi
+  if ! has_electron_builder; then
+    echo "electron-builder not installed (pnpm install)"
+    return 1
+  fi
+  if ! has_xcode; then
+    echo "xcodebuild not available (install Xcode / Command Line Tools)"
+    return 1
+  fi
+  return 0
+}
+
+# Cap sync / native packaging need ImageMagick for assets — used by build.sh --all.
+can_android() {
+  if ! has_java; then
+    echo "JDK not found (OpenJDK 21 recommended)"
+    return 1
+  fi
+  if ! find_android_sdk; then
+    echo "Android SDK not found (set ANDROID_HOME or install Android Studio / cmdline-tools)"
+    return 1
+  fi
+  if ! has_imagemagick; then
+    echo "ImageMagick 'convert' not found (needed for Cap web/assets build)"
+    return 1
+  fi
+  return 0
+}
+
+# Init only needs the native toolchain (no web build).
+can_android_init() {
+  if ! has_java; then
+    echo "JDK not found (OpenJDK 21 recommended)"
+    return 1
+  fi
+  if ! find_android_sdk; then
+    echo "Android SDK not found (set ANDROID_HOME or install Android Studio / cmdline-tools)"
+    return 1
+  fi
+  return 0
+}
+
+can_ios() {
+  if ! is_darwin; then
+    echo "iOS requires Darwin + Xcode"
+    return 1
+  fi
+  if ! has_xcode; then
+    echo "xcodebuild not available (install Xcode)"
+    return 1
+  fi
+  if ! has_xcode_for_capacitor_ios; then
+    echo "Capacitor 5 needs Xcode ${CAP_IOS_MIN_XCODE_MAJOR}.${CAP_IOS_MIN_XCODE_MINOR}+ (found $(xcodebuild -version 2>/dev/null | head -n1))"
+    return 1
+  fi
+  if ! has_core_simulator; then
+    echo "CoreSimulator.framework missing (run: sudo xcodebuild -runFirstLaunch)"
+    return 1
+  fi
+  if ! has_cocoapods; then
+    echo "CocoaPods (pod) not found"
+    return 1
+  fi
+  if ! has_imagemagick; then
+    echo "ImageMagick 'convert' not found (needed for Cap web/assets build)"
+    return 1
+  fi
+  if [ ! -f "${PROJECT_ROOT:-.}/capacitor.config.json" ] && [ ! -f "${PROJECT_ROOT:-.}/capacitor.config.ts" ]; then
+    echo "Missing capacitor.config.json"
+    return 1
+  fi
+  return 0
+}
+
+can_ios_init() {
+  if ! is_darwin; then
+    echo "iOS requires Darwin + Xcode"
+    return 1
+  fi
+  if ! has_xcode; then
+    echo "xcodebuild not available (install Xcode)"
+    return 1
+  fi
+  if ! has_xcode_for_capacitor_ios; then
+    echo "Capacitor 5 needs Xcode ${CAP_IOS_MIN_XCODE_MAJOR}.${CAP_IOS_MIN_XCODE_MINOR}+ (found $(xcodebuild -version 2>/dev/null | head -n1))"
+    return 1
+  fi
+  if ! has_core_simulator; then
+    echo "CoreSimulator.framework missing (run: sudo xcodebuild -runFirstLaunch)"
+    return 1
+  fi
+  if ! has_cocoapods; then
+    echo "CocoaPods (pod) not found"
+    return 1
+  fi
+  if [ ! -f "${PROJECT_ROOT:-.}/capacitor.config.json" ] && [ ! -f "${PROJECT_ROOT:-.}/capacitor.config.ts" ]; then
+    echo "Missing capacitor.config.json"
+    return 1
+  fi
   return 0
 }
 
 require_java() {
-  local java_ver
-  java_ver=$(java -version 2>&1) || true
-  if [ -z "$java_ver" ] || echo "$java_ver" | grep -qi "unable to locate a java runtime\|no java runtime present"; then
+  if ! has_java; then
     echo "Java (JDK) not found. Android build requires a JDK (OpenJDK 21)." >&2
-    echo "Install examples:" >&2
-    echo "  macOS (Homebrew):  brew install openjdk@21" >&2
-    echo "  Linux (Debian/Ubuntu):  sudo apt install openjdk-21-jdk" >&2
+    hint_java_install
     exit 1
   fi
 }
@@ -28,8 +362,7 @@ require_java() {
 require_adb() {
   if ! command -v adb &>/dev/null; then
     echo "adb not found. Android deploy requires platform-tools." >&2
-    echo "  macOS: brew install android-platform-tools" >&2
-    echo "  Linux: sudo apt install adb" >&2
+    hint_adb_install
     exit 1
   fi
 }
@@ -37,6 +370,213 @@ require_adb() {
 require_pnpm() {
   if ! command -v pnpm &>/dev/null; then
     echo "pnpm not found. Enable via: corepack enable && corepack prepare pnpm@latest --activate" >&2
+    exit 1
+  fi
+}
+
+require_xcode() {
+  if ! has_xcode; then
+    echo "xcodebuild not found or Xcode is not usable." >&2
+    echo "  Install Xcode from the App Store, then: xcode-select --install" >&2
+    exit 1
+  fi
+}
+
+require_xcode_for_capacitor_ios() {
+  require_xcode
+  if ! has_xcode_for_capacitor_ios; then
+    hint_xcode_for_capacitor_ios
+    exit 1
+  fi
+}
+
+require_core_simulator() {
+  if ! has_core_simulator; then
+    echo "CoreSimulator.framework missing — Xcode first-launch packages not installed." >&2
+    hint_core_simulator_install
+    exit 1
+  fi
+}
+
+require_cocoapods() {
+  if ! has_cocoapods; then
+    echo "CocoaPods (pod) not found. iOS requires CocoaPods." >&2
+    hint_cocoapods_install
+    exit 1
+  fi
+}
+
+require_imagemagick() {
+  if ! has_imagemagick; then
+    echo "ImageMagick 'convert' not found (needed for favicons / native assets)." >&2
+    hint_imagemagick_install
+    exit 1
+  fi
+}
+
+# Init preflight: print [ok]/[missing] for OS deps of selected targets, with install hints.
+# Reads DO_* / USE_ALL from caller. Under USE_ALL, clears DO_* for incapable targets.
+# Under explicit flags, exits 1 if any required OS dep for a selected target is missing.
+# Expects PROJECT_ROOT set.
+preflight_os_deps() {
+  local need_imagemagick=0 need_java=0 need_sdk=0 need_xcode=0 need_pods=0 need_simulator=0
+  local hard_fail=0
+
+  [ "${DO_ANDROID:-0}" -eq 1 ] && need_java=1 && need_sdk=1
+  [ "${DO_IOS:-0}" -eq 1 ] && need_xcode=1 && need_pods=1 && need_simulator=1
+  # Packaging later needs assets — alert for desktop packagers (init itself does not build)
+  [ "${DO_MACOS:-0}" -eq 1 ] && need_imagemagick=1 && need_xcode=1
+  [ "${DO_APP_IMAGE:-0}" -eq 1 ] && need_imagemagick=1
+
+  echo ""
+  echo "OS dependencies:"
+
+  # Shared / always useful
+  if command -v pnpm &>/dev/null; then
+    echo "  [ok]      pnpm ($(pnpm -v 2>/dev/null || echo present))"
+  else
+    echo "  [missing] pnpm — corepack enable && corepack prepare pnpm@latest --activate"
+    hard_fail=1
+  fi
+
+  if [ "$need_imagemagick" -eq 1 ]; then
+    if has_imagemagick; then
+      echo "  [ok]      ImageMagick (convert)"
+    else
+      echo "  [missing] ImageMagick (convert) — required before ./bin/build.sh (assets)"
+      hint_imagemagick_install_out
+      echo "            (Electron shell init can continue)"
+    fi
+  fi
+
+  if [ "$need_java" -eq 1 ]; then
+    if has_java; then
+      echo "  [ok]      Java (JDK)"
+    else
+      echo "  [missing] Java (JDK) — Android requires OpenJDK 21"
+      hint_java_install_out
+      hard_fail=1
+    fi
+  fi
+
+  if [ "$need_sdk" -eq 1 ]; then
+    if find_android_sdk; then
+      echo "  [ok]      Android SDK ($ANDROID_HOME)"
+    else
+      echo "  [missing] Android SDK (ANDROID_HOME)"
+      hint_android_sdk_out
+      hard_fail=1
+    fi
+  fi
+
+  if [ "$need_xcode" -eq 1 ]; then
+    if is_darwin && has_xcode; then
+      # iOS (need_simulator) needs Cap 6 / Xcode 15+; macOS packaging can use older Xcode.
+      if [ "$need_simulator" -eq 1 ] && ! has_xcode_for_capacitor_ios; then
+        echo "  [missing] Xcode ${CAP_IOS_MIN_XCODE_MAJOR}.${CAP_IOS_MIN_XCODE_MINOR}+ for Capacitor 5 iOS (found $(xcodebuild -version 2>/dev/null | head -n1))"
+        hint_xcode_for_capacitor_ios_out
+        hard_fail=1
+      else
+        echo "  [ok]      Xcode ($(xcodebuild -version 2>/dev/null | head -n1))"
+      fi
+    elif ! is_darwin; then
+      echo "  [missing] Xcode — requires macOS (Darwin)"
+      hard_fail=1
+    else
+      echo "  [missing] Xcode / xcodebuild"
+      hint_xcode_out
+      hard_fail=1
+    fi
+  fi
+
+  if [ "$need_simulator" -eq 1 ]; then
+    if has_core_simulator; then
+      echo "  [ok]      CoreSimulator"
+    else
+      echo "  [missing] CoreSimulator — Xcode first-launch packages not installed"
+      hint_core_simulator_out
+      hard_fail=1
+    fi
+  fi
+
+  if [ "$need_pods" -eq 1 ]; then
+    if has_cocoapods; then
+      echo "  [ok]      CocoaPods ($(pod --version 2>/dev/null || echo present))"
+    else
+      echo "  [missing] CocoaPods (pod) — required for iOS"
+      hint_cocoapods_install_out
+      hard_fail=1
+    fi
+  fi
+
+  # Optional but useful for android deploy later
+  if [ "${DO_ANDROID:-0}" -eq 1 ]; then
+    if command -v adb &>/dev/null; then
+      echo "  [ok]      adb"
+    else
+      echo "  [alert]   adb not found — Android init can continue; deploy needs platform-tools"
+      hint_adb_install_out
+    fi
+  fi
+
+  echo ""
+
+  if [ "${USE_ALL:-0}" -eq 1 ]; then
+    local reason
+    if [ "${DO_ANDROID:-0}" -eq 1 ]; then
+      if ! reason=$(can_android_init); then
+        skip_target "android" "$reason" || true
+        DO_ANDROID=0
+      fi
+    fi
+    if [ "${DO_IOS:-0}" -eq 1 ]; then
+      if ! reason=$(can_ios_init); then
+        skip_target "ios" "$reason" || true
+        DO_IOS=0
+      fi
+    fi
+    if [ "${DO_MACOS:-0}" -eq 1 ]; then
+      if ! reason=$(can_macos); then
+        skip_target "macos" "$reason" || true
+        DO_MACOS=0
+      fi
+    fi
+    if [ "${DO_APP_IMAGE:-0}" -eq 1 ]; then
+      if ! reason=$(can_app_image); then
+        skip_target "app-image" "$reason" || true
+        DO_APP_IMAGE=0
+      fi
+    fi
+    if ! has_imagemagick; then
+      if [ "${DO_APP_IMAGE:-0}" -eq 1 ] || [ "${DO_MACOS:-0}" -eq 1 ]; then
+        echo "[alert] install ImageMagick before ./bin/build.sh --app-image / --macos (assets)"
+      fi
+    fi
+    return 0
+  fi
+
+  # Explicit targets: fail fast after the full report
+  if [ "$hard_fail" -eq 1 ]; then
+    echo "Fix the missing OS dependencies above, then re-run init." >&2
+    exit 1
+  fi
+}
+
+require_darwin() {
+  local for_what="${1:-this target}"
+  if ! is_darwin; then
+    echo "${for_what} requires macOS (Darwin)." >&2
+    exit 1
+  fi
+}
+
+require_electron_shell() {
+  if [ ! -f "${PROJECT_ROOT:-.}/electron/main.js" ] || [ ! -f "${PROJECT_ROOT:-.}/electron/preload.js" ]; then
+    echo "Missing electron/main.js or preload.js" >&2
+    exit 1
+  fi
+  if [ ! -d "${PROJECT_ROOT:-.}/node_modules/electron" ]; then
+    echo "Electron package missing — run: pnpm install" >&2
     exit 1
   fi
 }
@@ -115,38 +655,108 @@ EOF
   echo "Launcher symlink  → $bin_link"
 }
 
-# Prefer an existing SDK; Capacitor/Gradle need ANDROID_HOME (or ANDROID_SDK_ROOT).
-ensure_android_sdk() {
-  if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME" ]; then
-    return 0
+# Install a macOS .app into ~/Applications (parallel to Linux AppImage → ~/.local).
+# Accepts a .app bundle path or a .dmg (attaches, copies .app, detaches).
+# Usage: install_electron_macos /path/to/App.app|/path/to.dmg
+install_electron_macos() {
+  local artifact="$1"
+  local apps_dir="${HOME}/Applications"
+  local product_name="iBloKz IDE"
+  local dest="${apps_dir}/${product_name}.app"
+  local mount="" app_src="" detach=0
+
+  if [ -z "$artifact" ]; then
+    echo "No macOS artifact path given" >&2
+    return 1
   fi
-  if [ -n "${ANDROID_SDK_ROOT:-}" ] && [ -d "$ANDROID_SDK_ROOT" ]; then
-    export ANDROID_HOME="$ANDROID_SDK_ROOT"
-    return 0
-  fi
-  local candidate
-  for candidate in \
-    "$HOME/Android/Sdk" \
-    "$HOME/Library/Android/sdk" \
-    /usr/lib/android-sdk
-  do
-    if [ -d "$candidate" ]; then
-      export ANDROID_HOME="$candidate"
-      export ANDROID_SDK_ROOT="$candidate"
-      echo "Using Android SDK at $ANDROID_HOME"
-      return 0
+
+  mkdir -p "$apps_dir"
+
+  if [ -d "$artifact" ] && [[ "$artifact" == *.app ]]; then
+    app_src="$artifact"
+  elif [ -f "$artifact" ] && [[ "$artifact" == *.dmg ]]; then
+    echo "Attaching DMG: $artifact"
+    # -nobrowse avoids Finder popups; parse mount point from hdiutil output
+    mount=$(hdiutil attach -nobrowse -readonly "$artifact" | awk 'END {print $NF}')
+    if [ -z "$mount" ] || [ ! -d "$mount" ]; then
+      echo "Failed to attach DMG" >&2
+      return 1
     fi
-  done
-  echo "Android SDK not found. Set ANDROID_HOME or install Android Studio / cmdline-tools." >&2
-  echo "  Typical path: ~/Android/Sdk" >&2
-  exit 1
+    detach=1
+    app_src=$(find "$mount" -maxdepth 2 -name '*.app' -type d | head -n1 || true)
+    if [ -z "$app_src" ]; then
+      echo "No .app found inside DMG" >&2
+      hdiutil detach "$mount" -quiet 2>/dev/null || true
+      return 1
+    fi
+  else
+    echo "Unrecognized macOS artifact: $artifact" >&2
+    return 1
+  fi
+
+  # Prefer product name destination so upgrades replace a stable path
+  local app_basename
+  app_basename="$(basename "$app_src")"
+  if [ "$app_basename" != "${product_name}.app" ]; then
+    dest="${apps_dir}/${app_basename}"
+  fi
+
+  echo "Installing $(basename "$app_src") → $dest"
+  rm -rf "$dest"
+  # ditto preserves resource forks / signing metadata better than cp -R
+  if command -v ditto &>/dev/null; then
+    ditto "$app_src" "$dest"
+  else
+    cp -R "$app_src" "$dest"
+  fi
+
+  if [ "$detach" -eq 1 ] && [ -n "$mount" ]; then
+    hdiutil detach "$mount" -quiet 2>/dev/null || hdiutil detach "$mount" -force -quiet 2>/dev/null || true
+  fi
+
+  # Local unsigned builds: clear quarantine so Gatekeeper does not block first launch
+  if command -v xattr &>/dev/null; then
+    xattr -dr com.apple.quarantine "$dest" 2>/dev/null || true
+  fi
+
+  echo "Installed → $dest"
+  return 0
 }
 
 # Prefer a Wi‑Fi/Ethernet LAN IPv4 (skip VPN/docker/loopback).
 detect_lan_ip() {
   local ip="" iface=""
-  # 1) Explicit override already handled by caller via CAP_DEV_HOST
-  # 2) Common host NICs first
+
+  # Darwin: prefer common Wi‑Fi/Ethernet interfaces
+  if is_darwin; then
+    for iface in en0 en1 en2 en3; do
+      ip=$(ipconfig getifaddr "$iface" 2>/dev/null || true)
+      if [ -n "$ip" ] && [[ "$ip" != 127.* ]]; then
+        echo "$ip"
+        return 0
+      fi
+    done
+    if command -v ifconfig &>/dev/null; then
+      ip=$(ifconfig 2>/dev/null | awk '
+        /^[a-z]/ { iface=$1; sub(/:$/, "", iface) }
+        iface ~ /^(lo|bridge|awdl|llw|utun|gif|stf)/ { next }
+        /inet / {
+          split($2, a, " ");
+          ip=a[1];
+          if (ip ~ /^127\./) next;
+          if (ip ~ /^10\./ || ip ~ /^192\.168\./ || ip ~ /^172\.(1[7-9]|2[0-9]|3[0-1])\./) {
+            print ip;
+            exit
+          }
+        }')
+      if [ -n "$ip" ]; then
+        echo "$ip"
+        return 0
+      fi
+    fi
+  fi
+
+  # Linux: Common host NICs first
   if command -v ip &>/dev/null; then
     for iface in wlan0 wlp wlp0s wlp1s wlp2s eth0 enp ens eno; do
       ip=$(ip -4 -o addr show 2>/dev/null | awk -v re="^[^ ]+ +${iface}" '
@@ -169,7 +779,7 @@ detect_lan_ip() {
         return 0
       fi
     done
-    # 3) Any global private IPv4 not on tun/wg/docker/br/veth
+    # Any global private IPv4 not on tun/wg/docker/br/veth
     ip=$(ip -4 -o addr show scope global 2>/dev/null | awk '
       $2 ~ /^(lo|docker|br-|veth|tun|wg|tailscale|zt)/ { next }
       {
@@ -223,4 +833,15 @@ else:
     print(f'Warning: could not patch {path} for cleartext', file=sys.stderr)
     sys.exit(1)
 PY
+}
+
+# Resolve Xcode entry for Capacitor ios/App (workspace vs project).
+ios_xcode_entry() {
+  if [ -d ios/App/App.xcworkspace ]; then
+    echo "-workspace ios/App/App.xcworkspace"
+  elif [ -d ios/App/App.xcodeproj ]; then
+    echo "-project ios/App/App.xcodeproj"
+  else
+    return 1
+  fi
 }

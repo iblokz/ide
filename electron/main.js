@@ -35,6 +35,16 @@ const loadAppIcon = () => {
 		if (ico && !ico.isEmpty()) return ico;
 	}
 
+	// macOS dock / Linux: prefer a single high-res PNG (multi-rep is flaky for dock).
+	if (process.platform === 'darwin' || process.platform === 'linux') {
+		for (const size of [512, 256, 128, 1024]) {
+			const filePath = path.join(ICONS_DIR, `icon-${size}.png`);
+			if (!fs.existsSync(filePath)) continue;
+			const img = nativeImage.createFromPath(filePath);
+			if (img && !img.isEmpty()) return img;
+		}
+	}
+
 	const image = nativeImage.createEmpty();
 	for (const size of ICON_SIZES) {
 		const filePath = path.join(ICONS_DIR, `icon-${size}.png`);
@@ -54,7 +64,8 @@ const resolveStartUrl = () => {
 	if (!app.isPackaged) {
 		return {type: 'url', value: DEV_URL};
 	}
-	const indexHtml = path.join(__dirname, '..', 'dist', 'index.html');
+	// Packaged: prefer app root (asar) so paths stay correct under electron/
+	const indexHtml = path.join(app.getAppPath(), 'dist', 'index.html');
 	return {type: 'file', value: indexHtml};
 };
 
@@ -160,7 +171,13 @@ const createWindow = () => {
 	});
 
 	const start = resolveStartUrl();
+	browserWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+		console.error('did-fail-load', {code, desc, url, start});
+	});
 	if (start.type === 'file') {
+		if (!fs.existsSync(start.value)) {
+			console.error('Packaged index missing:', start.value);
+		}
 		browserWindow.loadFile(start.value).catch(err => {
 			console.error('Failed to load', start.value, err);
 		});
@@ -207,6 +224,12 @@ app.whenReady().then(() => {
 		return true;
 	});
 	ipcMain.handle('close', () => requestClose());
+
+	const icon = loadAppIcon();
+	// Dev / unpackaged: BrowserWindow.icon does not set the macOS Dock icon.
+	if (icon && process.platform === 'darwin' && app.dock) {
+		app.dock.setIcon(icon);
+	}
 
 	win = createWindow();
 

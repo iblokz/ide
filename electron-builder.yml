@@ -29,7 +29,11 @@ mac:
   target:
     - dmg
   category: public.app-category.developer-tools
-  icon: build/assets/icons/icon-512.png
+  # Prefer iconutil-generated .icns (assets.sh); PNG fallback is electron-builder conversion.
+  icon: build/assets/icons/icon.icns
+  # Electron 33 requires macOS 11+ (Big Sur). Yosemite / older hosts are out of range.
+  minimumSystemVersion: '11.0'
+  artifactName: ${name}-${version}-macos-${arch}.${ext}
 
 win:
   target:

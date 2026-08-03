@@ -4,9 +4,9 @@
 # Usage:
 #   ./bin/start.sh              # web (Parcel)
 #   ./bin/start.sh --electron
+#   ./bin/start.sh --macos      # same as --electron (Electron shell)
 #   ./bin/start.sh --android    # Cap sync + run on device/emulator
-#   ./bin/start.sh --macos      # skeleton
-#   ./bin/start.sh --ios        # skeleton
+#   ./bin/start.sh --ios        # Cap sync + run on simulator/device
 #
 set -euo pipefail
 
@@ -20,22 +20,22 @@ TARGET=web
 PARCEL_PORT=1234
 
 usage() {
-  echo "Usage: $0 [--electron|--android|--macos|--ios] [--help]"
+  echo "Usage: $0 [--electron|--macos|--android|--ios] [--help]"
   echo ""
   echo "  (no flags)  Web: Parcel at http://127.0.0.1:${PARCEL_PORT}"
   echo "  --electron  Parcel + Electron shell"
+  echo "  --macos     Same as --electron (desktop shell on macOS)"
   echo "  --android   Parcel on 0.0.0.0 + Cap WebView → http://<machine-ip>:${PARCEL_PORT}"
-  echo "  --macos     Skeleton only"
-  echo "  --ios       Skeleton only"
+  echo "  --ios       Parcel on 0.0.0.0 + Cap iOS live-reload"
   echo ""
-  echo "  Android: CAP_DEV_HOST=<ip>  override auto-detected machine LAN IP"
+  echo "  Mobile: CAP_DEV_HOST=<ip>  override auto-detected machine LAN IP"
 }
 
 for arg in "$@"; do
   case "$arg" in
     --electron) TARGET=electron ;;
+    --macos)    TARGET=electron ;;
     --android)  TARGET=android ;;
-    --macos)    TARGET=macos ;;
     --ios)      TARGET=ios ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; usage >&2; exit 1 ;;
@@ -80,37 +80,92 @@ stop_parcel() {
   pkill -f "parcel --port ${PARCEL_PORT}" 2>/dev/null || true
 }
 
+start_electron_shell() {
+  require_electron_shell
+  if [ ! -x node_modules/.bin/electron ] && [ ! -f node_modules/electron/cli.js ]; then
+    echo "Electron not installed — run: pnpm install" >&2
+    exit 1
+  fi
+  echo "Starting Electron (Parcel + shell)..."
+  stop_parcel
+  sleep 0.3
+  pnpm exec parcel --port "$PARCEL_PORT" &
+  PARCEL_PID=$!
+  trap stop_parcel EXIT INT TERM
+  if ! wait_for_port "$PARCEL_PORT"; then
+    stop_parcel
+    exit 1
+  fi
+  pnpm exec electron .
+}
+
+start_cap_live_reload() {
+  local platform="$1" # android | ios
+
+  if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
+    echo "Missing capacitor.config.json — run: ./bin/init.sh --${platform}" >&2
+    exit 1
+  fi
+
+  # Native shell + plugin sync (webDir must exist; HMR serves from Parcel)
+  if [ ! -d dist ] || [ ! -f dist/index.html ]; then
+    echo "No dist/ yet — running one-time build:cap for Cap webDir..."
+    pnpm run build:cap
+  fi
+  if [ ! -d "$platform" ]; then
+    pnpm exec cap add "$platform"
+  fi
+  pnpm exec cap sync "$platform"
+  if [ "$platform" = android ]; then
+    ensure_android_cleartext
+    "$SCRIPT_DIR/assets.sh" --sync-android
+  fi
+  if [ "$platform" = ios ] && [ -f ios/App/Podfile ] && [ ! -d ios/App/Pods ]; then
+    (cd ios/App && pod install)
+  fi
+
+  if [ -n "${CAP_DEV_HOST:-}" ]; then
+    DEV_HOST="$CAP_DEV_HOST"
+  else
+    DEV_HOST="$(detect_lan_ip || true)"
+  fi
+  if [ -z "$DEV_HOST" ]; then
+    echo "Could not detect machine LAN IP. Set CAP_DEV_HOST=<ip> and retry." >&2
+    exit 1
+  fi
+  echo "Cap / HMR host: ${DEV_HOST}:${PARCEL_PORT} (override with CAP_DEV_HOST)"
+
+  echo "Starting Parcel on 0.0.0.0:${PARCEL_PORT} (HMR host ${DEV_HOST})..."
+  stop_parcel
+  sleep 0.3
+  pnpm exec parcel \
+    --host 0.0.0.0 \
+    --port "$PARCEL_PORT" \
+    --hmr-host "$DEV_HOST" \
+    --hmr-port "$PARCEL_PORT" &
+  PARCEL_PID=$!
+  trap stop_parcel EXIT INT TERM
+  if ! wait_for_port "$PARCEL_PORT" 127.0.0.1; then
+    stop_parcel
+    exit 1
+  fi
+
+  echo "Starting ${platform} (Cap → http://${DEV_HOST}:${PARCEL_PORT})..."
+  pnpm exec cap run "$platform" \
+    --live-reload \
+    --host "$DEV_HOST" \
+    --port "$PARCEL_PORT"
+}
+
 case "$TARGET" in
   web)
     echo "Starting web (Parcel on 0.0.0.0:${PARCEL_PORT})..."
     exec pnpm exec parcel --host 0.0.0.0 --port "$PARCEL_PORT"
     ;;
   electron)
-    if [ ! -f electron/main.js ] || [ ! -f electron/preload.js ]; then
-      echo "Missing electron/ shell — run: ./bin/init.sh --electron" >&2
-      exit 1
-    fi
-    if [ ! -x node_modules/.bin/electron ] && [ ! -f node_modules/electron/cli.js ]; then
-      echo "Electron not installed — run: pnpm install" >&2
-      exit 1
-    fi
-    echo "Starting Electron (Parcel + shell)..."
-    stop_parcel
-    sleep 0.3
-    pnpm exec parcel --port "$PARCEL_PORT" &
-    PARCEL_PID=$!
-    trap stop_parcel EXIT INT TERM
-    if ! wait_for_port "$PARCEL_PORT"; then
-      stop_parcel
-      exit 1
-    fi
-    pnpm exec electron .
+    start_electron_shell
     ;;
   android)
-    if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
-      stub_target "android (Capacitor not configured)" "artifacts/android"
-      exit 0
-    fi
     require_java
     ensure_android_sdk
     require_adb
@@ -127,61 +182,17 @@ case "$TARGET" in
       echo "  ./bin/build.sh --android && ./bin/deploy.sh --android" >&2
       exit 1
     fi
-
-    # Native shell + plugin sync (webDir must exist; HMR serves from Parcel)
-    if [ ! -d dist ] || [ ! -f dist/index.html ]; then
-      echo "No dist/ yet — running one-time build:cap for Cap webDir..."
-      pnpm run build:cap
+    # Emulator-only → special alias for the host loopback
+    if [ -z "${CAP_DEV_HOST:-}" ] && [ -z "$DEVICES" ]; then
+      export CAP_DEV_HOST=10.0.2.2
     fi
-    if [ ! -d android ]; then
-      pnpm exec cap add android
-    fi
-    pnpm exec cap sync android
-    ensure_android_cleartext
-    echo "Installing Android launcher icons..."
-    "$SCRIPT_DIR/assets.sh" --sync-android
-
-    # Cap --live-reload sets server.url to the host Parcel URL (machine LAN IP).
-    # Device and PC must be on the same network. Override with CAP_DEV_HOST if needed.
-    if [ -n "${CAP_DEV_HOST:-}" ]; then
-      DEV_HOST="$CAP_DEV_HOST"
-    elif [ -n "$DEVICES" ]; then
-      DEV_HOST="$(detect_lan_ip || true)"
-    else
-      # Emulator → special alias for the host loopback
-      DEV_HOST=10.0.2.2
-    fi
-    if [ -z "$DEV_HOST" ]; then
-      echo "Could not detect machine LAN IP. Set CAP_DEV_HOST=<ip> and retry." >&2
-      exit 1
-    fi
-    echo "Cap / HMR host: ${DEV_HOST}:${PARCEL_PORT} (override with CAP_DEV_HOST)"
-
-    echo "Starting Parcel on 0.0.0.0:${PARCEL_PORT} (HMR host ${DEV_HOST})..."
-    stop_parcel
-    sleep 0.3
-    pnpm exec parcel \
-      --host 0.0.0.0 \
-      --port "$PARCEL_PORT" \
-      --hmr-host "$DEV_HOST" \
-      --hmr-port "$PARCEL_PORT" &
-    PARCEL_PID=$!
-    trap stop_parcel EXIT INT TERM
-    if ! wait_for_port "$PARCEL_PORT" 127.0.0.1; then
-      stop_parcel
-      exit 1
-    fi
-
-    echo "Starting Android (Cap → http://${DEV_HOST}:${PARCEL_PORT})..."
-    pnpm exec cap run android \
-      --live-reload \
-      --host "$DEV_HOST" \
-      --port "$PARCEL_PORT"
-    ;;
-  macos)
-    stub_target "macos" "artifacts/macos"
+    start_cap_live_reload android
     ;;
   ios)
-    stub_target "ios" "artifacts/ios"
+    require_darwin "iOS start"
+    require_xcode_for_capacitor_ios
+    require_core_simulator
+    require_cocoapods
+    start_cap_live_reload ios
     ;;
 esac

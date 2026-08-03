@@ -11,6 +11,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2026-08-04
+
+### Added
+
+- macOS Electron DMG packaging (`./bin/build.sh --macos`), unsigned; run target macOS 11+ (Electron 33)
+- Capacitor iOS init/start/build/deploy (Simulator zip; unsigned CI smoke)
+- Capability-gated `--all` on init/build/deploy (skip missing toolchains with a message)
+- Init prints an upfront OS-dependency report (`[ok]` / `[missing]`) with MacPorts/Homebrew/apt install hints
+- Init is scaffold-only: `cap add` android/ios if missing; no `build:cap` / `dist/` (build/start create those)
+- Dev Electron sets the macOS Dock icon via `app.dock.setIcon` (BrowserWindow `icon` is ignored there)
+- `deploy --macos` installs `.app` (or from `.dmg`) into `~/Applications`, parallel to AppImage → `~/.local`
+- Deploy installs only (no start fallback); prompts to build missing artifacts on a TTY (or pass `--build`)
+- Generate macOS `icon.icns` via `iconutil` for Spotlight/Finder (avoid broken electron-builder PNG→icns)
+- Init detects missing Xcode CoreSimulator (first-launch packages) for iOS and prints `xcodebuild -runFirstLaunch` hints
+- iOS capability check requires Xcode 14.1+ (Capacitor 5)
+- MacPorts-first install hints for JDK, adb, ImageMagick, CocoaPods
+- CI: universal macOS DMG + iOS Simulator zip on `macos-latest`
+
+### Changed
+
+- Capacitor stack pinned to **5.7.x** (Xcode 14.1+) so Monterey / Xcode 14.2 can build and deploy iOS Simulator locally
+- iOS deploy extracts simulator UDIDs by UUID (names like `iPhone SE (3rd generation)` broke `awk` on parentheses)
+- Linux AppImage packaging flag renamed to `--app-image` (`--electron` remains for the desktop shell; deprecated as a packaging alias)
+- `dist:electron` → `dist:app-image`; added `dist:macos`, `start:macos` / `start:ios`, `init:macos` / `init:ios`
+
+### Fixed
+
+- Packaged Electron white screen: clear Parcel cache before `public-url ./` builds (avoid stale absolute `/` asset URLs)
+
+---
+
 ## [1.6.1] - 2026-07-26
 
 ### Added
@@ -160,7 +191,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.6.1...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/iblokz/ide/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/iblokz/ide/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/iblokz/ide/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/iblokz/ide/compare/v1.5.0...v1.5.1

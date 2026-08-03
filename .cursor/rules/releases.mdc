@@ -7,7 +7,7 @@ alwaysApply: true
 
 Full detail: [docs/RELEASE.md](docs/RELEASE.md).
 
-AppImage / APK filenames use **`package.json` `version`**, not the git tag. Never tag a commit that still has the previous version.
+AppImage / APK / macOS DMG / iOS Simulator zip filenames use **`package.json` `version`**, not the git tag. Never tag a commit that still has the previous version.
 
 ## Agent workflow
 
@@ -40,4 +40,6 @@ git push origin "v$(node -p "require('./package.json').version")"
 ## Expected artifacts
 
 `iblokz-ide-<version>-linux-<arch>.AppImage`  
-`iblokz-ide-<version>-android-debug.apk`
+`iblokz-ide-<version>-android-debug.apk`  
+`iblokz-ide-<version>-macos-<arch>.dmg`  
+`iblokz-ide-<version>-ios-simulator.app.zip`

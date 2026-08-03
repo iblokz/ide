@@ -12,6 +12,10 @@
   "globals": {
     "module": "readonly"
   },
-  "rules": {},
+  "plugins": ["iblokz-style"],
+  "rules": {
+    "iblokz-style/prefer-const-bindings": "warn",
+    "iblokz-style/no-mutate-const": "warn"
+  },
   "ignorePatterns": ["node_modules/"]
 }

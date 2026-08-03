@@ -2,7 +2,7 @@
 
 SemVer + [Keep a Changelog](../CHANGELOG.md), same habit as iblokz libs / world-metronome. No `standard-version` / semantic-release.
 
-**Important:** AppImage and APK filenames use **`package.json` `version`**, not the git tag string. Always bump `package.json` **before** the release commit, then tag **that** commit. Tagging first (or tagging a commit that still has the old version) produces mismatched assets (e.g. tag `v1.6.0` shipping `iblokz-ide-1.5.1-*.AppImage`).
+**Important:** Native artifact filenames use **`package.json` `version`**, not the git tag string. Always bump `package.json` **before** the release commit, then tag **that** commit. Tagging first (or tagging a commit that still has the old version) produces mismatched assets (e.g. tag `v1.6.0` shipping `iblokz-ide-1.5.1-*.AppImage`).
 
 ## Scheme
 
@@ -69,14 +69,18 @@ git push origin master
 git push origin "v$(node -p "require('./package.json').version")"
 ```
 
-Pushing `v*` runs [.github/workflows/native.yml](../.github/workflows/native.yml): builds AppImage + APK and attaches them to the GitHub Release.
+Pushing `v*` runs [.github/workflows/native.yml](../.github/workflows/native.yml): builds AppImage, Android APK, universal macOS DMG, and iOS Simulator zip, then attaches them to the GitHub Release.
 
 Expected artifact names:
 
 ```text
 iblokz-ide-<version>-linux-<arch>.AppImage
 iblokz-ide-<version>-android-debug.apk
+iblokz-ide-<version>-macos-<arch>.dmg
+iblokz-ide-<version>-ios-simulator.app.zip
 ```
+
+(`macos` arch may be `universal`, `x64`, or `arm64` depending on the build.)
 
 Web/Pages deploy stays on push to `main`/`master` ([deploy.yml](../.github/workflows/deploy.yml)).
 

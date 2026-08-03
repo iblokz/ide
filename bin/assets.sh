@@ -167,7 +167,10 @@ if [ "$FORCE" -eq 0 ] && assets_fresh; then
 fi
 
 if ! command -v convert &>/dev/null; then
-  echo "ImageMagick 'convert' is required (e.g. sudo apt install imagemagick)" >&2
+  echo "ImageMagick 'convert' is required." >&2
+  echo "  macOS (MacPorts):  sudo port install ImageMagick" >&2
+  echo "  macOS (Homebrew):  brew install imagemagick" >&2
+  echo "  Linux (Debian/Ubuntu):  sudo apt install imagemagick" >&2
   exit 1
 fi
 
@@ -213,6 +216,28 @@ if [ -f "$SOURCE_ICON" ]; then
     "$TMP_DIR/icons/icon.ico"
   echo "  icons/icon.ico"
   cp "$TMP_DIR/icons/icon.ico" "$TMP_DIR/favicon.ico"
+
+  # Proper .icns for macOS (avoids electron-builder PNG→icns Spotlight corruption)
+  if [ "$(uname -s)" = "Darwin" ] && command -v iconutil &>/dev/null; then
+    ICONSET="$TMP_DIR/icons/app.iconset"
+    mkdir -p "$ICONSET"
+    cp "$TMP_DIR/icons/icon-16.png"   "$ICONSET/icon_16x16.png"
+    cp "$TMP_DIR/icons/icon-32.png"   "$ICONSET/icon_16x16@2x.png"
+    cp "$TMP_DIR/icons/icon-32.png"   "$ICONSET/icon_32x32.png"
+    cp "$TMP_DIR/icons/icon-64.png"   "$ICONSET/icon_32x32@2x.png"
+    cp "$TMP_DIR/icons/icon-128.png"  "$ICONSET/icon_128x128.png"
+    cp "$TMP_DIR/icons/icon-256.png"  "$ICONSET/icon_128x128@2x.png"
+    cp "$TMP_DIR/icons/icon-256.png"  "$ICONSET/icon_256x256.png"
+    cp "$TMP_DIR/icons/icon-512.png"  "$ICONSET/icon_256x256@2x.png"
+    cp "$TMP_DIR/icons/icon-512.png"  "$ICONSET/icon_512x512.png"
+    cp "$TMP_DIR/icons/icon-1024.png" "$ICONSET/icon_512x512@2x.png"
+    if iconutil -c icns "$ICONSET" -o "$TMP_DIR/icons/icon.icns"; then
+      echo "  icons/icon.icns"
+    else
+      echo "Warning: iconutil failed — mac packaging may use electron-builder PNG conversion" >&2
+    fi
+    rm -rf "$ICONSET"
+  fi
 
   cp "$TMP_DIR/icons/icon-16.png" "$TMP_DIR/favicon-16.png"
   cp "$TMP_DIR/icons/icon-32.png" "$TMP_DIR/favicon-32.png"
