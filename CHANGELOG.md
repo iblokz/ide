@@ -5,11 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### (none)
+
+---
+
 ## [1.7.1] - 2026-08-04
 
 ### Fixed
 
-- Android Cap 5 / JDK 21: also bump AGP to 8.2.2 after `cap add` (AGP 8.0 `androidJdkImage` / jlink failure)
+- Android Cap 5 / JDK 21: bump Gradle wrapper to 8.5 after `cap add` (template 8.0.2 cannot run on Java 21)
+- Android Cap 5 / JDK 21: bump AGP to 8.2.2 after `cap add` (AGP 8.0 `androidJdkImage` / jlink failure)
 
 ---
 
