@@ -835,6 +835,67 @@ else:
 PY
 }
 
+# Cap 5 template ships Gradle 8.0.2 + AGP 8.0.0:
+# - Gradle 8.0.x cannot *run* on JDK 21 (class file major 65)
+# - AGP 8.0.x fails JdkImageTransform/jlink on JDK 21 (androidJdkImage)
+# Bump both so CI (Temurin 21) and MacPorts openjdk21 keep working.
+ANDROID_GRADLE_WRAPPER_TARGET=8.5
+ANDROID_AGP_TARGET=8.2.2
+
+ensure_android_gradle_for_jdk() {
+  local props="android/gradle/wrapper/gradle-wrapper.properties"
+  local root_gradle="android/build.gradle"
+  if [ -f "$props" ]; then
+    python3 - "$props" "$ANDROID_GRADLE_WRAPPER_TARGET" <<'PY'
+import re, sys
+path, target = sys.argv[1], sys.argv[2]
+text = open(path, encoding='utf-8').read()
+m = re.search(r'gradle-(\d+)\.(\d+)(?:\.(\d+))?-all\.zip', text)
+if not m:
+    sys.exit(0)
+major, minor = int(m.group(1)), int(m.group(2))
+# Need Gradle 8.5+ to execute on JDK 21
+if major > 8 or (major == 8 and minor >= 5):
+    sys.exit(0)
+new = re.sub(
+    r'gradle-\d+\.\d+(?:\.\d+)?-all\.zip',
+    f'gradle-{target}-all.zip',
+    text,
+    count=1,
+)
+if new != text:
+    open(path, 'w', encoding='utf-8').write(new)
+    print(f'Bumped Android Gradle wrapper to {target} (JDK 21 needs Gradle 8.5+)')
+PY
+  fi
+  if [ -f "$root_gradle" ]; then
+    python3 - "$root_gradle" "$ANDROID_AGP_TARGET" <<'PY'
+import re, sys
+path, target = sys.argv[1], sys.argv[2]
+text = open(path, encoding='utf-8').read()
+m = re.search(
+    r"classpath\s+['\"]com\.android\.tools\.build:gradle:(\d+)\.(\d+)\.(\d+)['\"]",
+    text,
+)
+if not m:
+    sys.exit(0)
+major, minor = int(m.group(1)), int(m.group(2))
+# AGP 8.2+ avoids JDK 21 jlink/androidJdkImage failures with Cap 5 templates
+if major > 8 or (major == 8 and minor >= 2):
+    sys.exit(0)
+new, n = re.subn(
+    r"(classpath\s+['\"]com\.android\.tools\.build:gradle:)\d+\.\d+\.\d+(['\"])",
+    rf"\g<1>{target}\2",
+    text,
+    count=1,
+)
+if n:
+    open(path, 'w', encoding='utf-8').write(new)
+    print(f'Bumped Android Gradle Plugin to {target} (JDK 21 needs AGP 8.2+)')
+PY
+  fi
+}
+
 # Resolve Xcode entry for Capacitor ios/App (workspace vs project).
 ios_xcode_entry() {
   if [ -d ios/App/App.xcworkspace ]; then

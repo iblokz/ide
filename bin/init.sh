@@ -139,6 +139,7 @@ if [ "$DO_ANDROID" -eq 1 ]; then
     echo "Android platform already present (android/)."
   fi
   ensure_android_cleartext
+  ensure_android_gradle_for_jdk
   echo "Android ready (no web build — run ./bin/build.sh --android or ./bin/start.sh --android)."
   RAN_ANY=1
 fi

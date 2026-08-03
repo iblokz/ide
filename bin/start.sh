@@ -118,6 +118,7 @@ start_cap_live_reload() {
   pnpm exec cap sync "$platform"
   if [ "$platform" = android ]; then
     ensure_android_cleartext
+    ensure_android_gradle_for_jdk
     "$SCRIPT_DIR/assets.sh" --sync-android
   fi
   if [ "$platform" = ios ] && [ -f ios/App/Podfile ] && [ ! -d ios/App/Pods ]; then

@@ -169,6 +169,7 @@ if [ "$DO_ANDROID" -eq 1 ]; then
   fi
   pnpm exec cap sync android
   ensure_android_cleartext
+  ensure_android_gradle_for_jdk
   echo "Installing Android launcher icons..."
   "$SCRIPT_DIR/assets.sh" --sync-android
   (cd android && ./gradlew assembleDebug)
