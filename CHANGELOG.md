@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.1] - 2026-08-16
+
+### Fixed
+
+- Capacitor packaged Android/iOS: keep `<head>` in Parcel’s minified `index.html` so the native bridge can inject (Open Project / plugins were dead in build+deploy while live-reload worked)
+
+---
+
 ## [1.8.0] - 2026-08-16
 
 ### Changed
@@ -215,7 +223,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/iblokz/ide/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/iblokz/ide/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/iblokz/ide/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/iblokz/ide/compare/v1.6.1...v1.7.0

@@ -261,6 +261,30 @@ can_macos() {
   return 0
 }
 
+# Cap Android/iOS inject the bridge by splicing after <head> or before </head>.
+# Parcel's HTML minify drops optional <head>/<body>, so packaged apps log
+# "Unable to inject Capacitor, Plugins won't work" and Open Project falls back
+# to the inert web <input> path. Live-reload serves unminified HTML, so it works.
+ensure_capacitor_index_html() {
+  local html="${1:-dist/index.html}"
+  [ -f "$html" ] || return 0
+  python3 - "$html" <<'PY'
+import re, sys
+path = sys.argv[1]
+text = open(path, encoding='utf-8').read()
+if '<head>' in text or '</head>' in text:
+    sys.exit(0)
+m = re.match(r'(<!DOCTYPE\s+html>\s*<html\b[^>]*>)(.*)\Z', text, re.I | re.S)
+if not m:
+    print(f'Warning: could not patch {path} for Capacitor </head> inject', file=sys.stderr)
+    sys.exit(0)
+open(path, 'w', encoding='utf-8').write(
+    f'{m.group(1)}<head>{m.group(2)}</head><body></body>'
+)
+print(f'Patched {path} for Capacitor bridge inject (<head>)')
+PY
+}
+
 # Cap sync / native packaging need ImageMagick for assets — used by build.sh --all.
 can_android() {
   if ! has_java; then
