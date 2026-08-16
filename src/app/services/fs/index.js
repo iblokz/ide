@@ -5,28 +5,42 @@ const web = require('./web');
 const electron = require('./electron');
 const capacitor = require('./capacitor');
 
+/**
+ * Keep one instance per backend so Cap scoped-folder session state survives
+ * re-detection. Prefer Electron → Capacitor (native) → web → memory, and
+ * re-check Cap on every getFs(): the bridge may not be ready at first module eval.
+ */
+const backends = {
+	electron: null,
+	capacitor: null,
+	web: null,
+	memory: null
+};
+
 const detect = () => {
-	const electronFs = electron.create();
-	if (electronFs.canOpenFolder) return electronFs;
+	if (!backends.electron) backends.electron = electron.create();
+	if (backends.electron.canOpenFolder) return backends.electron;
 
-	const capFs = capacitor.create();
-	if (capFs.canOpenFolder) return capFs;
+	if (!backends.capacitor) backends.capacitor = capacitor.create();
+	if (backends.capacitor.canOpenFolder) return backends.capacitor;
 
-	if (typeof window !== 'undefined') return web.create();
+	if (typeof window !== 'undefined') {
+		if (!backends.web) backends.web = web.create();
+		return backends.web;
+	}
 
-	return memory.create();
+	if (!backends.memory) backends.memory = memory.create();
+	return backends.memory;
 };
 
-let backend = null;
-
-const getFs = () => {
-	if (!backend) backend = detect();
-	return backend;
-};
+const getFs = () => detect();
 
 const resetFs = () => {
-	backend = detect();
-	return backend;
+	backends.electron = null;
+	backends.web = null;
+	backends.memory = null;
+	// Keep capacitor instance (active folder session); canOpenFolder is live.
+	return detect();
 };
 
 const probeCapabilities = () => {

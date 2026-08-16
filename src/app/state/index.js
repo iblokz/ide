@@ -299,7 +299,7 @@ const openRecent = root => {
 		return openFolder();
 	}
 	if (typeof fs.openFolderByPath === 'function') {
-		return fs.openFolderByPath(root.path)
+		return fs.openFolderByPath(root.path, root)
 			.then(result => {
 				if (!result) return openFolder();
 				return applyProjectResult(fs, result);
@@ -389,7 +389,10 @@ const markExternalChange = filePath => state => {
 	return Object.assign({}, state, {externalChange: filePath});
 };
 
-const refreshFsCapabilities = () => state => Object.assign({}, state, probeCapabilities());
+const refreshFsCapabilities = () => state => {
+	resetFs();
+	return Object.assign({}, state, probeCapabilities());
+};
 
 const setLayout = patch => state => {
 	const layout = saveLayout(clampLayout(Object.assign({}, state.layout, patch)));

@@ -806,6 +806,33 @@ detect_lan_ip() {
   return 1
 }
 
+# iOS document picker needs in-place document access for security-scoped bookmarks.
+ensure_ios_document_picker() {
+  local plist="ios/App/App/Info.plist"
+  if [ ! -f "$plist" ]; then
+    return 0
+  fi
+  if grep -q 'LSSupportsOpeningDocumentsInPlace' "$plist"; then
+    return 0
+  fi
+  python3 - "$plist" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding='utf-8').read()
+needle = '\t<key>UIViewControllerBasedStatusBarAppearance</key>\n\t<true/>\n'
+insert = (
+    needle
+    + '\t<key>LSSupportsOpeningDocumentsInPlace</key>\n\t<true/>\n'
+    + '\t<key>UISupportsDocumentBrowser</key>\n\t<false/>\n'
+)
+if needle not in text:
+    print(f'Warning: could not patch {path} for document picker', file=sys.stderr)
+    sys.exit(1)
+open(path, 'w', encoding='utf-8').write(text.replace(needle, insert, 1))
+print(f'Enabled LSSupportsOpeningDocumentsInPlace on {path}')
+PY
+}
+
 # Cap server.cleartext only patches Cordova manifests; ensure the app Manifest allows HTTP/WS.
 ensure_android_cleartext() {
   local manifest="android/app/src/main/AndroidManifest.xml"
@@ -855,17 +882,27 @@ if not m:
     sys.exit(0)
 major, minor = int(m.group(1)), int(m.group(2))
 # Need Gradle 8.5+ to execute on JDK 21
-if major > 8 or (major == 8 and minor >= 5):
-    sys.exit(0)
-new = re.sub(
-    r'gradle-\d+\.\d+(?:\.\d+)?-all\.zip',
-    f'gradle-{target}-all.zip',
-    text,
-    count=1,
-)
-if new != text:
-    open(path, 'w', encoding='utf-8').write(new)
+changed = False
+if not (major > 8 or (major == 8 and minor >= 5)):
+    text = re.sub(
+        r'gradle-\d+\.\d+(?:\.\d+)?-all\.zip',
+        f'gradle-{target}-all.zip',
+        text,
+        count=1,
+    )
+    changed = True
     print(f'Bumped Android Gradle wrapper to {target} (JDK 21 needs Gradle 8.5+)')
+# Cap templates ship networkTimeout=10000; too short for ~180MB gradle-*-all.zip
+m_to = re.search(r'^networkTimeout=(\d+)\s*$', text, re.M)
+if not m_to or int(m_to.group(1)) < 120000:
+    if m_to:
+        text = re.sub(r'^networkTimeout=\d+\s*$', 'networkTimeout=120000', text, count=1, flags=re.M)
+    else:
+        text = text.rstrip() + '\nnetworkTimeout=120000\n'
+    changed = True
+    print('Raised Gradle wrapper networkTimeout to 120000ms')
+if changed:
+    open(path, 'w', encoding='utf-8').write(text)
 PY
   fi
   if [ -f "$root_gradle" ]; then
@@ -894,6 +931,44 @@ if n:
     print(f'Bumped Android Gradle Plugin to {target} (JDK 21 needs AGP 8.2+)')
 PY
   fi
+  # Cap's `runTask('Running Gradle build')` spinner swallows ./gradlew stdout, so a
+  # first-time ~200MB wrapper download looks hung. Prefetch with visible output.
+  ensure_android_gradle_distribution
+}
+
+# Download/extract the Gradle wrapper distribution if missing (visible progress).
+ensure_android_gradle_distribution() {
+  local props="android/gradle/wrapper/gradle-wrapper.properties"
+  [ -f "$props" ] || return 0
+  [ -f android/gradlew ] || return 0
+  chmod +x android/gradlew 2>/dev/null || true
+
+  local gradle_home="${GRADLE_USER_HOME:-$HOME/.gradle}"
+  local zip
+  zip="$(sed -n 's/^distributionUrl=.*\/\(gradle-[^[:space:]]*\.zip\)[[:space:]]*$/\1/p' "$props" | tr -d '\\' | head -1)"
+  [ -n "$zip" ] || return 0
+  local dist="${zip%.zip}"
+
+  if compgen -G "${gradle_home}/wrapper/dists/${dist}/*/${zip}.ok" > /dev/null 2>&1; then
+    return 0
+  fi
+  # Extracted tree without .ok still usable
+  if compgen -G "${gradle_home}/wrapper/dists/${dist}/*/gradle-*/lib/gradle-launcher-*.jar" > /dev/null 2>&1; then
+    return 0
+  fi
+
+  local part
+  part="$(compgen -G "${gradle_home}/wrapper/dists/${dist}/*/${zip}.part" || true)"
+  if [ -n "$part" ]; then
+    local have total pct
+    have="$(wc -c < "$part" | tr -d ' ')"
+    # gradle-*-all.zip is ~200MB; show partial size so the wait is less opaque
+    echo "Gradle ${dist}: resuming download ($(numfmt --to=iec-i --suffix=B "$have" 2>/dev/null || echo "${have} bytes") so far; full zip ~200MiB)..."
+  else
+    echo "Gradle ${dist}: downloading wrapper distribution (~200MiB, one-time)..."
+  fi
+  echo "(Prefetching here because Capacitor hides Gradle output under \"Running Gradle build\".)"
+  (cd android && ./gradlew --version)
 }
 
 # Resolve Xcode entry for Capacitor ios/App (workspace vs project).

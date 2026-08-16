@@ -56,6 +56,12 @@ wait_for_port() {
   local deadline=$((SECONDS + 45))
   echo "Waiting for http://${host}:${port} ..."
   while (( SECONDS < deadline )); do
+    # Fail fast if the background Parcel/pnpm process already died (e.g. SIGABRT)
+    if [ -n "${PARCEL_PID:-}" ] && ! kill -0 "$PARCEL_PID" 2>/dev/null; then
+      wait "$PARCEL_PID" 2>/dev/null || true
+      echo "Parcel exited before becoming ready (pid ${PARCEL_PID})" >&2
+      return 2
+    fi
     if command -v curl &>/dev/null; then
       if curl -sf -o /dev/null "http://${host}:${port}/"; then
         return 0
@@ -77,7 +83,42 @@ stop_parcel() {
     kill "$PARCEL_PID" 2>/dev/null || true
     wait "$PARCEL_PID" 2>/dev/null || true
   fi
+  PARCEL_PID=
   pkill -f "parcel --port ${PARCEL_PORT}" 2>/dev/null || true
+}
+
+# Parcel occasionally SIGABRTs on a corrupt LMDB .parcel-cache ("mutex lock failed").
+# Clear cache and retry instead of leaving the user to killall/rm by hand.
+start_parcel_ready() {
+  local attempt=1
+  local max_attempts=3
+  local rc=1
+  while (( attempt <= max_attempts )); do
+    stop_parcel
+    sleep 0.3
+    if (( attempt > 1 )); then
+      echo "Starting Parcel (attempt ${attempt}/${max_attempts})..."
+    fi
+    pnpm exec parcel "$@" &
+    PARCEL_PID=$!
+    trap stop_parcel EXIT INT TERM
+    if wait_for_port "$PARCEL_PORT" 127.0.0.1; then
+      return 0
+    fi
+    rc=$?
+    stop_parcel
+    if (( attempt >= max_attempts )); then
+      break
+    fi
+    if [ -d .parcel-cache ]; then
+      rm -rf .parcel-cache
+      echo "Cleared .parcel-cache after Parcel crash/timeout; retrying..."
+    else
+      echo "Parcel failed to start; retrying..."
+    fi
+    attempt=$((attempt + 1))
+  done
+  return "$rc"
 }
 
 start_electron_shell() {
@@ -87,13 +128,7 @@ start_electron_shell() {
     exit 1
   fi
   echo "Starting Electron (Parcel + shell)..."
-  stop_parcel
-  sleep 0.3
-  pnpm exec parcel --port "$PARCEL_PORT" &
-  PARCEL_PID=$!
-  trap stop_parcel EXIT INT TERM
-  if ! wait_for_port "$PARCEL_PORT"; then
-    stop_parcel
+  if ! start_parcel_ready --port "$PARCEL_PORT"; then
     exit 1
   fi
   pnpm exec electron .
@@ -137,17 +172,12 @@ start_cap_live_reload() {
   echo "Cap / HMR host: ${DEV_HOST}:${PARCEL_PORT} (override with CAP_DEV_HOST)"
 
   echo "Starting Parcel on 0.0.0.0:${PARCEL_PORT} (HMR host ${DEV_HOST})..."
-  stop_parcel
-  sleep 0.3
-  pnpm exec parcel \
+  if ! start_parcel_ready \
     --host 0.0.0.0 \
     --port "$PARCEL_PORT" \
     --hmr-host "$DEV_HOST" \
-    --hmr-port "$PARCEL_PORT" &
-  PARCEL_PID=$!
-  trap stop_parcel EXIT INT TERM
-  if ! wait_for_port "$PARCEL_PORT" 127.0.0.1; then
-    stop_parcel
+    --hmr-port "$PARCEL_PORT"
+  then
     exit 1
   fi
 

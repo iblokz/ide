@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0] - 2026-08-16
+
+### Changed
+
+- Capacitor Android/iOS: Open Project uses the system folder picker (SAF / document picker) instead of a fixed Documents/`iblokz-ide` workspace; cancel leaves the start screen
+
+### Fixed
+
+- Capacitor: re-detect FS backend after the native bridge is ready so Open Project uses SAF/`ScopedFolder` instead of the web directory input (which does nothing in the Android WebView)
+- Capacitor Android: request legacy storage permission before the folder picker (API ≤32), and detect native via `androidBridge` so live-reload builds call `ScopedFolder.pickFolder`
+- Android start/build: prefetch the Gradle wrapper zip with visible progress — Capacitor’s “Running Gradle build” spinner was hiding the ~200MB first-time download
+- `start.sh`: recover from Parcel SIGABRT (corrupt `.parcel-cache` / LMDB mutex) by clearing the cache and retrying up to 3 times
+
+---
+
 ## [1.7.1] - 2026-08-04
 
 ### Fixed
@@ -200,7 +215,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.7.1...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/iblokz/ide/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/iblokz/ide/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/iblokz/ide/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/iblokz/ide/compare/v1.6.0...v1.6.1

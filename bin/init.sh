@@ -159,6 +159,7 @@ if [ "$DO_IOS" -eq 1 ]; then
   else
     echo "iOS platform already present (ios/)."
   fi
+  ensure_ios_document_picker
   if [ -f ios/App/Podfile ]; then
     echo "pod install..."
     (cd ios/App && pod install)

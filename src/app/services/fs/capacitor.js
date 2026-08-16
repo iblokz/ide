@@ -1,24 +1,27 @@
 'use strict';
 
 /**
- * Capacitor FS backend — app Documents workspace (scoped storage).
- * Open/create Documents/iblokz-ide and read/write relative to it.
+ * Capacitor FS backend — user-picked folder via SAF (Android) /
+ * security-scoped bookmarks (iOS). Cancel leaves no project open.
  */
 
 const {hashPath, extOf, SKIP_NAMES, fileKind} = require('../../util/file-tree');
 
-const WORKSPACE = 'iblokz-ide';
-
-const loadCap = () => {
+const loadScopedFolder = () => {
 	try {
-		const core = require('@capacitor/core');
-		const fsMod = require('@capacitor/filesystem');
-		return {
-			Capacitor: core.Capacitor,
-			Filesystem: fsMod.Filesystem,
-			Directory: fsMod.Directory,
-			Encoding: fsMod.Encoding
-		};
+		const mod = require('@iblokz/scoped-folder');
+		return mod && mod.ScopedFolder;
+	} catch (err) {
+		return null;
+	}
+};
+
+const getCapacitor = () => {
+	if (typeof window !== 'undefined' && window.Capacitor) {
+		return window.Capacitor;
+	}
+	try {
+		return require('@capacitor/core').Capacitor;
 	} catch (err) {
 		return null;
 	}
@@ -37,6 +40,11 @@ const parentPath = path => {
 	return parts.join('/');
 };
 
+const isCancelled = err => {
+	const msg = String((err && err.message) || err || '');
+	return /cancel/i.test(msg);
+};
+
 const toFileNode = (name, filePath) => {
 	const ext = extOf(name);
 	const kind = fileKind(name, ext);
@@ -52,7 +60,7 @@ const toFileNode = (name, filePath) => {
 };
 
 const toDirStub = (name, dirPath) => ({
-	id: hashPath(dirPath),
+	id: hashPath(dirPath || name),
 	name,
 	path: dirPath,
 	isDir: true,
@@ -63,40 +71,64 @@ const toDirStub = (name, dirPath) => ({
 });
 
 const create = () => {
-	const cap = loadCap();
-	const native = !!(cap && cap.Capacitor && cap.Capacitor.isNativePlatform());
-	const {Filesystem, Directory, Encoding} = cap || {};
-	const directory = Directory && Directory.Documents;
+	const ScopedFolder = loadScopedFolder();
+	let activeFolder = null;
 
-	const ensureDir = async (relPath) => {
-		try {
-			await Filesystem.mkdir({
-				path: relPath,
-				directory,
-				recursive: true
-			});
-		} catch (err) {
-			// Exists is fine
-			const msg = String((err && err.message) || err || '');
-			if (!/exist/i.test(msg)) throw err;
+	// Prefer native signals over bundled Cap stubs (Parcel can evaluate early).
+	const isNative = () => {
+		if (typeof window === 'undefined') return false;
+		if (window.androidBridge) return true;
+		if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+			return true;
 		}
+		const Cap = getCapacitor();
+		return !!(Cap && typeof Cap.isNativePlatform === 'function' && Cap.isNativePlatform());
+	};
+
+	const resolvePlugin = () => {
+		const Cap = getCapacitor();
+		if (Cap && Cap.Plugins && Cap.Plugins.ScopedFolder) {
+			return Cap.Plugins.ScopedFolder;
+		}
+		return ScopedFolder;
+	};
+
+	const requirePlugin = () => {
+		const plugin = resolvePlugin();
+		if (!isNative() || !plugin) {
+			throw new Error('ScopedFolder plugin not available');
+		}
+		return plugin;
+	};
+
+	const requireFolder = () => {
+		if (!activeFolder || !activeFolder.id) {
+			throw new Error('No scoped folder open');
+		}
+		return activeFolder;
+	};
+
+	const relativePath = nodePath => {
+		const folder = requireFolder();
+		const p = nodePath == null ? '' : String(nodePath);
+		if (!p || p === folder.id || p === folder.name) return '';
+		return p.replace(/^\/+|\/+$/g, '');
 	};
 
 	const listChildren = async (relPath) => {
-		const result = await Filesystem.readdir({
-			path: relPath || '',
-			directory
+		const plugin = requirePlugin();
+		const folder = requireFolder();
+		const result = await plugin.readdir({
+			folder,
+			path: relPath || ''
 		});
-		const entries = (result && result.files) || [];
+		const entries = (result && result.entries) || [];
 		const files = [];
 		for (const entry of entries) {
-			const name = entry.name;
+			const name = entry && entry.name;
 			if (!name || SKIP_NAMES.has(name)) continue;
 			const childPath = joinPath(relPath, name);
-			const isDir = entry.type === 'directory'
-				|| entry.type === 'Directory'
-				|| (typeof entry.type === 'string' && entry.type.toLowerCase() === 'directory');
-			if (isDir) {
+			if (entry.isDir) {
 				files.push(toDirStub(name, childPath));
 			} else {
 				files.push(toFileNode(name, childPath));
@@ -105,81 +137,111 @@ const create = () => {
 		return files;
 	};
 
+	const projectFromFolder = async (folder) => {
+		activeFolder = {
+			id: folder.id,
+			name: folder.name || 'folder'
+		};
+		const children = await listChildren('');
+		const rootId = hashPath(folder.id);
+		const rootName = activeFolder.name;
+		return {
+			id: rootId,
+			name: rootName,
+			path: folder.id,
+			filesTree: [{
+				id: rootId,
+				name: rootName,
+				path: folder.id,
+				isDir: true,
+				ext: false,
+				expanded: true,
+				childrenLoaded: true,
+				files: children
+			}],
+			writable: true,
+			access: 'capacitor-scoped'
+		};
+	};
+
 	return {
 		id: 'capacitor',
-		canOpenFolder: native,
-		canWrite: native,
+		get canOpenFolder() {
+			return isNative();
+		},
+		get canWrite() {
+			return isNative();
+		},
 		logCapabilities() {
 			if (typeof window !== 'undefined' && window.__iblokzFsCapsLogged) return;
 			if (typeof window !== 'undefined') window.__iblokzFsCapsLogged = true;
+			const Cap = getCapacitor();
 			console.info('[fs] capabilities', {
 				backend: 'capacitor',
-				platform: cap && cap.Capacitor ? cap.Capacitor.getPlatform() : null,
-				workspace: WORKSPACE,
-				directory: 'Documents'
+				platform: Cap && typeof Cap.getPlatform === 'function' ? Cap.getPlatform() : null,
+				native: isNative(),
+				hasAndroidBridge: !!(typeof window !== 'undefined' && window.androidBridge),
+				hasScopedFolder: !!resolvePlugin(),
+				access: 'scoped-folder'
 			});
 		},
 		async openFolder() {
-			if (!native) return null;
-			await ensureDir(WORKSPACE);
-			let children = await listChildren(WORKSPACE);
-			if (!children.length) {
-				const welcomePath = joinPath(WORKSPACE, 'welcome.js');
-				await Filesystem.writeFile({
-					path: welcomePath,
-					directory,
-					data: [
-						'// iBloKz IDE — Documents/' + WORKSPACE,
-						'// Scoped mobile workspace (Capacitor Filesystem).',
-						'',
-						'console.log(\'hello from Android\');',
-						''
-					].join('\n'),
-					encoding: Encoding.UTF8,
-					recursive: true
-				});
-				children = await listChildren(WORKSPACE);
+			if (!isNative()) {
+				console.warn('[fs] openFolder: not native Cap');
+				return null;
 			}
-			const rootId = hashPath(WORKSPACE);
-			return {
-				id: rootId,
-				name: WORKSPACE,
-				path: WORKSPACE,
-				filesTree: [{
-					id: rootId,
-					name: WORKSPACE,
-					path: WORKSPACE,
-					isDir: true,
-					ext: false,
-					expanded: true,
-					childrenLoaded: true,
-					files: children
-				}],
-				writable: true,
-				access: 'capacitor-documents'
-			};
+			const plugin = requirePlugin();
+			console.info('[fs] capacitor pickFolder');
+			try {
+				const picked = await plugin.pickFolder();
+				const folder = picked && picked.folder;
+				if (!folder || !folder.id) return null;
+				return projectFromFolder(folder);
+			} catch (err) {
+				console.error('[fs] pickFolder failed', err);
+				if (isCancelled(err)) return null;
+				throw err;
+			}
+		},
+		async openFolderByPath(token, meta) {
+			if (!isNative() || !token) return null;
+			requirePlugin();
+			try {
+				return await projectFromFolder({
+					id: token,
+					name: (meta && meta.name) || 'folder'
+				});
+			} catch (err) {
+				console.error('openFolderByPath failed', err);
+				activeFolder = null;
+				return null;
+			}
 		},
 		async listDir(node) {
-			if (!native) throw new Error('Capacitor listDir not available');
-			return listChildren(node.path || WORKSPACE);
+			return listChildren(relativePath(node && node.path));
 		},
 		async readFile(node) {
-			if (!native) throw new Error('Capacitor readFile not available');
-			const result = await Filesystem.readFile({
-				path: node.path,
-				directory,
-				encoding: Encoding.UTF8
+			const plugin = requirePlugin();
+			const folder = requireFolder();
+			const path = relativePath(node && node.path);
+			if (!path) throw new Error('Missing file path');
+			const result = await plugin.readFile({
+				folder,
+				path,
+				encoding: 'utf8'
 			});
 			return result.data;
 		},
 		async getObjectUrl(node) {
-			if (!native) throw new Error('Capacitor getObjectUrl not available');
-			const result = await Filesystem.readFile({
-				path: node.path,
-				directory
+			const plugin = requirePlugin();
+			const folder = requireFolder();
+			const path = relativePath(node && node.path);
+			if (!path) throw new Error('Missing file path');
+			const result = await plugin.readFile({
+				folder,
+				path,
+				encoding: 'base64'
 			});
-			const data = result.data;
-			if (typeof data === 'string' && data.indexOf('data:') === 0) return data;
 			const ext = (node.ext || extOf(node.name) || 'bin').toLowerCase();
 			const mime = ({
 				png: 'image/png',
@@ -191,18 +253,27 @@ const create = () => {
 				ico: 'image/x-icon',
 				svg: 'image/svg+xml'
 			})[ext] || 'application/octet-stream';
-			return `data:${mime};base64,${data}`;
+			return `data:${mime};base64,${result.data}`;
 		},
 		async writeFile(node, content) {
-			if (!native) throw new Error('Capacitor writeFile not available');
-			const dir = parentPath(node.path);
-			if (dir) await ensureDir(dir);
-			await Filesystem.writeFile({
-				path: node.path,
-				directory,
+			const plugin = requirePlugin();
+			const folder = requireFolder();
+			const path = relativePath(node && node.path);
+			if (!path) throw new Error('Missing file path');
+			const dir = parentPath(path);
+			if (dir) {
+				await plugin.mkdir({
+					folder,
+					path: dir,
+					recursive: true
+				});
+			}
+			await plugin.writeFile({
+				folder,
+				path,
 				data: String(content == null ? '' : content),
-				encoding: Encoding.UTF8,
-				recursive: true
+				encoding: 'utf8',
+				mimeType: 'text/plain'
 			});
 			return {method: 'handle'};
 		}
@@ -210,6 +281,5 @@ const create = () => {
 };
 
 module.exports = {
-	create,
-	WORKSPACE
+	create
 };
