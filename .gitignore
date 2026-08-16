@@ -2,10 +2,10 @@ node_modules
 .pnpm-store
 .DS_Store
 .parcel-cache
-dist
-build
-android
-ios
+/dist
+/build
+/android
+/ios
 artifacts/electron/*
 !artifacts/electron/.gitkeep
 artifacts/android/*
