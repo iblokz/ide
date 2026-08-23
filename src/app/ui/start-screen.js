@@ -17,7 +17,7 @@ module.exports = ({state, actions}) => {
 			desktop: electron
 		}
 	}, [
-		div('.start-panel', [
+		div('.start-panel', [].concat(
 			span('.start-logo', {
 				attrs: {
 					role: 'img',
@@ -72,17 +72,17 @@ module.exports = ({state, actions}) => {
 										actions.openRecent(root);
 									}
 								}
-							}, [
+							}, [].concat(
 								i('.fa.fa-folder-o'),
 								span('.name', [String(root.name)]),
 								root.path && root.path !== root.name
 									? span('.path', [String(root.path)])
-									: null
-							].filter(Boolean))
+									: []
+							))
 						])
 					))
 				])
-				: null
-		].filter(Boolean))
+				: []
+		))
 	]);
 };

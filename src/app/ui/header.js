@@ -1,126 +1,121 @@
-'use strict';
+import {h1, button, header, span, i} from 'iblokz-snabbdom-helpers';
+import svgHamburger from './comp/svg/hamburger';
+import {canSave, saveHint} from '../util/save';
+import {isStartView} from '../util/project';
+import {triggerSave} from '../util/trigger-save';
+import dropdown from './comp/dropdown';
 
-const {h1, button, header, span, i} = require('iblokz-snabbdom-helpers');
-const svgHamburger = require('./comp/svg/hamburger');
-const {panesLabel, panesIcon, normalizePanes, nextPanes} = require('../util/layout');
-const {canSave, saveHint} = require('../util/save');
-const {isStartView} = require('../util/project');
-const {triggerSave} = require('../util/trigger-save');
-
-const isElectron = () =>
+export const isElectron = () =>
 	typeof window !== 'undefined'
 	&& window.app
 	&& window.app.platform === 'electron';
 
-module.exports = ({state, actions}) => {
-	const panes = normalizePanes(state.layout && state.layout.panes);
-	const nextLabel = panesLabel(nextPanes(panes));
-	const saveEnabled = canSave(state);
-	const saveTitle = state.saveError || saveHint(state);
-	const electron = isElectron();
-	const onStart = isStartView(state);
+const ideTitle = 'iBlokz IDE';
 
-	const fileTitle = !onStart && state.file && state.file.name
-		? span('.file-title', [
+const prepFileTitle = state =>
+	!isStartView(state) && state.file && state.file.name
+		? span('.file-title', [].concat(
 			' — ',
 			String(state.file.name),
-			state.dirty ? ' •' : null,
+			state.dirty ? ' •' : [],
 			state.externalChange
 				? span('.external-change', ' (changed on disk)')
-				: null,
+				: [],
 			state.saveError
 				? span('.save-error', ` — ${state.saveError}`)
-				: null
-		].filter(Boolean))
-		: null;
+				: []
+		))
+		: [];
 
-	return header({
-		on: electron ? {
-			dblclick: ev => {
-				const t = ev.target;
-				if (!t || !t.closest) return;
-				if (t.closest('button, a, input')) return;
-				if (typeof window.app.toggleMaximize === 'function') {
-					window.app.toggleMaximize();
+const layoutIcon = name => span(`.layout-icon.${name}`);
+
+const layoutMenuItems = [
+	{id: 'left-side-bar', label: 'Left Side Bar', toggleKey: 'leftSideBar', hotkey: 'Ctrl+B'},
+	{id: 'right-side-bar', label: 'Right Side Bar', toggleKey: 'rightSideBar', hotkey: 'Ctrl+Shift+B'},
+	{id: 'bottom-panel', label: 'Bottom Panel', toggleKey: 'bottomPanel', hotkey: 'Ctrl+J'},
+	{id: 'preview', label: 'Preview', toggleKey: 'preview', hotkey: 'Ctrl+P'}
+];
+
+const renderLayoutItem = item => span('.layout-option', [
+	layoutIcon(item.id),
+	span('.layout-label', item.label),
+	span('.layout-hotkey', item.hotkey)
+]);
+
+export default ({state, actions}) => header({
+	on: isElectron() ? {
+		dblclick: ev => {
+			const t = ev.target;
+			if (!t || !t.closest) return;
+			if (t.closest('button, a, input')) return;
+			if (typeof window.app.toggleMaximize === 'function') {
+				window.app.toggleMaximize();
+			}
+		}
+	} : {}
+}, [].concat(
+	span('.header-start', [].concat(
+		span('.app-icon', {
+			attrs: {
+				role: 'img',
+				'aria-label': 'iBloKz IDE'
+			}
+		}),
+		isStartView(state)
+			? []
+			: button('.menu-toggle', {
+				attrs: {'aria-label': 'Toggle sidebar'},
+				on: {click: () => actions.toggle(['layout', 'toggles', 'leftSideBar'])}
+			}, [
+				svgHamburger(({state: state.layout.toggles.leftSideBar ? 1 : 0, strokeWidth: '3px', size: 22}))
+			])
+	)),
+	h1([].concat(ideTitle, prepFileTitle(state))),
+	span('.header-actions', [].concat(
+		isStartView(state) ? [] : button('.save-file', {
+			attrs: {
+				'aria-label': 'Save file',
+				title: state.saveError || saveHint(state)
+			},
+			props: {
+				disabled: !canSave(state)
+			},
+			on: {
+				click: ev => {
+					ev.preventDefault();
+					triggerSave({state, actions});
 				}
 			}
-		} : {}
-	}, [
-		span('.header-start', [
-			span('.app-icon', {
-				attrs: {
-					role: 'img',
-					'aria-label': 'iBloKz IDE'
-				}
-			}),
-			onStart
-				? null
-				: button('.menu-toggle', {
-					attrs: {'aria-label': 'Toggle sidebar'},
-					on: {click: () => actions.toggle('sideBar')}
-				}, [
-					svgHamburger(({state: state.sideBar ? 1 : 0, strokeWidth: '3px', size: 22}))
-				])
-		].filter(Boolean)),
-		h1(fileTitle ? ['iBloKz IDE', fileTitle] : ['iBloKz IDE']),
-		span('.header-actions', [
-			...(onStart ? [] : [
-				button('.save-file', {
-					attrs: {
-						'aria-label': 'Save file',
-						title: saveTitle
-					},
-					props: {
-						disabled: !saveEnabled
-					},
-					on: {
-						click: ev => {
-							ev.preventDefault();
-							triggerSave({state, actions});
-						}
-					}
-				}, [
-					i('.fa.fa-save')
-				]),
-				button('.panes-toggle', {
-					attrs: {
-						'aria-label': `Layout: ${panesLabel(panes)}. Click for ${nextLabel}`,
-						title: `${panesLabel(panes)} → ${nextLabel}`
-					},
-					on: {click: () => actions.cyclePanes()}
-				}, [
-					i(`.fa.${panesIcon(panes)}`)
-				])
-			]),
-			button('.theme-toggle', {
-				attrs: {
-					'aria-label': state.themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
-					title: state.themeMode === 'dark' ? 'Light theme' : 'Dark theme'
-				},
-				on: {click: () => actions.toggleTheme()}
-			}, [
-				i(`.fa.${state.themeMode === 'dark' ? 'fa-sun-o' : 'fa-moon-o'}`)
-			]),
-			...(electron ? [
-				button('.window-minimize', {
-					attrs: {
-						'aria-label': 'Minimize',
-						title: 'Minimize'
-					},
-					on: {click: () => window.app.minimize()}
-				}, [
-					i('.fa.fa-minus')
-				]),
-				button('.window-close', {
-					attrs: {
-						'aria-label': 'Close',
-						title: 'Close'
-					},
-					on: {click: () => window.app.close()}
-				}, [
-					i('.fa.fa-close')
-				])
-			] : [])
-		])
-	]);
-};
+		}, [
+			i('.fa.fa-save')
+		]),
+		dropdown('.layout-menu', {
+			handle: layoutIcon('menu'),
+			itemSelect: (ev, item) =>
+				actions.toggle(['layout', 'toggles', item.toggleKey]),
+			items: layoutMenuItems.map(item => ({
+				...item,
+				active: !!state.layout.toggles[item.toggleKey]
+			})),
+			renderItem: renderLayoutItem,
+			toLeft: true
+		}),
+		button('.theme-toggle', {
+			attrs: {
+				'aria-label': state.themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
+				title: state.themeMode === 'dark' ? 'Light theme' : 'Dark theme'
+			},
+			on: {click: () => actions.toggleTheme()}
+		}, [
+			i(`.fa.${state.themeMode === 'dark' ? 'fa-sun-o' : 'fa-moon-o'}`)
+		]),
+		isElectron() ? [
+			button('.window-minimize[aria-label="Minimize"][title="Minimize"]', {
+				on: {click: () => window.app.minimize()}
+			}, [i('.fa.fa-minus')]),
+			button('.window-close[aria-label="Close"][title="Close"]', {
+				on: {click: () => window.app.close()}
+			}, [i('.fa.fa-close')])
+		] : []
+	))
+));

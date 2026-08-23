@@ -1,9 +1,11 @@
 'use strict';
 
 const STORAGE_KEY = 'iblokz-ide-theme';
+const THEME_FAMILY = 'ide';
 const THEME_MODES = ['light', 'dark'];
 
-const themeClass = mode => `theme-${mode}`;
+const themeClass = mode => `theme-${THEME_FAMILY}-${mode}`;
+const themeModeClass = mode => `theme-mode-${mode}`;
 
 const parseStoredTheme = () => {
 	if (typeof window === 'undefined') return null;
@@ -35,14 +37,18 @@ const applyDocumentTheme = mode => {
 	const root = document.documentElement;
 	root.dataset.theme = mode;
 	root.style.colorScheme = mode;
-	root.classList.remove('theme-light', 'theme-dark');
-	root.classList.add(`theme-${mode}`);
+	[...root.classList]
+		.filter(c => c.startsWith('theme-'))
+		.forEach(c => root.classList.remove(c));
+	root.classList.add(themeClass(mode), themeModeClass(mode));
 };
 
 module.exports = {
 	STORAGE_KEY,
+	THEME_FAMILY,
 	THEME_MODES,
 	themeClass,
+	themeModeClass,
 	getInitialThemeMode,
 	serializeTheme,
 	applyDocumentTheme

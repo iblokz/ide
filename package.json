@@ -1,6 +1,6 @@
 {
   "name": "iblokz-ide",
-  "version": "1.8.2",
+  "version": "1.9.0",
   "description": "in browser / Electron / Capacitor code editor (web, Linux AppImage, macOS, Android, iOS)",
   "source": "src/index.pug",
   "main": "electron/main.js",
@@ -49,7 +49,7 @@
     "@fontsource/fira-code": "^5.2.7",
     "acorn": "^8.0.1",
     "chokidar": "^3.6.0",
-    "code-prettify": "github:alex-milanov/code-prettify",
+    "code-prettify": "github:iblokz/code-prettify",
     "font-awesome": "4.7.0",
     "iblokz-data": "^1.6.0",
     "iblokz-snabbdom-helpers": "^2.0.0",

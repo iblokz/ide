@@ -1,21 +1,19 @@
-'use strict';
-
-const {
+import {
 	div, a, span, ul, li, i, button, header
-} = require('iblokz-snabbdom-helpers');
-const {fileIcon} = require('../util/file-tree');
+} from 'iblokz-snabbdom-helpers';
+import {fn, obj} from 'iblokz-data';
+import {fileIcon} from '../util/file-tree';
 
-const fileSort = (a, b) => !a.isDir && b.isDir ? 1 : -1;
+export const fileSort = (a, b) => !a.isDir && b.isDir ? 1 : -1;
 
 /** Sort for display but keep each node's index in the unsorted state array. */
-const sortedWithIndex = (list = []) => list
+export const sortedWithIndex = (list = []) => list
 	.map((item, index) => ({item, index}))
 	.sort((a, b) => fileSort(a.item, b.item));
 
-const treeMap = (item, path = [], level = 0, cb) => {
-	if (!item || !item.name) return null;
-
-	const children = [
+const fileLeafNode = (item, path = [], level = 0, cb) =>
+	// main node
+	(!item || !item.name) ? [] : li([].concat(
 		a({
 			style: {
 				paddingLeft: `${(4 + 16 * level)}px`
@@ -28,10 +26,10 @@ const treeMap = (item, path = [], level = 0, cb) => {
 				title: item.path || item.name
 			},
 			on: {
-				click: ev => cb(item, path, level)
+				click: ev => cb(item, path, level, ev)
 			}
-		}, [
-			item.isDir ? i(`.fa.${item.expanded ? 'fa-caret-down' : 'fa-caret-right'}`) : null,
+		}, [].concat(
+			item.isDir ? i(`.fa.${item.expanded ? 'fa-caret-down' : 'fa-caret-right'}`) : [],
 			i(`.fa.${fileIcon(item)}`, {
 				style: {
 					marginLeft: item.isDir ? '0px' : '16px'
@@ -40,40 +38,40 @@ const treeMap = (item, path = [], level = 0, cb) => {
 			// Pass text as a child array — names like ".env" must not be
 			// treated as hyperscript selectors (span('.env') → empty span.env).
 			span([String(item.name)])
-		].filter(Boolean))
-	];
+		)),
+		// children nodes
+		(item.isDir && item.expanded && Array.isArray(item.files) && item.files.length)
+		? ul([].concat(...sortedWithIndex(item.files).map(({item: child, index}) =>
+			fileLeafNode(child, [].concat(path, index), level + 1, cb)
+		)))
+		: []
+	));
 
-	if (item.isDir && item.expanded && Array.isArray(item.files) && item.files.length) {
-		children.push(
-			ul(sortedWithIndex(item.files).map(({item: child, index}) =>
-				treeMap(child, [].concat(path, index), level + 1, cb)
-			).filter(Boolean))
-		);
-	}
-
-	return li(children);
-};
-
-module.exports = ({state, actions, width}) => {
-	const recent = (state.recentRoots || []).filter(root => root && root.name);
-	const tree = sortedWithIndex(state.filesTree || [])
-		.map(({item, index}) => treeMap(item, [index], 0,
-			(item, path, level) => item.isDir
-				? actions.toggleFolder(path, item)
-				: actions.openFile(item)
-		))
-		.filter(Boolean);
-
-	const title = (!state.project || state.project.id === 'demo')
-		? 'Open Project'
-		: (state.project.name || 'Project');
-
-	const open = !!state.sideBar;
-	const resolvedWidth = open
-		? (typeof width === 'number' ? width : (state.layout && state.layout.sideBar) || 260)
-		: 0;
-
-	return div('.side-bar', {
+export default ({state, actions, width}) => fn.pipe(
+	// prep vars
+	() => ({
+		recent: (state.recentRoots || []).filter(root => root && root.name),
+		fileTree: [].concat(...sortedWithIndex(state.filesTree || [])
+			.map(({item, index}) => fileLeafNode(item, [index], 0,
+				(item, path, level) => item.isDir
+					? actions.toggleFolder(path, item)
+					: actions.openFile(item)
+			))),
+		title: (!state.project || state.project.id === 'demo')
+			? 'Open Project'
+			: (state.project.name || 'Project'),
+		open: !!obj.sub(state, ['layout', 'toggles', 'leftSideBar']),
+		dim: obj.sub(state, ['layout', 'dim', 'leftSideBar']) || 260
+	}),
+	({open, dim, ...rest}) => ({
+		...rest,
+		open,
+		resolvedWidth: open
+			? (typeof width === 'number' ? width : dim)
+			: 0
+	}),
+	// render
+	({recent, fileTree, title, open, resolvedWidth}) => div('.side-bar', {
 		class: {
 			toggled: open
 		},
@@ -82,7 +80,7 @@ module.exports = ({state, actions, width}) => {
 			minWidth: open ? '140px' : '0px',
 			maxWidth: open ? '480px' : '0px'
 		}
-	}, [
+	}, [].concat(
 		header([
 			span({
 				class: {
@@ -104,7 +102,7 @@ module.exports = ({state, actions, width}) => {
 				}
 			}, [i('.fa.fa-folder-open-o')])
 		]),
-		ul('.file-list', tree),
+		ul('.file-list', fileTree),
 		recent.length
 			? div('.recent-roots', [
 				span('.label', 'Recent'),
@@ -122,6 +120,6 @@ module.exports = ({state, actions, width}) => {
 					])
 				))
 			])
-			: null
-	].filter(child => child != null));
-};
+			: []
+	))
+)();

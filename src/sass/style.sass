@@ -5,5 +5,13 @@
 @import 'ext/prettify'
 
 @import 'inc/index'
-@import 'theme/index'
+// Keep theme/_emit, _mixins, _components identical to boilerplate styles/theme.
+// Only theme/_registry.scss and theme/families/ differ per app.
+@import 'theme/registry'
+@import 'theme/emit'
+@import 'theme/mixins'
+@import 'theme/components'
+@import 'comp/dropdown'
+
 @import 'ui/index'
+@import 'ui/scrollbars'

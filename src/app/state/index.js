@@ -4,9 +4,9 @@ const {obj, arr} = require('iblokz-data');
 const {getInitialThemeMode} = require('../util/theme');
 const {mergeAt, isImageFile, fileKind} = require('../util/file-tree');
 const {loadRecent, pushRecent} = require('../util/recent');
-const {loadLayout, saveLayout, clampLayout, nextPanes} = require('../util/layout');
 const {isDemoFile} = require('../util/save');
 const {getFs, DEMO_TREE, probeCapabilities, resetFs} = require('../services/fs');
+const layout = require('./layout').default ?? require('./layout');
 
 const emptyPos = {
 	start: {row: 0, col: 0},
@@ -55,8 +55,6 @@ const initial = {
 	dirty: false,
 	externalChange: null,
 	saveError: null,
-	sideBar: false,
-	layout: loadLayout(),
 	type: 'js',
 	example: false,
 	index: 0,
@@ -273,7 +271,13 @@ const applyProjectResult = (fs, result) => {
 		},
 		filesTree: result.filesTree,
 		recentRoots,
-		sideBar: true
+		layout: {
+			...state.layout,
+			toggles: {
+				...(state.layout && state.layout.toggles),
+				leftSideBar: true
+			}
+		}
 	});
 };
 
@@ -313,41 +317,44 @@ const openRecent = root => {
 	return openFolder();
 };
 
-const openDemo = () => state => Object.assign({}, state, {
-	view: 'workspace',
-	fsBackend: getFs().id,
-	canWrite: false,
-	projectAccess: 'demo',
-	project: {
-		id: 'demo',
-		name: 'Demo',
-		path: 'demo'
-	},
-	file: {
-		id: 'untitled',
-		name: 'Untitled.js',
-		path: 'Untitled.js',
-		ext: 'js',
-		source: demoSource
-	},
-	source: demoSource,
-	type: 'js',
-	dirty: false,
-	externalChange: null,
-	saveError: null,
-	sideBar: true,
-	index: 0,
-	maxIndex: 0,
-	pos: emptyPos,
-	history: [
-		{
-			type: 'js',
-			source: demoSource,
-			pos: emptyPos
-		}
-	],
-	filesTree: DEMO_TREE
-});
+const openDemo = () => state => obj.patch(
+	Object.assign({}, state, {
+		view: 'workspace',
+		fsBackend: getFs().id,
+		canWrite: false,
+		projectAccess: 'demo',
+		project: {
+			id: 'demo',
+			name: 'Demo',
+			path: 'demo'
+		},
+		file: {
+			id: 'untitled',
+			name: 'Untitled.js',
+			path: 'Untitled.js',
+			ext: 'js',
+			source: demoSource
+		},
+		source: demoSource,
+		type: 'js',
+		dirty: false,
+		externalChange: null,
+		saveError: null,
+		index: 0,
+		maxIndex: 0,
+		pos: emptyPos,
+		history: [
+			{
+				type: 'js',
+				source: demoSource,
+				pos: emptyPos
+			}
+		],
+		filesTree: DEMO_TREE
+	}),
+	['layout', 'toggles', 'leftSideBar'],
+	true
+);
 
 const refreshFilesTree = project => {
 	const fs = getFs();
@@ -394,17 +401,11 @@ const refreshFsCapabilities = () => state => {
 	return Object.assign({}, state, probeCapabilities());
 };
 
-const setLayout = patch => state => {
-	const layout = saveLayout(clampLayout(Object.assign({}, state.layout, patch)));
-	return Object.assign({}, state, {layout});
-};
-
-const cyclePanes = () => state => {
-	const layout = saveLayout(clampLayout(Object.assign({}, state.layout, {
-		panes: nextPanes(state.layout && state.layout.panes)
-	})));
-	return Object.assign({}, state, {layout});
-};
+const setLayout = patch => state => Object.assign({}, state, {
+	layout: Object.assign({}, state.layout, {
+		dim: Object.assign({}, state.layout.dim, patch)
+	})
+});
 
 const saveFile = (file, source, pickedHandle) => {
 	const fs = getFs();
@@ -428,6 +429,7 @@ const saveFile = (file, source, pickedHandle) => {
 
 module.exports = {
 	initial,
+	layout,
 	set,
 	toggle,
 	arrToggle,
@@ -447,6 +449,5 @@ module.exports = {
 	refreshFilesTree,
 	markExternalChange,
 	refreshFsCapabilities,
-	setLayout,
-	cyclePanes
+	setLayout
 };

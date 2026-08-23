@@ -6,7 +6,7 @@ const {patchStream} = require('iblokz-snabbdom-helpers');
 const {toVNode} = require('snabbdom');
 
 const actionsTree = require('./state');
-let ui = require('./ui');
+let ui = require('./ui')?.default ?? require('./ui');
 const viewport = require('./services/viewport');
 const {filesFromDrop, isElectronBridge} = require('./services/drop-files');
 const {
@@ -114,7 +114,7 @@ if (module.hot) {
 		document.body.innerHTML = '';
 	});
 	module.hot.accept(function() {
-		ui = require('./ui');
+		ui = require('./ui')?.default ?? require('./ui');
 		if (module.hot.data && module.hot.data.state) {
 			dispatch(() => module.hot.data.state);
 		} else {

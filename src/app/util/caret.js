@@ -1,15 +1,13 @@
-'use strict';
-
-const getParent = (el, tagName) => {
+export const getParent = (el, tagName) => {
 	if (!el || !el.parentNode || el.parentNode.nodeType !== 1) return null;
 	return (el.parentNode.tagName === tagName)
 		? el.parentNode
 		: getParent(el.parentNode, tagName);
 };
 
-const getElIndex = el => Array.from(el.parentNode.children).indexOf(el);
+export const getElIndex = el => Array.from(el.parentNode.children).indexOf(el);
 
-const getRangePoint = (el, offset) =>
+export const getRangePoint = (el, offset) =>
 	(el.nodeType === 3 || el.childNodes.length === 0)
 		? ({el, offset: (el.textContent.length < offset) ? el.textContent.length : offset})
 		: Array.from(el.childNodes).reduce(
@@ -21,10 +19,10 @@ const getRangePoint = (el, offset) =>
 			{el, offset}
 		);
 
-const lineLen = li =>
+export const lineLen = li =>
 	((li && li.textContent) || '').replace(/\u00a0/g, '').length;
 
-const endOfLastLine = el => {
+export const endOfLastLine = el => {
 	const lis = el.querySelectorAll('li');
 	if (!lis.length) {
 		return {
@@ -40,7 +38,7 @@ const endOfLastLine = el => {
 	};
 };
 
-const get = el => {
+export const get = el => {
 	const sel = window.getSelection();
 	if (!sel || sel.rangeCount < 1) {
 		throw new Error('No selection');
@@ -88,7 +86,7 @@ const get = el => {
 	};
 };
 
-const set = (el, pos) => {
+export const set = (el, pos) => {
 	if (!pos || !pos.start || !el) return;
 	const lis = Array.from(el.querySelectorAll('li'));
 	const startLi = lis[pos.start.row];
@@ -118,7 +116,7 @@ const set = (el, pos) => {
 	sel.addRange(range);
 };
 
-const indent = (el, direction = 'right') => {
+export const indent = (el, direction = 'right') => {
 	let range = window.getSelection().getRangeAt(0);
 	let startLi = (range.startContainer.tagName === 'LI')
 		? range.startContainer : getParent(range.startContainer, 'LI');
@@ -145,7 +143,7 @@ const indent = (el, direction = 'right') => {
 	}
 };
 
-module.exports = {
+export default {
 	get,
 	set,
 	indent

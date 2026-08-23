@@ -14,7 +14,8 @@
 	box-shadow: var(--app-shadow-soft)
 	box-sizing: border-box
 	padding: 0 12px
-	overflow: hidden
+	// visible so hover dropdown panels can extend below the bar
+	overflow: visible
 	transition: background-color .25s ease, border-color .25s ease, box-shadow .25s ease
 
 	// Frameless Electron: drag empty chrome (dblclick maximize/restore like media-browser);
@@ -26,8 +27,10 @@
 		z-index: -1
 		-webkit-app-region: drag
 
-	button
+	button,
+	.dropdown
 		-webkit-app-region: no-drag
+		color: var(--app-icon)
 
 	.header-start
 		flex: 1 1 0
@@ -134,3 +137,31 @@
 			color: #fff
 			i
 				transform: none
+
+	// Match header button metrics so the layout glyph sits with FA icons
+	.dropdown.layout-menu
+		+header-height($panel-row-height)
+		flex: 0 0 auto
+		display: inline-flex
+		align-items: center
+		justify-content: center
+		padding: 0 8px
+		min-width: 32px
+		box-sizing: border-box
+		border: 1px solid transparent
+		border-radius: 8px
+		font-size: 0.95em
+		line-height: 1
+
+		> .handle
+			display: inline-flex
+			align-items: center
+			justify-content: center
+			width: 1em
+			height: 1em
+			line-height: 0
+
+			.layout-icon
+				width: 1em
+				height: 1em
+				flex: none

@@ -18,11 +18,13 @@ const {
 const {str, obj} = require('iblokz-data');
 
 const prettify = require('code-prettify');
+// Extra handlers live in lang-*.js and register on global PR (set by the core).
+require('code-prettify/src/lang-css.js');
+require('code-prettify/src/lang-yaml.js');
 const vm = require('../../util/vm');
 const caret = require('../../util/caret');
 const {clamp} = require('../../util/split-drag');
 const splitGutter = require('../comp/split-gutter');
-const {normalizePanes} = require('../../util/layout');
 
 const acorn = require('acorn');
 const infer = require('tern/lib/infer.js');
@@ -110,6 +112,26 @@ const escapeHtml = s => String(s)
 	.replace(/</g, '&lt;')
 	.replace(/>/g, '&gt;');
 
+/** File ext → code-prettify lang id (core + lang-css / lang-yaml). */
+const PRETTIFY_LANG = {
+	mjs: 'js',
+	cjs: 'js',
+	jsx: 'js',
+	tsx: 'ts',
+	mts: 'ts',
+	cts: 'ts',
+	htm: 'html',
+	svg: 'xml',
+	yml: 'yaml',
+	sass: 'css',
+	scss: 'css',
+	less: 'css',
+	vue: 'html',
+	svelte: 'html'
+};
+
+const prettifyLang = type => PRETTIFY_LANG[type] || type || 'js';
+
 /**
  * code-prettify numberLines() drops a single trailing \\n, so "hello\\n"
  * renders as one line. Pad so EOF Enter can create a visible blank line.
@@ -118,9 +140,7 @@ const escapeHtml = s => String(s)
 const prettifySource = (source, type) => {
 	const src = source || '';
 	const padded = src.endsWith('\n') ? `${src}\n` : src;
-	// Map svg → xml so markup highlighting applies after escape.
-	const lang = type === 'svg' ? 'xml' : type;
-	return clearEmptyLinePads(prettify.prettyPrintOne(escapeHtml(padded), lang, true));
+	return clearEmptyLinePads(prettify.prettyPrintOne(escapeHtml(padded), prettifyLang(type), true));
 };
 
 const insertNewlineAtPos = (source, pos) => {
@@ -204,7 +224,7 @@ const process = (type, sourceCode, iframe) => {
 	if (type === 'js') {
 		sandbox(sourceCode, iframe, {}, ({res, log, err}) => {
 			if (err) console$.next(`<p class="err">${err}</p>\n`);
-			if (log) log.map(l => prettify.prettyPrintOne(JSON.stringify(l)))
+			if (log) log.map(l => prettify.prettyPrintOne(JSON.stringify(l), 'json'))
 				.forEach(l => console$.next(`${l}\n`));
 		});
 	}
@@ -221,13 +241,21 @@ module.exports = ({
 	undo = () => {},
 	redo = () => {}
 }) => {
-	const panes = normalizePanes(layout.panes);
-	const editorOnly = panes === 'editor';
-	const consoleOnly = panes === 'console';
-	const showPreview = panes === 'preview' || panes === 'full';
-	const showConsole = panes === 'console' || panes === 'full';
-	const editorPct = Math.round(((layout.editor != null ? layout.editor : 0.5) * 1000)) / 10;
-	const previewPct = Math.round(((layout.preview != null ? layout.preview : 0.5) * 1000)) / 10;
+	const toggles = layout.toggles || {};
+	const dim = layout.dim || {};
+	const showPreview = !!toggles.preview;
+	const showConsole = !!toggles.previewConsole;
+	const editorOnly = !showPreview && !showConsole;
+	const consoleOnly = showConsole && !showPreview;
+	const panes = editorOnly
+		? 'editor'
+		: consoleOnly
+			? 'console'
+			: showPreview && !showConsole
+				? 'preview'
+				: 'full';
+	const editorPct = Math.round(((dim.editor != null ? dim.editor : 0.5) * 1000)) / 10;
+	const previewPct = Math.round(((dim.preview != null ? dim.preview : 0.5) * 1000)) / 10;
 	// Horizontal modes: editor width. Console mode: editor height within the column.
 	const editorFlex = editorOnly
 		? '1 1 auto'
@@ -364,13 +392,13 @@ module.exports = ({
 					const binH = bin ? bin.getBoundingClientRect().height : 1;
 					const startPct = editor
 						? editor.getBoundingClientRect().height / binH
-						: (layout.editor != null ? layout.editor : 0.5);
+						: (dim.editor != null ? dim.editor : 0.5);
 					return {bin, editor, binH, startPct, vertical: true};
 				}
 				const binW = bin ? bin.getBoundingClientRect().width : 1;
 				const startPct = editor
 					? editor.getBoundingClientRect().width / binW
-					: (layout.editor != null ? layout.editor : 0.5);
+					: (dim.editor != null ? dim.editor : 0.5);
 				return {bin, editor, binW, startPct, vertical: false};
 			},
 			onMove: (delta, ev, ctx) => {
@@ -422,7 +450,7 @@ module.exports = ({
 					const outH = out ? out.getBoundingClientRect().height : 1;
 					const startPct = iframe
 						? iframe.getBoundingClientRect().height / outH
-						: (layout.preview != null ? layout.preview : 0.5);
+						: (dim.preview != null ? dim.preview : 0.5);
 					return {out, iframe, outH, startPct};
 				},
 				onMove: (delta, ev, ctx) => {

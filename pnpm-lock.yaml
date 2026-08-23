@@ -30,8 +30,8 @@ importers:
         specifier: ^3.6.0
         version: 3.6.0
       code-prettify:
-        specifier: github:alex-milanov/code-prettify
-        version: https://codeload.github.com/alex-milanov/code-prettify/tar.gz/ae9d5fbeb82870026456946b1934f2b876bb4525
+        specifier: github:iblokz/code-prettify
+        version: https://codeload.github.com/iblokz/code-prettify/tar.gz/3742b0d707ac59f9a2740a6fda00e65fe04f026c
       font-awesome:
         specifier: 4.7.0
         version: 4.7.0
@@ -1177,8 +1177,8 @@ packages:
     resolution: {integrity: sha512-3Pe/CF1Nn94hyhIYpjtiLhdCoEoz0DqQ+988E9gmeEdQZlojxnOb74wctFyuwWQHzqyf9X7C7MG8juUpqBJT8w==}
     engines: {node: '>=0.8'}
 
-  code-prettify@https://codeload.github.com/alex-milanov/code-prettify/tar.gz/ae9d5fbeb82870026456946b1934f2b876bb4525:
-    resolution: {tarball: https://codeload.github.com/alex-milanov/code-prettify/tar.gz/ae9d5fbeb82870026456946b1934f2b876bb4525}
+  code-prettify@https://codeload.github.com/iblokz/code-prettify/tar.gz/3742b0d707ac59f9a2740a6fda00e65fe04f026c:
+    resolution: {tarball: https://codeload.github.com/iblokz/code-prettify/tar.gz/3742b0d707ac59f9a2740a6fda00e65fe04f026c}
     version: 1.0.0
 
   color-convert@2.0.1:
@@ -4175,7 +4175,7 @@ snapshots:
 
   clone@2.1.2: {}
 
-  code-prettify@https://codeload.github.com/alex-milanov/code-prettify/tar.gz/ae9d5fbeb82870026456946b1934f2b876bb4525: {}
+  code-prettify@https://codeload.github.com/iblokz/code-prettify/tar.gz/3742b0d707ac59f9a2740a6fda00e65fe04f026c: {}
 
   color-convert@2.0.1:
     dependencies:

@@ -1,0 +1,53 @@
+---
+description: Compositional style — expression bodies, fn.pipe prep, [].concat children
+globs: src/app/**/*.{js,mjs,cjs}
+alwaysApply: false
+---
+
+# Compositional style
+
+Full write-up: [../boilerplate/docs/composition.md](../../../boilerplate/docs/composition.md) (shared iblokz convention).
+
+Prefer compositional / functional expressions for ordinary prep — not `{ … return … }` when a block is unnecessary.
+
+## Expression bodies & `fn.pipe`
+
+- Prefer `({state, actions}) => header('.top', …)` over `=> { return … }`.
+- For a few derived locals, use `fn.pipe` from `iblokz-data` (same spirit as `Promise.then` / Rx `pipe(map, …)`), not an imperative `const` block.
+
+```js
+// Prefer
+export default ({state, actions}) => fn.pipe(
+	() => ({
+		open: !!obj.sub(state, ['layout', 'toggles', 'leftSideBar']),
+		dim: obj.sub(state, ['layout', 'dim', 'leftSideBar']) || 260
+	}),
+	({open, dim}) => div('.side-bar', { class: { toggled: open } }, …)
+)();
+
+// Avoid
+export default ({state, actions}) => {
+	const open = !!(state.layout && state.layout.toggles && state.layout.toggles.leftSideBar);
+	return div(…);
+};
+```
+
+Blocks are fine for real control flow / effects — do not force every helper through `fn.pipe`.
+
+## Conditional array composition
+
+Use `[].concat(…, cond ? child : [], …)` — not `null` / `undefined` plus `.filter(Boolean)`.
+
+```js
+// Prefer
+div('.panel', [].concat(
+	header([…]),
+	recent.length ? div('.recent', […]) : []
+))
+
+// Avoid
+div('.panel', [
+	header([…]),
+	recent.length ? div('.recent', […]) : null
+].filter(Boolean))
+```

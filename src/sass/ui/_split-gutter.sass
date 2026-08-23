@@ -4,6 +4,11 @@
 	position: relative
 	z-index: 5
 	transition: background-color .15s ease
+	// Critical for Android WebView: without this, a short drag becomes a
+	// scroll and the browser fires pointercancel → size snaps back.
+	touch-action: none
+	user-select: none
+	-webkit-user-select: none
 
 	&::after
 		content: ''
@@ -19,28 +24,31 @@
 		display: none
 
 	&--x
-		width: 4px
+		width: 2px
 		margin: 0 -1px
 		cursor: col-resize
 		&::after
-			left: -3px
-			right: -3px
+			// Wider touch target (~22px)
+			left: -10px
+			right: -10px
 
 	&--y
-		height: 4px
+		height: 2px
 		margin: -1px 0
 		cursor: row-resize
 		width: 100%
 		&::after
-			top: -3px
-			bottom: -3px
+			top: -10px
+			bottom: -10px
 
 body.is-resizing-x,
 body.is-resizing-x *
 	cursor: col-resize !important
 	user-select: none !important
+	touch-action: none !important
 
 body.is-resizing-y,
 body.is-resizing-y *
 	cursor: row-resize !important
 	user-select: none !important
+	touch-action: none !important

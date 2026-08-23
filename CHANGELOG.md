@@ -11,6 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.9.0] - 2026-08-23
+
+### Added
+
+- Boilerplate-style theme pipeline (`theme/registry` → emit → mixins → components) with IDE light/dark family tokens (`.theme-ide-*` + `.theme-mode-*` for chrome like prettify/scrollbars)
+- Layout state submodule (`toggles` / `dim`) and header layout menu (left/right side bar, bottom panel, preview) with SVG icons and hotkey labels
+- Shared dropdown component for header chrome
+- Syntax highlighting: depend on `github:iblokz/code-prettify`; map common file extensions and load CSS/YAML handlers; console logs use `json` lang
+
+### Fixed
+
+- Split gutters on touch: `touch-action: none`, wider hit target, commit last move delta on `pointercancel` so short drags no longer snap back
+- Opening a folder keeps other layout toggles when forcing the left sidebar open (`state.layout.toggles`, not a missing top-level `toggles`)
+
+### Changed
+
+- UI prep prefers compositional `fn.pipe` / `[].concat` conditional children (documented preference in `.cursor/rules`)
+- Drop panes cycle helpers and `util/layout.js`; layout defaults live in `state/layout` (persistence deferred to Phase 2 — see `planning/`)
+
+---
+
 ## [1.8.2] - 2026-08-16
 
 ### Fixed
@@ -231,7 +252,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.8.2...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/iblokz/ide/compare/v1.8.2...v1.9.0
 [1.8.2]: https://github.com/iblokz/ide/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/iblokz/ide/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/iblokz/ide/compare/v1.7.1...v1.8.0
