@@ -1,6 +1,7 @@
 'use strict';
 
 const {hashPath, extOf, SKIP_NAMES, fileKind} = require('../../util/file-tree');
+const {browser} = require('../../util/platform');
 
 const getSession = () => {
 	if (typeof window === 'undefined') {
@@ -36,11 +37,7 @@ const hasSavePicker = () =>
 	typeof window !== 'undefined'
 	&& typeof window.showSaveFilePicker === 'function';
 
-const isBrave = () => {
-	if (typeof navigator === 'undefined') return false;
-	return !!(navigator.brave)
-		|| /Brave/i.test(navigator.userAgent || '');
-};
+const isBrave = () => browser() === 'brave';
 
 const fsaMissingHint = () => {
 	if (isBrave()) {

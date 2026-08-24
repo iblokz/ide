@@ -1,11 +1,7 @@
 'use strict';
 
 const {div, h1, p, button, ul, li, span, i} = require('iblokz-snabbdom-helpers');
-
-const isElectron = () =>
-	typeof window !== 'undefined'
-	&& window.app
-	&& window.app.platform === 'electron';
+const {isElectron} = require('../util/platform');
 
 module.exports = ({state, actions}) => {
 	const recent = (state.recentRoots || []).filter(root => root && root.name);

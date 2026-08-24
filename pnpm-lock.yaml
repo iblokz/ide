@@ -69,6 +69,9 @@ importers:
       '@parcel/transformer-sass':
         specifier: 2.16.4
         version: 2.16.4(@parcel/core@2.16.4)
+      '@parcel/transformer-yaml':
+        specifier: 2.16.4
+        version: 2.16.4(@parcel/core@2.16.4)
       electron:
         specifier: ^33.4.11
         version: 33.4.11
@@ -682,6 +685,10 @@ packages:
 
   '@parcel/transformer-svg@2.16.4':
     resolution: {integrity: sha512-0dm4cQr/WpfQP6N0xjFtwdLTxcONDfoLgTOMk4eNUWydHipSgmLtvUk/nOc/FWkwztRScfAObtZXOiPOd3Oy9A==}
+    engines: {node: '>= 16.0.0', parcel: ^2.16.4}
+
+  '@parcel/transformer-yaml@2.16.4':
+    resolution: {integrity: sha512-rOO4UKZGhH/c03PPZLfqNSOsP8F1XuOM1pi3G6DRT0DZuCmaRFqtgDa6ys/7lvu0t5sfSu3zX2dbrF2i+OIIIA==}
     engines: {node: '>= 16.0.0', parcel: ^2.16.4}
 
   '@parcel/types-internal@2.16.4':
@@ -3654,6 +3661,14 @@ snapshots:
       '@parcel/diagnostic': 2.16.4
       '@parcel/plugin': 2.16.4(@parcel/core@2.16.4)
       '@parcel/rust': 2.16.4
+    transitivePeerDependencies:
+      - '@parcel/core'
+      - napi-wasm
+
+  '@parcel/transformer-yaml@2.16.4(@parcel/core@2.16.4)':
+    dependencies:
+      '@parcel/plugin': 2.16.4(@parcel/core@2.16.4)
+      js-yaml: 4.1.0
     transitivePeerDependencies:
       - '@parcel/core'
       - napi-wasm

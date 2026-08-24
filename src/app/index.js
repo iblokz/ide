@@ -8,6 +8,7 @@ const {toVNode} = require('snabbdom');
 const actionsTree = require('./state');
 let ui = require('./ui')?.default ?? require('./ui');
 const viewport = require('./services/viewport');
+const hotkeys = require('./services/hotkeys');
 const {filesFromDrop, isElectronBridge} = require('./services/drop-files');
 const {
 	STORAGE_KEY,
@@ -19,6 +20,7 @@ const {triggerSave} = require('./util/trigger-save');
 let {actions, state$} = createState(actionsTree);
 
 viewport.start();
+hotkeys.start();
 applyDocumentTheme(state$.getValue().themeMode);
 actions.refreshFsCapabilities();
 
@@ -109,6 +111,7 @@ if (module.hot) {
 	module.hot.dispose(function(data) {
 		data.state = state$.getValue();
 		viewport.stop();
+		hotkeys.stop();
 		patchSubscription.unsubscribe();
 		state$.complete();
 		document.body.innerHTML = '';
@@ -121,5 +124,6 @@ if (module.hot) {
 			dispatch(state => state);
 		}
 		viewport.start();
+		hotkeys.start();
 	});
 }

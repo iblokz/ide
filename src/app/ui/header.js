@@ -3,12 +3,10 @@ import svgHamburger from './comp/svg/hamburger';
 import {canSave, saveHint} from '../util/save';
 import {isStartView} from '../util/project';
 import {triggerSave} from '../util/trigger-save';
+import {isElectron} from '../util/platform';
+import {formatHotkey, chordForAction} from '../util/hotkey';
+import hotkeyMap from '../../../config/hotkeys.yml';
 import dropdown from './comp/dropdown';
-
-export const isElectron = () =>
-	typeof window !== 'undefined'
-	&& window.app
-	&& window.app.platform === 'electron';
 
 const ideTitle = 'iBlokz IDE';
 
@@ -30,11 +28,13 @@ const prepFileTitle = state =>
 const layoutIcon = name => span(`.layout-icon.${name}`);
 
 const layoutMenuItems = [
-	{id: 'left-side-bar', label: 'Left Side Bar', toggleKey: 'leftSideBar', hotkey: 'Ctrl+B'},
-	{id: 'right-side-bar', label: 'Right Side Bar', toggleKey: 'rightSideBar', hotkey: 'Ctrl+Shift+B'},
-	{id: 'bottom-panel', label: 'Bottom Panel', toggleKey: 'bottomPanel', hotkey: 'Ctrl+J'},
-	{id: 'preview', label: 'Preview', toggleKey: 'preview', hotkey: 'Ctrl+P'}
-];
+	{id: 'left-side-bar', label: 'Left Side Bar', toggleKey: 'leftSideBar'},
+	{id: 'right-side-bar', label: 'Right Side Bar', toggleKey: 'rightSideBar'},
+	{id: 'bottom-panel', label: 'Bottom Panel', toggleKey: 'bottomPanel'},
+	{id: 'preview', label: 'Preview', toggleKey: 'preview'}
+].map(item => Object.assign({}, item, {
+	hotkey: formatHotkey(chordForAction(hotkeyMap, `toggle layout.toggles.${item.toggleKey}`))
+}));
 
 const renderLayoutItem = item => span('.layout-option', [
 	layoutIcon(item.id),

@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.10.0] - 2026-08-24
+
+### Added
+
+- Keyboard shortcuts service: `config/hotkeys.yml` + RxJS `keydown` handler for layout toggles
+- Platform util (`runtime`, `os`, `deviceType`, `browser`, `modKey` / `modKeyLabel`, Electron/Capacitor detection)
+- Hotkey util: platform-aware labels from YAML chords (`Ctrl+Shift+B` vs macOS `⇧⌘B`)
+
+### Changed
+
+- Layout menu hotkey column driven from `hotkeys.yml` (no hardcoded `Ctrl+…` strings)
+- Electron / Capacitor / browser checks consolidated in `util/platform.js`
+- Add `@parcel/transformer-yaml` for hotkey config bundling
+
+---
+
 ## [1.9.0] - 2026-08-23
 
 ### Added
@@ -252,7 +268,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/iblokz/ide/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/iblokz/ide/compare/v1.8.2...v1.9.0
 [1.8.2]: https://github.com/iblokz/ide/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/iblokz/ide/compare/v1.8.0...v1.8.1
