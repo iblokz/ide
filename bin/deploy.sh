@@ -100,6 +100,12 @@ can_deploy_android() {
     echo "adb not found"
     return 1
   fi
+  if is_linux && getent group plugdev &>/dev/null; then
+    if ! id -nG 2>/dev/null | tr ' ' '\n' | grep -qx plugdev; then
+      echo "user not in plugdev group (USB adb)"
+      return 1
+    fi
+  fi
   return 0
 }
 

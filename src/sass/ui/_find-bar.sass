@@ -12,6 +12,21 @@
 	border: 1px solid var(--app-border)
 	box-shadow: var(--app-shadow-soft)
 	-webkit-app-region: no-drag
+	transition: opacity .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease
+
+	&.collapsed
+		// Same padding as .open so the search icon lines up with the close (X) control
+		opacity: 0.4
+		background: transparent
+		border-color: transparent
+		box-shadow: none
+
+		&:hover,
+		&:focus-within
+			opacity: 1
+			background: var(--app-bg-panel)
+			border-color: var(--app-border)
+			box-shadow: var(--app-shadow-soft)
 
 	.find-query
 		width: 220px
@@ -51,6 +66,9 @@
 		&.active
 			background: var(--app-accent-soft)
 			color: var(--app-accent)
+
+	.find-toggle
+		font-size: 0.9rem
 
 	.find-case
 		width: auto

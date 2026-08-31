@@ -7,7 +7,7 @@ const capacitor = require('./capacitor');
 
 /**
  * Keep one instance per backend so Cap scoped-folder session state survives
- * re-detection. Prefer Electron → Capacitor (native) → web → memory, and
+ * re-detection. Prefer Electron → Capacitor (native) → web → memory stub, and
  * re-check Cap on every getFs(): the bridge may not be ready at first module eval.
  */
 const backends = {
@@ -59,6 +59,5 @@ module.exports = {
 	getFs,
 	resetFs,
 	detect,
-	probeCapabilities,
-	DEMO_TREE: memory.DEMO_TREE
+	probeCapabilities
 };

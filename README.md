@@ -8,7 +8,7 @@ Successor to earlier CodeMirror / PHP experiments, expanded from a slide-framewo
 
 ## Features
 
-- Start screen: open a project, reopen recent folders (Electron), or try the in-memory demo
+- Start screen: open a project or reopen recent folders (Electron)
 - Contenteditable editor with syntax highlighting (code-prettify) and live preview / console
 - Open a local folder (desktop full FS via Electron; browser File System Access API or directory input; Android/iOS user-picked folder via Capacitor SAF / document picker)
 - File tree, open / save (when the backend is writable), recent project names
@@ -21,7 +21,7 @@ Successor to earlier CodeMirror / PHP experiments, expanded from a slide-framewo
 
 | Target | Dev | Build | Deploy |
 |--------|-----|-------|--------|
-| Web | `pnpm start` | `pnpm build` | GitHub Pages (push to `main`/`master`) |
+| Web / shared Parcel | `pnpm start` / `./bin/start.sh` | `pnpm build` | GitHub Pages (push to `main`/`master`) |
 | Electron shell | `pnpm start:electron` | — | — |
 | Linux AppImage | — | `./bin/build.sh --app-image` | `./bin/deploy.sh --app-image` (`~/.local`) |
 | macOS DMG | `pnpm start:macos` | `./bin/build.sh --macos` | `./bin/deploy.sh --macos` (`~/Applications`) |
@@ -30,11 +30,10 @@ Successor to earlier CodeMirror / PHP experiments, expanded from a slide-framewo
 
 ```bash
 pnpm install
-pnpm start                 # web — usually http://localhost:1234
-pnpm start:electron        # Parcel + Electron shell
-pnpm start:macos           # same shell on macOS
-./bin/start.sh --android   # Parcel + Capacitor live-reload
-./bin/start.sh --ios       # Parcel + Capacitor iOS live-reload
+pnpm start                              # Parcel on 0.0.0.0:1234 (web + LAN)
+pnpm start:electron                     # same Parcel + Electron
+./bin/start.sh --electron --android     # one Parcel; Electron + Cap Android
+./bin/start.sh --ios                    # same Parcel + Cap iOS
 ```
 
 ```bash

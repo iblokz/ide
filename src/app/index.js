@@ -75,7 +75,7 @@ if (isElectronBridge() && typeof window.app.onFsChange === 'function') {
 	stopFsChange = window.app.onFsChange(payload => {
 		const changedPath = payload && payload.path;
 		const state = state$.getValue();
-		if (state.view === 'workspace' && state.project && state.project.path && state.project.id !== 'demo') {
+		if (state.view === 'workspace' && state.project && state.project.path) {
 			actions.refreshFilesTree(state.project, state.filesTree);
 		}
 		if (!changedPath || !state.file || state.file.path !== changedPath) return;

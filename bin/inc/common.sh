@@ -32,6 +32,13 @@ hint_adb_install() {
   echo "  Linux (Debian/Ubuntu):  sudo apt install adb" >&2
 }
 
+hint_adb_plugdev() {
+  echo "  Linux USB access (plugdev + udev):" >&2
+  echo "    sudo usermod -aG plugdev \"\$USER\"   # then log out and back in" >&2
+  echo "    sudo apt install android-sdk-platform-tools-common" >&2
+  echo "    adb kill-server && adb devices" >&2
+}
+
 hint_imagemagick_install() {
   echo "  macOS (MacPorts):  sudo port install ImageMagick" >&2
   echo "  macOS (Homebrew):  brew install imagemagick" >&2
@@ -59,6 +66,12 @@ hint_adb_install_out() {
   echo "            macOS (MacPorts):  sudo port install android-platform-tools"
   echo "            macOS (Homebrew):  brew install android-platform-tools"
   echo "            Linux (Debian/Ubuntu):  sudo apt install adb"
+}
+
+hint_adb_plugdev_out() {
+  echo "            sudo usermod -aG plugdev \"\$USER\"   # then log out/in"
+  echo "            sudo apt install android-sdk-platform-tools-common"
+  echo "            adb kill-server && adb devices"
 }
 
 hint_imagemagick_install_out() {
@@ -114,14 +127,98 @@ has_imagemagick() {
   command -v convert &>/dev/null
 }
 
-# Returns 0 if a usable JDK is on PATH.
-has_java() {
-  local java_ver
-  java_ver=$(java -version 2>&1) || true
-  if [ -z "$java_ver" ] || echo "$java_ver" | grep -qi "unable to locate a java runtime\|no java runtime present"; then
-    return 1
+# AGP 8.x (Cap 5 Android) requires Java 17+ to *run*; project recommends 21.
+MIN_JAVA_MAJOR=17
+
+# Parse major version from `java -version` (or a specific java binary). Echoes number or empty.
+java_major_version() {
+  local bin="${1:-java}"
+  local ver
+  ver=$("$bin" -version 2>&1) || true
+  # openjdk version "17.0.x" / "11.0.x" / "1.8.0_xxx"
+  if [[ "$ver" =~ version\ \"1\.([0-9]+) ]]; then
+    echo "${BASH_REMATCH[1]}"
+  elif [[ "$ver" =~ version\ \"([0-9]+) ]]; then
+    echo "${BASH_REMATCH[1]}"
+  else
+    echo ""
   fi
-  return 0
+}
+
+# Prefer JAVA_HOME / PATH if already >= MIN; else pick a newer JDK from common install roots.
+# On success: exports JAVA_HOME and prepends $JAVA_HOME/bin to PATH.
+ensure_java_home() {
+  local major="" candidate home bin
+  if [ -n "${JAVA_HOME:-}" ] && [ -x "${JAVA_HOME}/bin/java" ]; then
+    major=$(java_major_version "${JAVA_HOME}/bin/java")
+    if [ -n "$major" ] && [ "$major" -ge "$MIN_JAVA_MAJOR" ]; then
+      export PATH="${JAVA_HOME}/bin:${PATH}"
+      return 0
+    fi
+  fi
+  if command -v java &>/dev/null; then
+    major=$(java_major_version java)
+    if [ -n "$major" ] && [ "$major" -ge "$MIN_JAVA_MAJOR" ]; then
+      # Resolve JAVA_HOME from the java on PATH when unset / too old
+      if [ -z "${JAVA_HOME:-}" ] || [ "$(java_major_version "${JAVA_HOME}/bin/java" 2>/dev/null || true)" != "$major" ]; then
+        bin="$(command -v java)"
+        bin="$(readlink -f "$bin" 2>/dev/null || echo "$bin")"
+        # .../bin/java → home
+        home="$(cd "$(dirname "$bin")/.." && pwd)"
+        if [ -x "${home}/bin/java" ]; then
+          export JAVA_HOME="$home"
+        fi
+      fi
+      return 0
+    fi
+  fi
+  for candidate in \
+    /usr/lib/jvm/java-21-openjdk-amd64 \
+    /usr/lib/jvm/java-21-openjdk \
+    /usr/lib/jvm/java-17-openjdk-amd64 \
+    /usr/lib/jvm/java-17-openjdk \
+    /opt/homebrew/opt/openjdk@21 \
+    /opt/homebrew/opt/openjdk@17 \
+    /usr/local/opt/openjdk@21 \
+    /usr/local/opt/openjdk@17 \
+    /opt/local/Library/Java/JavaVirtualMachines/openjdk21/Contents/Home \
+    /opt/local/Library/Java/JavaVirtualMachines/openjdk17/Contents/Home \
+    "$HOME/.sdkman/candidates/java/current"
+  do
+    if [ -x "${candidate}/bin/java" ]; then
+      major=$(java_major_version "${candidate}/bin/java")
+      if [ -n "$major" ] && [ "$major" -ge "$MIN_JAVA_MAJOR" ]; then
+        export JAVA_HOME="$candidate"
+        export PATH="${JAVA_HOME}/bin:${PATH}"
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+# Returns 0 if a usable JDK (>= MIN_JAVA_MAJOR is available (may set JAVA_HOME).
+has_java() {
+  ensure_java_home
+}
+
+require_java() {
+  local major found=""
+  if ensure_java_home; then
+    major=$(java_major_version java)
+    echo "Using Java ${major} (JAVA_HOME=${JAVA_HOME:-})"
+    return 0
+  fi
+  if command -v java &>/dev/null; then
+    found=$(java_major_version java)
+  fi
+  if [ -n "$found" ]; then
+    echo "Java ${found} found, but Android Gradle Plugin needs Java ${MIN_JAVA_MAJOR}+ (OpenJDK 21 recommended)." >&2
+  else
+    echo "Java (JDK) not found. Android build requires Java ${MIN_JAVA_MAJOR}+ (OpenJDK 21 recommended)." >&2
+  fi
+  hint_java_install
+  exit 1
 }
 
 # Locate Android SDK without exiting. Sets ANDROID_HOME / ANDROID_SDK_ROOT on success.
@@ -288,7 +385,7 @@ PY
 # Cap sync / native packaging need ImageMagick for assets — used by build.sh --all.
 can_android() {
   if ! has_java; then
-    echo "JDK not found (OpenJDK 21 recommended)"
+    echo "JDK ${MIN_JAVA_MAJOR}+ not found (OpenJDK 21 recommended)"
     return 1
   fi
   if ! find_android_sdk; then
@@ -305,7 +402,7 @@ can_android() {
 # Init only needs the native toolchain (no web build).
 can_android_init() {
   if ! has_java; then
-    echo "JDK not found (OpenJDK 21 recommended)"
+    echo "JDK ${MIN_JAVA_MAJOR}+ not found (OpenJDK 21 recommended)"
     return 1
   fi
   if ! find_android_sdk; then
@@ -375,19 +472,19 @@ can_ios_init() {
   return 0
 }
 
-require_java() {
-  if ! has_java; then
-    echo "Java (JDK) not found. Android build requires a JDK (OpenJDK 21)." >&2
-    hint_java_install
-    exit 1
-  fi
-}
-
 require_adb() {
   if ! command -v adb &>/dev/null; then
     echo "adb not found. Android deploy requires platform-tools." >&2
     hint_adb_install
     exit 1
+  fi
+  # Linux: USB devices need the plugdev group (udev). Soft-skip if no group exists.
+  if is_linux && getent group plugdev &>/dev/null; then
+    if ! id -nG 2>/dev/null | tr ' ' '\n' | grep -qx plugdev; then
+      echo "User '$USER' is not in the plugdev group — adb cannot talk to USB devices." >&2
+      hint_adb_plugdev
+      exit 1
+    fi
   fi
 }
 
@@ -475,9 +572,17 @@ preflight_os_deps() {
 
   if [ "$need_java" -eq 1 ]; then
     if has_java; then
-      echo "  [ok]      Java (JDK)"
+      echo "  [ok]      Java $(java_major_version java) (JAVA_HOME=${JAVA_HOME:-})"
     else
-      echo "  [missing] Java (JDK) — Android requires OpenJDK 21"
+      local found=""
+      if command -v java &>/dev/null; then
+        found=$(java_major_version java)
+      fi
+      if [ -n "$found" ]; then
+        echo "  [missing] Java ${MIN_JAVA_MAJOR}+ — found ${found} (AGP needs 17+; OpenJDK 21 recommended)"
+      else
+        echo "  [missing] Java (JDK) — Android requires OpenJDK ${MIN_JAVA_MAJOR}+ (21 recommended)"
+      fi
       hint_java_install_out
       hard_fail=1
     fi
@@ -537,6 +642,14 @@ preflight_os_deps() {
   if [ "${DO_ANDROID:-0}" -eq 1 ]; then
     if command -v adb &>/dev/null; then
       echo "  [ok]      adb"
+      if is_linux && getent group plugdev &>/dev/null; then
+        if id -nG 2>/dev/null | tr ' ' '\n' | grep -qx plugdev; then
+          echo "  [ok]      plugdev group (USB adb)"
+        else
+          echo "  [alert]   not in plugdev — USB deploy/start will fail until you join the group"
+          hint_adb_plugdev_out
+        fi
+      fi
     else
       echo "  [alert]   adb not found — Android init can continue; deploy needs platform-tools"
       hint_adb_install_out

@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.13.0] - 2026-08-31
+
+### Added
+
+- Find: collapsed search icon in the editor top-right (semi-transparent until hover); expands to the find bar; close / Escape collapses back to the icon
+- `start.sh`: combinable `--electron` / `--android` / `--ios` on one shared Parcel host
+- Init / deploy: require Java 17+ for Android (auto-pick a suitable JDK when installed); Linux `plugdev` alert + hard check on USB adb deploy
+
+### Changed
+
+- `start.sh` / `pnpm start`: always bind Parcel on `0.0.0.0:1234` for web, desktop, and mobile clients; platform flags only attach shells
+- Find bar: softer match-line wash; search icon aligns with the close control
+
+### Removed
+
+- In-memory demo project (`Open Demo`, `DEMO_TREE`, `openDemo`) — start screen opens a real project / recent folder only
+
+---
+
 ## [1.12.0] - 2026-08-31
 
 ### Added
@@ -314,7 +333,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/iblokz/ide/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/iblokz/ide/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/iblokz/ide/compare/v1.10.1...v1.11.0
 [1.10.1]: https://github.com/iblokz/ide/compare/v1.10.0...v1.10.1

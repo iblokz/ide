@@ -1,6 +1,6 @@
 {
   "name": "iblokz-ide",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "description": "in browser / Electron / Capacitor code editor (web, Linux AppImage, macOS, Android, iOS)",
   "source": "src/index.pug",
   "main": "electron/main.js",
@@ -13,7 +13,7 @@
     "icons": "./bin/icons.sh",
     "prestart": "pnpm run assets",
     "prebuild": "pnpm run assets",
-    "start": "parcel --host 0.0.0.0 --port 1234",
+    "start": "./bin/start.sh",
     "start:https": "parcel serve --https --host 0.0.0.0 --port 1234",
     "start:electron": "./bin/start.sh --electron",
     "start:macos": "./bin/start.sh --macos",

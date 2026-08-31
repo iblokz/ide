@@ -12,14 +12,33 @@ const syncFindInput = (field, query, force = false) => {
 
 export default ({state, actions}) => {
 	const find = state.find || {};
-	if (!find.open) return null;
+	if (!state.file || !state.file.name || state.type === 'image') return null;
+
+	const open = !!find.open;
+
+	if (!open) {
+		return div('.find-bar.collapsed', [
+			button('.find-toggle', {
+				attrs: {
+					'aria-label': 'Find in document',
+					title: 'Find (Mod+F)'
+				},
+				on: {
+					click: ev => {
+						ev.preventDefault();
+						actions.openFind();
+					}
+				}
+			}, [i('.fa.fa-search')])
+		]);
+	}
 
 	const step = dir => {
 		if (dir < 0) actions.findPrev();
 		else actions.findNext();
 	};
 
-	return div('.find-bar', {
+	return div('.find-bar.open', {
 		hook: {
 			insert: ({elm}) => {
 				const field = elm.querySelector('.find-query');

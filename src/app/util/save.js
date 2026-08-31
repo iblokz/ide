@@ -3,12 +3,6 @@
 const {getFs} = require('../services/fs');
 const {isStartView} = require('./project');
 
-const isDemoFile = file =>
-	!file
-	|| file.id === 'untitled'
-	|| file.id === 'demo'
-	|| String(file.id || '').startsWith('demo-');
-
 const hasWritableHandle = file => {
 	if (!file || !file.id) return false;
 	try {
@@ -25,20 +19,17 @@ const canUseSavePicker = () =>
 	&& typeof window.showSaveFilePicker === 'function';
 
 const canSave = state => {
-	if (!state || isStartView(state) || !state.dirty || !state.file || isDemoFile(state.file)) {
+	if (!state || isStartView(state) || !state.dirty || !state.file) {
 		return false;
 	}
 	if (state.type === 'image') return false;
-	if (state.project && state.project.id === 'demo') return false;
 	return true;
 };
 
 const saveHint = state => {
 	if (!state || isStartView(state)) return 'Open a project to save';
 	if (!state.dirty) return 'No changes';
-	if (!state.file || isDemoFile(state.file) || (state.project && state.project.id === 'demo')) {
-		return 'Open a project file before saving';
-	}
+	if (!state.file) return 'Open a project file before saving';
 	if (state.canWrite || hasWritableHandle(state.file)) {
 		return 'Save (Ctrl+S)';
 	}
@@ -57,7 +48,6 @@ const saveHint = state => {
 };
 
 module.exports = {
-	isDemoFile,
 	hasWritableHandle,
 	canUseSavePicker,
 	canSave,

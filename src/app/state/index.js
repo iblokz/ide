@@ -10,8 +10,7 @@ const {
 	reapplyExpandedPaths
 } = require('../util/file-tree');
 const {loadRecent, pushRecent} = require('../util/recent');
-const {isDemoFile} = require('../util/save');
-const {getFs, DEMO_TREE, probeCapabilities, resetFs} = require('../services/fs');
+const {getFs, probeCapabilities, resetFs} = require('../services/fs');
 const layout = require('./layout').default ?? require('./layout');
 const find = require('./find').default ?? require('./find');
 const {findMatch, findFirstMatch} = require('../util/find-in-source');
@@ -24,8 +23,6 @@ const emptyPos = {
 	start: {row: 0, col: 0},
 	end: {row: 0, col: 0}
 };
-
-const demoSource = 'console.log("Hello World!")';
 
 /** Cleared buffer when opening / switching to a real project (no file selected). */
 const clearOpenFile = state => {
@@ -58,18 +55,13 @@ const initial = {
 	canOpenFolder: getFs().canOpenFolder,
 	// project-scoped: true only after opening a writable folder
 	canWrite: false,
-	project: {
-		id: 'demo',
-		name: 'Demo',
-		path: 'demo'
-	},
+	project: null,
 	recentRoots: loadRecent(),
 	file: null,
 	dirty: false,
 	externalChange: null,
 	saveError: null,
 	type: 'js',
-	example: false,
 	index: 0,
 	maxIndex: 0,
 	source: '',
@@ -81,7 +73,7 @@ const initial = {
 			pos: emptyPos
 		}
 	],
-	filesTree: DEMO_TREE,
+	filesTree: [],
 	find: emptyFind
 };
 
@@ -331,45 +323,6 @@ const openRecent = root => {
 	return openFolder();
 };
 
-const openDemo = () => state => obj.patch(
-	Object.assign({}, state, {
-		view: 'workspace',
-		fsBackend: getFs().id,
-		canWrite: false,
-		projectAccess: 'demo',
-		project: {
-			id: 'demo',
-			name: 'Demo',
-			path: 'demo'
-		},
-		file: {
-			id: 'untitled',
-			name: 'Untitled.js',
-			path: 'Untitled.js',
-			ext: 'js',
-			source: demoSource
-		},
-		source: demoSource,
-		type: 'js',
-		dirty: false,
-		externalChange: null,
-		saveError: null,
-		index: 0,
-		maxIndex: 0,
-		pos: emptyPos,
-		history: [
-			{
-				type: 'js',
-				source: demoSource,
-				pos: emptyPos
-			}
-		],
-		filesTree: DEMO_TREE
-	}),
-	['layout', 'toggles', 'leftSideBar'],
-	true
-);
-
 const refreshFilesTree = (project, prevTree) => {
 	const fs = getFs();
 	if (!project || !project.path || typeof fs.listDir !== 'function') {
@@ -544,7 +497,7 @@ const findPrev = () => findStep(-1);
 
 const saveFile = (file, source, pickedHandle) => {
 	const fs = getFs();
-	if (!file || isDemoFile(file) || fs.id === 'memory') {
+	if (!file || fs.id === 'memory') {
 		return Promise.resolve(state => state);
 	}
 	return fs.writeFile(file, source, pickedHandle)
@@ -580,7 +533,6 @@ module.exports = {
 	toggleTheme,
 	openFolder,
 	openRecent,
-	openDemo,
 	saveFile,
 	refreshFilesTree,
 	markExternalChange,

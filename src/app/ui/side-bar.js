@@ -57,7 +57,7 @@ export default ({state, actions, width}) => fn.pipe(
 					? actions.toggleFolder(path, item)
 					: actions.openFile(item)
 			))),
-		title: (!state.project || state.project.id === 'demo')
+		title: !state.project
 			? 'Open Project'
 			: (state.project.name || 'Project'),
 		open: !!obj.sub(state, ['layout', 'toggles', 'leftSideBar']),
@@ -84,7 +84,7 @@ export default ({state, actions, width}) => fn.pipe(
 		header([
 			span({
 				class: {
-					placeholder: !state.project || state.project.id === 'demo'
+					placeholder: !state.project
 				}
 			}, title),
 			button('.open-folder', {

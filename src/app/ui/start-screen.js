@@ -38,18 +38,6 @@ module.exports = ({state, actions}) => {
 				}, [
 					i('.fa.fa-folder-open-o'),
 					' Open Project'
-				]),
-				button('.secondary.open-demo', {
-					attrs: {type: 'button', title: 'Try the in-memory demo'},
-					on: {
-						click: ev => {
-							ev.preventDefault();
-							actions.openDemo();
-						}
-					}
-				}, [
-					i('.fa.fa-play-circle-o'),
-					' Open Demo'
 				])
 			]),
 			recent.length
