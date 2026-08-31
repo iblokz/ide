@@ -25,6 +25,8 @@ const prettifyJs = require('../../ext/prettify-js').default ?? require('../../ex
 prettifyJs.register();
 const vm = require('../../util/vm');
 const caret = require('../../util/caret');
+const findHighlight = require('../../util/find-highlight').default
+	?? require('../../util/find-highlight');
 const {clamp} = require('../../util/split-drag');
 const splitGutter = require('../comp/split-gutter');
 
@@ -293,15 +295,25 @@ module.exports = ({
 						? oldVnode.data.dataset.source
 						: null;
 					const next = source || '';
-					// Only rewrite + restore caret when source changed.
-					// Always calling caret.set fights live typing / Enter.
-					if (prev === next) return;
-					elm.innerHTML = prettifySource(next, type);
-					caret.set(elm, pos);
+					const prevPos = oldVnode.data && oldVnode.data.dataset
+						? oldVnode.data.dataset.posKey
+						: null;
+					const nextPos = JSON.stringify(pos || null);
+					if (prev === next && prevPos === nextPos) return;
+					if (prev !== next) {
+						elm.innerHTML = prettifySource(next, type);
+						findHighlight.clearFindMarkup(elm);
+					}
+					if (findHighlight.isFindBarFocused()) {
+						findHighlight.applyFindMarkup(elm, pos);
+					} else {
+						caret.set(elm, pos);
+					}
 				}
 			},
 			dataset: {
-				source: source || ''
+				source: source || '',
+				posKey: JSON.stringify(pos || null)
 			},
 			on: {
 				keydown: ev => {

@@ -19,6 +19,14 @@
 		padding: 12px 10px
 		color: var(--app-editor-text)
 		background: var(--app-editor-bg)
+		li.find-match-line
+			background: color-mix(in srgb, var(--app-accent) 6%, transparent)
+		mark.find-match
+			background: color-mix(in srgb, var(--app-accent) 35%, transparent)
+			color: inherit
+		&::highlight(find-match)
+			background-color: color-mix(in srgb, var(--app-accent) 35%, transparent)
+			color: inherit
 		tab-size: 2
 		transition: background-color .25s ease, color .25s ease, border-color .25s ease
 		border: 1px solid var(--app-border)

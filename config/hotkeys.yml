@@ -1,4 +1,6 @@
 ---
+Mod+O: openFolder
+Mod+F: openFind
 Mod+B: toggle layout.toggles.leftSideBar
 Mod+Shift+B: toggle layout.toggles.rightSideBar
 Mod+J: toggle layout.toggles.bottomPanel

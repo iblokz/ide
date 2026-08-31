@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.12.0] - 2026-08-31
+
+### Added
+
+- In-document find: floating find bar (`Mod+F`), live search on plain `state.source`, next/prev (`Enter` / `F3`), match case, `Tab` to select the match in the editor
+- `Mod+O` → open folder; hotkeys service supports non-toggle actions (`openFolder`, `openFind`)
+
+### Changed
+
+- Find: live query always jumps to the first match (avoids jumping on every keystroke); `Mod+F` with a selection pre-fills the search string and highlights that occurrence
+- Find highlight: subtle row wash + CSS Highlight API (or `<mark>` fallback) for the match range while the find bar keeps keyboard focus
+
+---
+
 ## [1.11.0] - 2026-08-31
 
 ### Added
@@ -300,7 +314,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/iblokz/ide/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/iblokz/ide/compare/v1.10.1...v1.11.0
 [1.10.1]: https://github.com/iblokz/ide/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/iblokz/ide/compare/v1.9.0...v1.10.0

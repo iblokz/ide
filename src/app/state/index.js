@@ -13,6 +13,12 @@ const {loadRecent, pushRecent} = require('../util/recent');
 const {isDemoFile} = require('../util/save');
 const {getFs, DEMO_TREE, probeCapabilities, resetFs} = require('../services/fs');
 const layout = require('./layout').default ?? require('./layout');
+const find = require('./find').default ?? require('./find');
+const {findMatch, findFirstMatch} = require('../util/find-in-source');
+const findHighlight = require('../util/find-highlight').default
+	?? require('../util/find-highlight');
+
+const emptyFind = find.initial || {open: false, query: '', caseSensitive: false};
 
 const emptyPos = {
 	start: {row: 0, col: 0},
@@ -40,7 +46,8 @@ const clearOpenFile = state => {
 				source: '',
 				pos: emptyPos
 			}
-		]
+		],
+		find: emptyFind
 	};
 };
 
@@ -74,7 +81,8 @@ const initial = {
 			pos: emptyPos
 		}
 	],
-	filesTree: DEMO_TREE
+	filesTree: DEMO_TREE,
+	find: emptyFind
 };
 
 const set = (key, value) => state => obj.patch(state, key, value);
@@ -416,6 +424,124 @@ const setLayout = patch => state => Object.assign({}, state, {
 	})
 });
 
+const applyFindCaret = pos => {
+	findHighlight.applyFindResult(pos);
+};
+
+const setFind = patch => state => obj.patch(
+	state,
+	'find',
+	Object.assign({}, state.find || emptyFind, patch)
+);
+
+const isNonEmptySelection = pos => {
+	if (!pos || !pos.start || !pos.end) return false;
+	return pos.start.row !== pos.end.row || pos.start.col !== pos.end.col;
+};
+
+const selectedEditorText = () => {
+	if (typeof document === 'undefined') return {text: '', pos: null};
+	const el = document.querySelector('code.source');
+	if (!el) return {text: '', pos: null};
+	const sel = window.getSelection();
+	if (!sel || sel.rangeCount < 1 || sel.isCollapsed) return {text: '', pos: null};
+	if (!el.contains(sel.anchorNode) && el !== sel.anchorNode) return {text: '', pos: null};
+	try {
+		const caret = require('../util/caret');
+		const pos = caret.get(el);
+		if (!isNonEmptySelection(pos)) return {text: '', pos: null};
+		return {text: sel.toString().replace(/\u00a0/g, ''), pos};
+	} catch {
+		const text = sel.toString().replace(/\u00a0/g, '');
+		return text ? {text, pos: null} : {text: '', pos: null};
+	}
+};
+
+/** Update find query and jump to the first match (live typing). */
+const findQuery = query => state => {
+	if (!state.file || state.type === 'image') {
+		return obj.patch(state, 'find', Object.assign({}, state.find || emptyFind, {query}));
+	}
+	const findState = Object.assign({}, state.find || emptyFind, {query});
+	let next = Object.assign({}, state, {find: findState});
+	if (!query) {
+		if (typeof document !== 'undefined') {
+			findHighlight.clearFindMarkup(document.querySelector('code.source'));
+		}
+		return next;
+	}
+	const hit = findFirstMatch(state.source, query, {
+		caseSensitive: findState.caseSensitive
+	});
+	if (!hit) {
+		if (typeof document !== 'undefined') {
+			findHighlight.clearFindMarkup(document.querySelector('code.source'));
+		}
+		return next;
+	}
+	applyFindCaret(hit);
+	return Object.assign(next, {pos: hit});
+};
+
+const openFind = () => state => {
+	if (!state.file || state.type === 'image') return state;
+	const {text: selectedText, pos: selectedPos} = selectedEditorText();
+	const findPatch = {open: true};
+	if (selectedText) findPatch.query = selectedText;
+	let next = obj.patch(
+		state,
+		'find',
+		Object.assign({}, state.find || emptyFind, findPatch)
+	);
+	if (selectedText) {
+		const findState = next.find || emptyFind;
+		const hit = selectedPos || findFirstMatch(state.source, selectedText, {
+			caseSensitive: findState.caseSensitive
+		});
+		if (hit) {
+			applyFindCaret(hit);
+			next = Object.assign(next, {pos: hit});
+		}
+	}
+	if (typeof document !== 'undefined') {
+		queueMicrotask(() => {
+			const field = document.querySelector('.find-bar .find-query');
+			if (field) {
+				field.focus();
+				field.select();
+			}
+		});
+	}
+	return next;
+};
+
+const closeFind = () => state => {
+	if (typeof document !== 'undefined') {
+		findHighlight.clearFindMarkup(document.querySelector('code.source'));
+	}
+	return obj.patch(
+		state,
+		'find',
+		Object.assign({}, state.find || emptyFind, {open: false})
+	);
+};
+
+const findStep = direction => state => {
+	if (!state.file || state.type === 'image') return state;
+	const findState = state.find || emptyFind;
+	if (!findState.query) return state;
+	const hit = findMatch(state.source, findState.query, state.pos, {
+		caseSensitive: findState.caseSensitive,
+		direction
+	});
+	if (!hit) return state;
+	applyFindCaret(hit);
+	return Object.assign({}, state, {pos: hit});
+};
+
+const findNext = () => findStep(1);
+const findPrev = () => findStep(-1);
+
 const saveFile = (file, source, pickedHandle) => {
 	const fs = getFs();
 	if (!file || isDemoFile(file) || fs.id === 'memory') {
@@ -439,6 +565,7 @@ const saveFile = (file, source, pickedHandle) => {
 module.exports = {
 	initial,
 	layout,
+	find,
 	set,
 	toggle,
 	arrToggle,
@@ -458,5 +585,11 @@ module.exports = {
 	refreshFilesTree,
 	markExternalChange,
 	refreshFsCapabilities,
-	setLayout
+	setLayout,
+	setFind,
+	findQuery,
+	openFind,
+	closeFind,
+	findNext,
+	findPrev
 };

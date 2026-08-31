@@ -86,16 +86,16 @@ export const get = el => {
 	};
 };
 
-export const set = (el, pos) => {
-	if (!pos || !pos.start || !el) return;
+export const rangeForPos = (el, pos) => {
+	if (!pos || !pos.start || !el) return null;
 	const lis = Array.from(el.querySelectorAll('li'));
 	const startLi = lis[pos.start.row];
 	const endLi = lis[pos.end.row] || startLi;
-	if (!startLi) return;
+	if (!startLi) return null;
 
-	let range = document.createRange();
+	const range = document.createRange();
 	try {
-		// Blank lines use <br> (no \\xA0) — only col 0 is valid
+		// Blank lines use <br> (no \xA0) — only col 0 is valid
 		if (lineLen(startLi) === 0) {
 			range.setStart(startLi, 0);
 			range.collapse(true);
@@ -107,10 +107,15 @@ export const set = (el, pos) => {
 		}
 	} catch (e) {
 		console.log(e);
-		// Prefer start of the target line over document 0,0
 		range.selectNodeContents(startLi);
 		range.collapse(true);
 	}
+	return range;
+};
+
+export const set = (el, pos) => {
+	const range = rangeForPos(el, pos);
+	if (!range) return;
 	const sel = window.getSelection();
 	sel.removeAllRanges();
 	sel.addRange(range);
@@ -145,6 +150,7 @@ export const indent = (el, direction = 'right') => {
 
 export default {
 	get,
+	rangeForPos,
 	set,
 	indent
 };

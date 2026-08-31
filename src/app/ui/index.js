@@ -9,6 +9,7 @@ import codebin from './codebin';
 import imageViewer from './image-viewer';
 import startScreen from './start-screen';
 import splitGutter from './comp/split-gutter';
+import findBar from './comp/find-bar';
 
 export default ({state, actions}) => fn.pipe(
 	() => ({
@@ -48,6 +49,7 @@ export default ({state, actions}) => fn.pipe(
 					}
 				}),
 				header({state, actions}),
+				findBar({state, actions}),
 				!(state.file && state.file.name)
 					? section('.empty-editor', [
 						p(['Select a file from the sidebar to open it.'])

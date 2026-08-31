@@ -27,21 +27,34 @@ const match = (ev, b) =>
 	&& ev.shiftKey === b.shift
 	&& ev.altKey === b.alt;
 
-const run = action => {
-	const [verb, target] = String(action).trim().split(/\s+/);
-	if (verb !== 'toggle' || !target) return;
-	const path = target.split('.');
-	dispatch(state => obj.patch(state, path, !obj.sub(state, path)));
+const run = (action, actions = {}) => {
+	const trimmed = String(action).trim();
+	const space = trimmed.indexOf(' ');
+	const verb = space === -1 ? trimmed : trimmed.slice(0, space);
+	const target = space === -1 ? '' : trimmed.slice(space + 1);
+
+	if (verb === 'toggle' && target) {
+		const path = target.split('.');
+		dispatch(state => obj.patch(state, path, !obj.sub(state, path)));
+		return;
+	}
+	if (verb === 'openFolder' && typeof actions.openFolder === 'function') {
+		actions.openFolder();
+		return;
+	}
+	if (verb === 'openFind' && typeof actions.openFind === 'function') {
+		actions.openFind();
+	}
 };
 
 export let stop = () => {};
 
-export const start = () => {
+export const start = (actions = {}) => {
 	const sub = fromEvent(document, 'keydown').subscribe(ev => {
 		const hit = bindings.find(b => match(ev, b));
 		if (!hit) return;
 		ev.preventDefault();
-		run(hit.action);
+		run(hit.action, actions);
 	});
 	stop = () => sub.unsubscribe();
 };

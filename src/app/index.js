@@ -20,7 +20,7 @@ const {triggerSave} = require('./util/trigger-save');
 let {actions, state$} = createState(actionsTree);
 
 viewport.start();
-hotkeys.start();
+hotkeys.start(actions);
 applyDocumentTheme(state$.getValue().themeMode);
 actions.refreshFsCapabilities();
 
@@ -97,11 +97,6 @@ fromEvent(document, 'keydown')
 		if (key === 's') {
 			ev.preventDefault();
 			triggerSave({state: state$.getValue(), actions});
-			return;
-		}
-		if (key === 'o') {
-			ev.preventDefault();
-			actions.openFolder();
 		}
 	});
 
@@ -129,6 +124,6 @@ if (module.hot) {
 			dispatch(state => state);
 		}
 		viewport.start();
-		hotkeys.start();
+		hotkeys.start(actions);
 	});
 }
