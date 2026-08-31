@@ -21,7 +21,7 @@ const prettify = require('code-prettify');
 // Extra handlers live in lang-*.js and register on global PR (set by the core).
 require('code-prettify/src/lang-css.js');
 require('code-prettify/src/lang-yaml.js');
-const prettifyJs = require('../../ext/prettify-js');
+const prettifyJs = require('../../ext/prettify-js').default ?? require('../../ext/prettify-js');
 prettifyJs.register();
 const vm = require('../../util/vm');
 const caret = require('../../util/caret');

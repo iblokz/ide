@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.11.0] - 2026-08-31
+
+### Added
+
+- Prettify post-pass: highlight call/method callees (`.fun`) and destructured bindings (`.var`) for JS/TS
+
+### Changed
+
+- `ext/prettify-js` converted to ESM; destructured-binding token color aligned to cyan
+
+---
+
 ## [1.10.1] - 2026-08-31
 
 ### Added
@@ -288,7 +300,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.10.1...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/iblokz/ide/compare/v1.10.1...v1.11.0
 [1.10.1]: https://github.com/iblokz/ide/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/iblokz/ide/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/iblokz/ide/compare/v1.8.2...v1.9.0
