@@ -2,7 +2,13 @@
 
 const {obj, arr} = require('iblokz-data');
 const {getInitialThemeMode} = require('../util/theme');
-const {mergeAt, isImageFile, fileKind} = require('../util/file-tree');
+const {
+	mergeAt,
+	isImageFile,
+	fileKind,
+	collectExpandedPaths,
+	reapplyExpandedPaths
+} = require('../util/file-tree');
 const {loadRecent, pushRecent} = require('../util/recent');
 const {isDemoFile} = require('../util/save');
 const {getFs, DEMO_TREE, probeCapabilities, resetFs} = require('../services/fs');
@@ -356,11 +362,12 @@ const openDemo = () => state => obj.patch(
 	true
 );
 
-const refreshFilesTree = project => {
+const refreshFilesTree = (project, prevTree) => {
 	const fs = getFs();
 	if (!project || !project.path || typeof fs.listDir !== 'function') {
 		return state => state;
 	}
+	const expandedPaths = collectExpandedPaths(prevTree || []);
 	const rootNode = {
 		id: project.id,
 		name: project.name,
@@ -368,8 +375,8 @@ const refreshFilesTree = project => {
 		isDir: true
 	};
 	return fs.listDir(rootNode)
-		.then(files => state => Object.assign({}, state, {
-			filesTree: [{
+		.then(files => {
+			const baseTree = [{
 				id: project.id,
 				name: project.name,
 				path: project.path,
@@ -378,8 +385,10 @@ const refreshFilesTree = project => {
 				expanded: true,
 				childrenLoaded: true,
 				files: files || []
-			}]
-		}))
+			}];
+			return reapplyExpandedPaths(fs, baseTree, expandedPaths, project.path)
+				.then(filesTree => state => Object.assign({}, state, {filesTree}));
+		})
 		.catch(err => {
 			console.error('refreshFilesTree failed', project.path, err);
 			return state => state;

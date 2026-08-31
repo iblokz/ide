@@ -26,9 +26,10 @@
 
 // Thin scrollbars (media-browser / world-metronome).
 // Use a concrete SASS color — CSS vars are unreliable on ::-webkit-scrollbar.
+// Thumb stays dim until the scroll container is hovered or focus-within.
 =scrollbar($width: 6px, $color: #888)
   scrollbar-width: thin
-  scrollbar-color: rgba($color, 0.35) transparent
+  scrollbar-color: rgba($color, 0.12) transparent
 
   &::-webkit-scrollbar
     width: $width
@@ -38,10 +39,18 @@
     background: transparent
 
   &::-webkit-scrollbar-thumb
-    background-color: rgba($color, 0.28)
+    background-color: rgba($color, 0.12)
     border-radius: $width
     border: 1px solid transparent
     background-clip: padding-box
+    transition: background-color 0.15s ease
+
+  &:hover,
+  &:focus-within
+    scrollbar-color: rgba($color, 0.35) transparent
+
+    &::-webkit-scrollbar-thumb
+      background-color: rgba($color, 0.35)
 
   &::-webkit-scrollbar-thumb:hover
     background-color: rgba($color, 0.45)

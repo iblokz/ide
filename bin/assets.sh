@@ -82,6 +82,12 @@ stage_web_assets() {
   cp -f "$OUT_DIR/favicon.ico" "$WEB_DIR/favicon.ico"
   cp -f "$OUT_DIR/icon.png" "$WEB_DIR/icon.png"
   cp -f "$OUT_DIR/apple-touch-icon.png" "$WEB_DIR/apple-touch-icon.png"
+  # Static trees (e.g. icons/layout/*.svg) — Parcel url() from Sass resolves via src/assets
+  if [ -d "$OUT_DIR/icons/layout" ]; then
+    mkdir -p "$WEB_DIR/icons"
+    rm -rf "$WEB_DIR/icons/layout"
+    cp -a "$OUT_DIR/icons/layout" "$WEB_DIR/icons/layout"
+  fi
   echo "Staged → $WEB_DIR/"
 }
 
@@ -134,6 +140,10 @@ assets_fresh() {
   [ -f "$OUT_DIR/icons/icon-256.png" ] || return 1
   [ -f "$OUT_DIR/icon.png" ] || return 1
   [ -f "$WEB_DIR/icon.png" ] || return 1
+  # Layout SVGs must be staged for Sass mask-image urls
+  if [ -d "$STATIC_DIR/icons/layout" ]; then
+    [ -d "$OUT_DIR/icons/layout" ] || return 1
+  fi
   if [ -f "$SOURCE_ICON" ] && [ "$SOURCE_ICON" -nt "$OUT_DIR/icons/icon-256.png" ]; then
     return 1
   fi
@@ -157,6 +167,8 @@ fi
 
 if [ "$FORCE" -eq 0 ] && assets_fresh; then
   echo "Assets up to date — skip rebuild (use --force to regenerate)"
+  # Still stage so new static icons (layout SVGs, etc.) land in src/assets for Parcel
+  stage_web_assets
   if [ "$SYNC_DIST" -eq 1 ]; then
     sync_to_parcel_dist
   fi

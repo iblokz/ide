@@ -1,6 +1,6 @@
 {
   "name": "iblokz-ide",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "description": "in browser / Electron / Capacitor code editor (web, Linux AppImage, macOS, Android, iOS)",
   "source": "src/index.pug",
   "main": "electron/main.js",

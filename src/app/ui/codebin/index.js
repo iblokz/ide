@@ -21,6 +21,8 @@ const prettify = require('code-prettify');
 // Extra handlers live in lang-*.js and register on global PR (set by the core).
 require('code-prettify/src/lang-css.js');
 require('code-prettify/src/lang-yaml.js');
+const prettifyJs = require('../../ext/prettify-js');
+prettifyJs.register();
 const vm = require('../../util/vm');
 const caret = require('../../util/caret');
 const {clamp} = require('../../util/split-drag');
@@ -112,14 +114,8 @@ const escapeHtml = s => String(s)
 	.replace(/</g, '&lt;')
 	.replace(/>/g, '&gt;');
 
-/** File ext → code-prettify lang id (core + lang-css / lang-yaml). */
+/** File ext → code-prettify lang id (core + lang-css / lang-yaml + iblokz-js). */
 const PRETTIFY_LANG = {
-	mjs: 'js',
-	cjs: 'js',
-	jsx: 'js',
-	tsx: 'ts',
-	mts: 'ts',
-	cts: 'ts',
 	htm: 'html',
 	svg: 'xml',
 	yml: 'yaml',
@@ -130,7 +126,13 @@ const PRETTIFY_LANG = {
 	svelte: 'html'
 };
 
-const prettifyLang = type => PRETTIFY_LANG[type] || type || 'js';
+const prettifyLang = type => {
+	const key = type || 'js';
+	if (prettifyJs.JS_FAMILY.has(key) || key === prettifyJs.LANG_ID) {
+		return prettifyJs.LANG_ID;
+	}
+	return PRETTIFY_LANG[key] || key;
+};
 
 /**
  * code-prettify numberLines() drops a single trailing \\n, so "hello\\n"
@@ -269,13 +271,24 @@ module.exports = ({
 			style: {
 				flex: editorFlex
 			},
+			attrs: {
+				spellcheck: 'false',
+				autocorrect: 'off',
+				autocapitalize: 'off',
+				autocomplete: 'off'
+			},
+			props: {
+				spellcheck: false
+			},
 			hook: {
 				insert: ({elm}) => {
+					elm.spellcheck = false;
 					elm.innerHTML = prettifySource(source || '', type);
 					caret.set(elm, pos);
 				},
 				update: (oldVnode, vnode) => {
 					const elm = vnode.elm;
+					elm.spellcheck = false;
 					const prev = oldVnode.data && oldVnode.data.dataset
 						? oldVnode.data.dataset.source
 						: null;
@@ -289,9 +302,6 @@ module.exports = ({
 			},
 			dataset: {
 				source: source || ''
-			},
-			props: {
-				spellcheck: false
 			},
 			on: {
 				keydown: ev => {

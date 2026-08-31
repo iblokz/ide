@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.10.1] - 2026-08-31
+
+### Added
+
+- Custom code-prettify JS/TS handler (`iblokz-js`): template literals, modern keywords, no C false-positives
+
+### Fixed
+
+- Stage layout SVG icons into `src/assets` so Parcel resolves Sass `mask-image` urls
+- Electron: disable Chromium spellchecker on the BrowserWindow (contenteditable `spellcheck=false` was not enough)
+- File tree: re-expand prior folders after FS refresh (`onFsChange`) instead of collapsing to a shallow listing
+- HMR: unsubscribe Electron `onFsChange` on dispose so refresh listeners do not stack
+
+### Changed
+
+- Scrollbars: dim thumb until the scroll container is hovered or focus-within
+- Prettify theme: stronger punctuation + `.atn` / `.dec` / `.var` / `.fun` token colors
+
+---
+
 ## [1.10.0] - 2026-08-24
 
 ### Added
@@ -268,7 +288,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/iblokz/ide/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/iblokz/ide/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/iblokz/ide/compare/v1.8.2...v1.9.0
 [1.8.2]: https://github.com/iblokz/ide/compare/v1.8.1...v1.8.2

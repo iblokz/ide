@@ -58,6 +58,90 @@ const mergeAt = ({list = [], path = [], nodesProp = 'files', patch = {}}) => {
 	);
 };
 
+const pathDepth = filePath =>
+	String(filePath || '').split(/[/\\]/).filter(Boolean).length;
+
+/** Paths of expanded dirs, shallow → deep (for post-refresh rehydrate). */
+const collectExpandedPaths = (nodes = [], nodesProp = 'files') => {
+	const out = [];
+	const walk = list => {
+		(list || []).forEach(node => {
+			if (!node || !node.isDir) return;
+			if (node.expanded && node.path) out.push(node.path);
+			if (Array.isArray(node[nodesProp]) && node[nodesProp].length) {
+				walk(node[nodesProp]);
+			}
+		});
+	};
+	walk(nodes);
+	return out.sort((a, b) => pathDepth(a) - pathDepth(b));
+};
+
+/** Index path into nested `nodesProp` arrays for a node with matching `.path`. */
+const findIndexPathByFilePath = (list, filePath, nodesProp = 'files') => {
+	for (let i = 0; i < (list || []).length; i++) {
+		const node = list[i];
+		if (!node) continue;
+		if (node.path === filePath) return [i];
+		if (node.isDir && Array.isArray(node[nodesProp])) {
+			const sub = findIndexPathByFilePath(node[nodesProp], filePath, nodesProp);
+			if (sub) return [i].concat(sub);
+		}
+	}
+	return null;
+};
+
+const nodeAtIndexPath = (list, indexPath, nodesProp = 'files') => {
+	let nodes = list;
+	let node = null;
+	for (let i = 0; i < (indexPath || []).length; i++) {
+		node = nodes && nodes[indexPath[i]];
+		if (!node) return null;
+		if (i < indexPath.length - 1) nodes = node[nodesProp] || [];
+	}
+	return node;
+};
+
+/**
+ * After a shallow FS refresh, re-listDir each previously expanded path (depth order)
+ * and patch the tree. Skips `rootPath` (already listed by the refresh).
+ */
+const reapplyExpandedPaths = async (
+	fs,
+	filesTree,
+	expandedPaths = [],
+	rootPath
+) => {
+	if (!fs || typeof fs.listDir !== 'function' || !expandedPaths.length) {
+		return filesTree;
+	}
+	let tree = filesTree;
+	for (let i = 0; i < expandedPaths.length; i++) {
+		const filePath = expandedPaths[i];
+		if (rootPath && filePath === rootPath) continue;
+		const indexPath = findIndexPathByFilePath(tree, filePath);
+		if (!indexPath) continue;
+		const node = nodeAtIndexPath(tree, indexPath);
+		if (!node || !node.isDir) continue;
+		try {
+			const files = await fs.listDir(node);
+			tree = mergeAt({
+				list: tree,
+				path: indexPath,
+				nodesProp: 'files',
+				patch: {
+					expanded: true,
+					childrenLoaded: true,
+					files: files || []
+				}
+			});
+		} catch (err) {
+			console.error('reapplyExpandedPaths failed', filePath, err);
+		}
+	}
+	return tree;
+};
+
 const SKIP_NAMES = new Set([
 	'node_modules', '.git', '.parcel-cache', 'dist', '.pnpm-store',
 	'coverage', '.next', '.cache'
@@ -147,6 +231,11 @@ module.exports = {
 	extOf,
 	patchAt,
 	mergeAt,
+	pathDepth,
+	collectExpandedPaths,
+	findIndexPathByFilePath,
+	nodeAtIndexPath,
+	reapplyExpandedPaths,
 	SKIP_NAMES,
 	IMAGE_EXTS,
 	BINARY_EXTS,

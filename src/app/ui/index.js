@@ -12,10 +12,10 @@ import splitGutter from './comp/split-gutter';
 
 export default ({state, actions}) => fn.pipe(
 	() => ({
-		leftOpen: !!obj.sub(state, ['layout', 'toggles', 'leftSideBar']),
-		leftWidth: obj.sub(state, ['layout', 'dim', 'leftSideBar']) || 260
+		toggles: state.layout.toggles,
+		dim: state.layout.dim
 	}),
-	({leftOpen, leftWidth}) => body(
+	({toggles, dim}) => body(
 		`#ui.${themeClass(state.themeMode || 'dark')}${isStartView(state) ? '.start' : ''}`,
 		isStartView(state)
 			? [
@@ -25,16 +25,16 @@ export default ({state, actions}) => fn.pipe(
 				sideBar({
 					state,
 					actions,
-					width: leftOpen ? leftWidth : 0
+					width: toggles.leftSideBar ? dim.leftSideBar : 0
 				}),
 				splitGutter({
 					axis: 'x',
-					hidden: !leftOpen,
+					hidden: !toggles.leftSideBar,
 					onStart: () => {
 						const el = document.querySelector('.side-bar');
 						return {
 							el,
-							start: el ? el.getBoundingClientRect().width : leftWidth
+							start: el ? el.getBoundingClientRect().width : dim.leftSideBar
 						};
 					},
 					onMove: (delta, ev, ctx) => {
@@ -42,7 +42,7 @@ export default ({state, actions}) => fn.pipe(
 						ctx.el.style.width = `${clamp(ctx.start + delta, 140, 480)}px`;
 					},
 					onEnd: (delta, ev, ctx) => {
-						const next = clamp((ctx && ctx.start || leftWidth) + delta, 140, 480);
+						const next = clamp((ctx && ctx.start || dim.leftSideBar) + delta, 140, 480);
 						if (ctx && ctx.el) ctx.el.style.width = `${next}px`;
 						actions.setLayout({leftSideBar: next});
 					}
