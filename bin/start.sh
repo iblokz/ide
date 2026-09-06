@@ -183,7 +183,7 @@ prep_cap_platform() {
     "$SCRIPT_DIR/assets.sh" --sync-android
   fi
   if [ "$platform" = ios ] && [ -f ios/App/Podfile ] && [ ! -d ios/App/Pods ]; then
-    (cd ios/App && pod install)
+    (cd ios/App && LANG="${LANG:-en_US.UTF-8}" LC_ALL="${LC_ALL:-en_US.UTF-8}" pod install)
   fi
 }
 

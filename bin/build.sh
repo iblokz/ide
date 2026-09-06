@@ -199,7 +199,7 @@ if [ "$DO_IOS" -eq 1 ]; then
   fi
   pnpm exec cap sync ios
   if [ -f ios/App/Podfile ]; then
-    (cd ios/App && pod install)
+    (cd ios/App && LANG="${LANG:-en_US.UTF-8}" LC_ALL="${LC_ALL:-en_US.UTF-8}" pod install)
   fi
   XC_ENTRY=$(ios_xcode_entry) || {
     echo "No ios/App Xcode project or workspace found after cap sync" >&2

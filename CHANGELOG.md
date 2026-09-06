@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.13.1] - 2026-09-06
+
+### Fixed
+
+- `init.sh` hang after ImageMagick check: deriving `JAVA_HOME=/usr` from macOS `/usr/bin/java` made later `java -version` hang; now uses `/usr/libexec/java_home` / real JDK layouts (MacPorts, `/Library/Java/...`)
+- `pod install` under init/build/start: force UTF-8 `LANG`/`LC_ALL` so MacPorts CocoaPods does not crash on ASCII-8BIT
+
+---
+
 ## [1.13.0] - 2026-08-31
 
 ### Added
@@ -333,7 +342,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.13.1...HEAD
+[1.13.1]: https://github.com/iblokz/ide/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/iblokz/ide/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/iblokz/ide/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/iblokz/ide/compare/v1.10.1...v1.11.0

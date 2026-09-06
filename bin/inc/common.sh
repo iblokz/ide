@@ -145,55 +145,99 @@ java_major_version() {
   fi
 }
 
-# Prefer JAVA_HOME / PATH if already >= MIN; else pick a newer JDK from common install roots.
+# True if $1 looks like a real JDK home (not Apple's /usr/bin/java wrapper parent /usr).
+# Calling java with JAVA_HOME=/usr hangs on macOS — never treat /usr as a JDK.
+is_java_home() {
+  local home="${1:-}"
+  [ -n "$home" ] && [ -x "${home}/bin/java" ] || return 1
+  case "$home" in
+    /usr|/usr/bin|/bin) return 1 ;;
+  esac
+  # HotSpot/OpenJDK layout markers
+  [ -f "${home}/release" ] || [ -d "${home}/lib" ] || return 1
+  return 0
+}
+
+# Export JAVA_HOME + PATH when $1 is a usable JDK >= MIN_JAVA_MAJOR.
+accept_java_home() {
+  local home="${1:-}" major
+  is_java_home "$home" || return 1
+  major=$(java_major_version "${home}/bin/java")
+  if [ -n "$major" ] && [ "$major" -ge "$MIN_JAVA_MAJOR" ]; then
+    export JAVA_HOME="$home"
+    export PATH="${JAVA_HOME}/bin:${PATH}"
+    return 0
+  fi
+  return 1
+}
+
+# Prefer JAVA_HOME / macOS java_home / common roots; never derive JAVA_HOME from /usr/bin/java.
 # On success: exports JAVA_HOME and prepends $JAVA_HOME/bin to PATH.
 ensure_java_home() {
   local major="" candidate home bin
-  if [ -n "${JAVA_HOME:-}" ] && [ -x "${JAVA_HOME}/bin/java" ]; then
-    major=$(java_major_version "${JAVA_HOME}/bin/java")
-    if [ -n "$major" ] && [ "$major" -ge "$MIN_JAVA_MAJOR" ]; then
-      export PATH="${JAVA_HOME}/bin:${PATH}"
+  local -a candidates=()
+
+  # Bogus JAVA_HOME (e.g. /usr) must be cleared before any java -version probe.
+  if [ -n "${JAVA_HOME:-}" ] && ! is_java_home "$JAVA_HOME"; then
+    unset JAVA_HOME
+  fi
+
+  if [ -n "${JAVA_HOME:-}" ] && accept_java_home "$JAVA_HOME"; then
+    return 0
+  fi
+
+  # macOS: /usr/libexec/java_home knows MacPorts / system JVMs (PATH java is often a stub).
+  if [ -x /usr/libexec/java_home ]; then
+    for candidate in \
+      "$(/usr/libexec/java_home -v 21 2>/dev/null || true)" \
+      "$(/usr/libexec/java_home -v 17 2>/dev/null || true)" \
+      "$(/usr/libexec/java_home 2>/dev/null || true)"
+    do
+      if accept_java_home "$candidate"; then
+        return 0
+      fi
+    done
+  fi
+
+  candidates=(
+    /usr/lib/jvm/java-21-openjdk-amd64
+    /usr/lib/jvm/java-21-openjdk
+    /usr/lib/jvm/java-17-openjdk-amd64
+    /usr/lib/jvm/java-17-openjdk
+    /opt/homebrew/opt/openjdk@21
+    /opt/homebrew/opt/openjdk@17
+    /usr/local/opt/openjdk@21
+    /usr/local/opt/openjdk@17
+    /opt/local/Library/Java/JavaVirtualMachines/*/Contents/Home
+    /Library/Java/JavaVirtualMachines/*/Contents/Home
+    "$HOME/Library/Java/JavaVirtualMachines/"*/Contents/Home
+    "$HOME/.sdkman/candidates/java/current"
+  )
+  for candidate in "${candidates[@]}"; do
+    if accept_java_home "$candidate"; then
       return 0
     fi
-  fi
+  done
+
+  # PATH java may work via the macOS stub without a resolvable home — do not set JAVA_HOME
+  # from dirname(/usr/bin/java) (/usr); that makes later java invocations hang.
   if command -v java &>/dev/null; then
     major=$(java_major_version java)
     if [ -n "$major" ] && [ "$major" -ge "$MIN_JAVA_MAJOR" ]; then
-      # Resolve JAVA_HOME from the java on PATH when unset / too old
-      if [ -z "${JAVA_HOME:-}" ] || [ "$(java_major_version "${JAVA_HOME}/bin/java" 2>/dev/null || true)" != "$major" ]; then
-        bin="$(command -v java)"
-        bin="$(readlink -f "$bin" 2>/dev/null || echo "$bin")"
-        # .../bin/java → home
-        home="$(cd "$(dirname "$bin")/.." && pwd)"
-        if [ -x "${home}/bin/java" ]; then
-          export JAVA_HOME="$home"
-        fi
+      bin="$(command -v java)"
+      bin="$(readlink -f "$bin" 2>/dev/null || echo "$bin")"
+      home="$(cd "$(dirname "$bin")/.." && pwd)"
+      if accept_java_home "$home"; then
+        return 0
+      fi
+      # Last resort: ask the live JVM for java.home (JAVA_HOME must stay unset/bogus-cleared).
+      home=$(java -XshowSettings:properties -version 2>&1 | sed -n 's/^[[:space:]]*java\.home = //p' | head -n1)
+      if accept_java_home "$home"; then
+        return 0
       fi
       return 0
     fi
   fi
-  for candidate in \
-    /usr/lib/jvm/java-21-openjdk-amd64 \
-    /usr/lib/jvm/java-21-openjdk \
-    /usr/lib/jvm/java-17-openjdk-amd64 \
-    /usr/lib/jvm/java-17-openjdk \
-    /opt/homebrew/opt/openjdk@21 \
-    /opt/homebrew/opt/openjdk@17 \
-    /usr/local/opt/openjdk@21 \
-    /usr/local/opt/openjdk@17 \
-    /opt/local/Library/Java/JavaVirtualMachines/openjdk21/Contents/Home \
-    /opt/local/Library/Java/JavaVirtualMachines/openjdk17/Contents/Home \
-    "$HOME/.sdkman/candidates/java/current"
-  do
-    if [ -x "${candidate}/bin/java" ]; then
-      major=$(java_major_version "${candidate}/bin/java")
-      if [ -n "$major" ] && [ "$major" -ge "$MIN_JAVA_MAJOR" ]; then
-        export JAVA_HOME="$candidate"
-        export PATH="${JAVA_HOME}/bin:${PATH}"
-        return 0
-      fi
-    fi
-  done
   return 1
 }
 

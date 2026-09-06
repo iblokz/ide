@@ -162,7 +162,8 @@ if [ "$DO_IOS" -eq 1 ]; then
   ensure_ios_document_picker
   if [ -f ios/App/Podfile ]; then
     echo "pod install..."
-    (cd ios/App && pod install)
+    # CocoaPods needs a UTF-8 locale (MacPorts ruby otherwise raises Encoding::CompatibilityError).
+    (cd ios/App && LANG="${LANG:-en_US.UTF-8}" LC_ALL="${LC_ALL:-en_US.UTF-8}" pod install)
   fi
   echo "iOS ready (no web build — run ./bin/build.sh --ios or ./bin/start.sh --ios)."
   RAN_ANY=1
