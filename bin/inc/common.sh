@@ -426,6 +426,74 @@ print(f'Patched {path} for Capacitor bridge inject (<head>)')
 PY
 }
 
+# Parcel emits <script type=module> even for IIFE bundles. Electron file:// + asar
+# often fails to execute those modules → blank white window (esp. Electron 11 / Yosemite).
+# Classic scripts load the same IIFE, but MUST be deferred: a sync <script> in <head>
+# runs before <body> exists → Snabbdom toVNode(document.body) throws nodeType of null.
+ensure_electron_classic_scripts() {
+  local html="${1:-dist/index.html}"
+  [ -f "$html" ] || return 0
+  python3 - "$html" <<'PY'
+import re, sys
+path = sys.argv[1]
+text = open(path, encoding='utf-8').read()
+# type=module → classic + defer (preserve post-parse execution order)
+new, n_mod = re.subn(
+    r'<script\s+type=(["\']?)module\1\s+',
+    '<script defer ',
+    text,
+    flags=re.I,
+)
+# already-classic head scripts without defer/async
+new2, n_def = re.subn(
+    r'<script(?![^>]*\b(?:defer|async)\b)(\s+src=)',
+    r'<script defer\1',
+    new,
+    flags=re.I,
+)
+if n_mod or n_def:
+    open(path, 'w', encoding='utf-8').write(new2)
+    print(
+        f'Patched {path}: type=module→defer ×{n_mod}, added defer ×{n_def}'
+    )
+PY
+}
+
+# Parcel/Lightning CSS drops -webkit-mask-* when targets are modern. Chromium <120
+# (Electron 11 = Chrome 87) only honors the prefixed properties → layout icons show as
+# solid squares. Re-add -webkit-* alongside unprefixed mask-* in dist CSS.
+ensure_electron_webkit_masks() {
+  local dir="${1:-dist}"
+  [ -d "$dir" ] || return 0
+  python3 - "$dir" <<'PY'
+import re, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+props = (
+    'mask-image', 'mask-position', 'mask-size', 'mask-repeat',
+    'mask-mode', 'mask-clip', 'mask-origin', 'mask-composite', 'mask',
+)
+# longest first so `mask` does not eat `mask-image`
+prop_alt = '|'.join(sorted(props, key=len, reverse=True))
+pat = re.compile(rf'(?<!-webkit-)({prop_alt})\s*:\s*([^;}}]+)')
+changed = 0
+for path in sorted(root.glob('*.css')):
+    text = path.read_text(encoding='utf-8')
+    if 'mask-image' not in text and 'mask-position' not in text:
+        continue
+    def repl(m):
+        prop, val = m.group(1), m.group(2).strip()
+        return f'-webkit-{prop}:{val};{prop}:{val}'
+    new, n = pat.subn(repl, text)
+    if n:
+        path.write_text(new, encoding='utf-8')
+        changed += 1
+        print(f'Patched {path}: restored -webkit-mask_* ×{n}')
+if not changed:
+    print(f'No CSS mask patches needed under {root}')
+PY
+}
+
 # Cap sync / native packaging need ImageMagick for assets — used by build.sh --all.
 can_android() {
   if ! has_java; then
@@ -901,6 +969,125 @@ install_electron_macos() {
   fi
 
   echo "Installed → $dest"
+  return 0
+}
+
+# Load KEY=value from project .env (no export of unrelated keys). Echoes value or empty.
+load_dotenv_value() {
+  local key="$1"
+  local file="${PROJECT_ROOT:-.}/.env"
+  local line=""
+  [ -f "$file" ] || return 0
+  line=$(grep -E "^[[:space:]]*${key}=" "$file" 2>/dev/null | tail -n1 || true)
+  [ -n "$line" ] || return 0
+  line="${line#*=}"
+  line="${line%\"}"
+  line="${line#\"}"
+  line="${line%\'}"
+  line="${line#\'}"
+  echo "$line"
+}
+
+# Resolve --host: explicit value, else YOSEMITE_HOST env, else .env. Echoes user@host or fails.
+resolve_deploy_host() {
+  local host="${1:-}"
+  if [ -z "$host" ]; then
+    host="${YOSEMITE_HOST:-}"
+  fi
+  if [ -z "$host" ]; then
+    host=$(load_dotenv_value YOSEMITE_HOST)
+  fi
+  if [ -z "$host" ]; then
+    echo "No deploy host: pass --host user@ip or set YOSEMITE_HOST in .env" >&2
+    return 1
+  fi
+  echo "$host"
+}
+
+# Find .app under a dir (electron-builder mac/ mac-arm64/ …). Empty if none.
+find_macos_app_bundle() {
+  local dir="$1"
+  find "$dir" -name '*.app' -type d 2>/dev/null | head -n1 || true
+}
+
+# Resolve artifact path (.app or .dmg) to a local .app directory.
+# If DMG: attach, copy .app to a temp dir under PROJECT_ROOT/artifacts/.deploy-tmp, detach.
+# Echoes path to .app. Sets global _MACOS_APP_CLEANUP_DIR if a temp copy was made.
+resolve_macos_app_path() {
+  local artifact="$1"
+  local mount="" app_src="" tmp=""
+  _MACOS_APP_CLEANUP_DIR=""
+
+  if [ -d "$artifact" ] && [[ "$artifact" == *.app ]]; then
+    echo "$artifact"
+    return 0
+  fi
+  if [ -f "$artifact" ] && [[ "$artifact" == *.dmg ]]; then
+    echo "Attaching DMG for remote deploy: $artifact" >&2
+    mount=$(hdiutil attach -nobrowse -readonly "$artifact" | awk 'END {print $NF}')
+    if [ -z "$mount" ] || [ ! -d "$mount" ]; then
+      echo "Failed to attach DMG" >&2
+      return 1
+    fi
+    app_src=$(find "$mount" -maxdepth 2 -name '*.app' -type d | head -n1 || true)
+    if [ -z "$app_src" ]; then
+      echo "No .app found inside DMG" >&2
+      hdiutil detach "$mount" -quiet 2>/dev/null || true
+      return 1
+    fi
+    tmp="${PROJECT_ROOT:-.}/artifacts/.deploy-tmp"
+    rm -rf "$tmp"
+    mkdir -p "$tmp"
+    if command -v ditto &>/dev/null; then
+      ditto "$app_src" "$tmp/$(basename "$app_src")"
+    else
+      cp -R "$app_src" "$tmp/"
+    fi
+    hdiutil detach "$mount" -quiet 2>/dev/null || hdiutil detach "$mount" -force -quiet 2>/dev/null || true
+    _MACOS_APP_CLEANUP_DIR="$tmp"
+    echo "$tmp/$(basename "$app_src")"
+    return 0
+  fi
+  echo "Unrecognized macOS artifact: $artifact" >&2
+  return 1
+}
+
+# Rsync .app/.dmg to remote ~/Applications and open. Usage: install_electron_macos_remote user@host artifact
+install_electron_macos_remote() {
+  local host="$1"
+  local artifact="$2"
+  local product_name="iBloKz IDE"
+  local app_src="" dest_name="" remote_spec=""
+
+  if [ -z "$host" ] || [ -z "$artifact" ]; then
+    echo "install_electron_macos_remote: host and artifact required" >&2
+    return 1
+  fi
+  if ! command -v rsync &>/dev/null; then
+    echo "rsync not found (needed for --host deploy)" >&2
+    return 1
+  fi
+
+  app_src=$(resolve_macos_app_path "$artifact") || return 1
+  dest_name="$(basename "$app_src")"
+  # Stable path for product builds; keep Electron.app name for spikes
+  if [[ "$dest_name" != Electron.app ]]; then
+    dest_name="${product_name}.app"
+  fi
+
+  # rsync splits remote path on spaces unless escaped for the remote shell
+  remote_spec="${host}:Applications/${dest_name// /\\ }"
+
+  echo "Deploying $(basename "$app_src") → ${host}:~/Applications/${dest_name}"
+  ssh "$host" 'mkdir -p "$HOME/Applications"'
+  rsync -azP --delete "${app_src}/" "$remote_spec/"
+  ssh "$host" "xattr -cr \"\$HOME/Applications/${dest_name}\" 2>/dev/null || true; open -a \"\$HOME/Applications/${dest_name}\" 2>/dev/null || open \"\$HOME/Applications/${dest_name}\""
+  echo "Remote installed → ${host}:~/Applications/${dest_name}"
+
+  if [ -n "${_MACOS_APP_CLEANUP_DIR:-}" ]; then
+    rm -rf "$_MACOS_APP_CLEANUP_DIR"
+    _MACOS_APP_CLEANUP_DIR=""
+  fi
   return 0
 }
 

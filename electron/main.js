@@ -1,10 +1,33 @@
 'use strict';
 
-const {app, dialog, BrowserWindow, ipcMain, nativeImage} = require('electron');
-const fs = require('node:fs');
-const path = require('node:path');
+const {app, dialog, BrowserWindow, ipcMain, nativeImage, Menu} = require('electron');
+const fs = require('fs');
+const path = require('path');
 const {watch} = require('chokidar');
 const fileUtil = require('./util/file');
+
+const bootLogPath = () => {
+	try {
+		return path.join(app.getPath('userData'), 'boot.log');
+	} catch (err) {
+		return path.join(require('os').tmpdir(), 'iblokz-boot.log');
+	}
+};
+const bootLog = msg => {
+	try {
+		fs.appendFileSync(bootLogPath(), `[${new Date().toISOString()}] ${msg}\n`);
+	} catch (err) { /* ignore */ }
+};
+bootLog(`start electron=${process.versions.electron} chrome=${process.versions.chrome} packaged=${app.isPackaged}`);
+
+const electronMajorEarly = parseInt(String(process.versions.electron || '0').split('.')[0], 10) || 0;
+if (electronMajorEarly > 0 && electronMajorEarly < 12) {
+	// MacBookPro8,1 / Yosemite: Chromium 87 GPU process often never paints; load hangs.
+	app.disableHardwareAcceleration();
+	app.commandLine.appendSwitch('disable-gpu');
+	app.commandLine.appendSwitch('disable-software-rasterizer');
+	bootLog('legacy: disableHardwareAcceleration + disable-gpu');
+}
 
 const DEV_URL = 'http://127.0.0.1:1234';
 const ICONS_DIR = path.join(__dirname, '..', 'build', 'assets', 'icons');
@@ -92,15 +115,64 @@ const startWatch = rootPath => {
 	});
 };
 
+const isLegacyElectron = () => {
+	const major = parseInt(String(process.versions.electron || '0').split('.')[0], 10) || 0;
+	return major > 0 && major < 12;
+};
+
+/** Normalize Electron 6+ `{canceled,filePaths}` and older `string[]` return shapes. */
+const pickOpenPaths = result => {
+	if (result == null) return [];
+	if (Array.isArray(result)) return result.filter(Boolean);
+	if (result.canceled) return [];
+	return Array.isArray(result.filePaths) ? result.filePaths.filter(Boolean) : [];
+};
+
 const selectRootFolder = async () => {
-	const result = await dialog.showOpenDialog({
-		title: 'Open Project Folder',
-		properties: ['openDirectory']
-	});
-	if (result.canceled || !result.filePaths || !result.filePaths[0]) {
-		return null;
+	const parent = win && !win.isDestroyed() ? win : undefined;
+	// alwaysOnTop (legacy debug) buries NSOpenPanel behind the BrowserWindow.
+	const wasOnTop = !!(parent && typeof parent.isAlwaysOnTop === 'function' && parent.isAlwaysOnTop());
+	if (wasOnTop) parent.setAlwaysOnTop(false);
+	if (parent) {
+		try {
+			parent.show();
+			parent.focus();
+		} catch (err) { /* ignore */ }
 	}
-	const root = await fileUtil.openRoot(result.filePaths[0]);
+
+	// Prefer home over macOS default (Documents) for "Open Project".
+	const opts = {
+		title: 'Open Project Folder',
+		defaultPath: app.getPath('home'),
+		properties: ['openDirectory', 'createDirectory']
+	};
+
+	bootLog('selectRootFolder: showing dialog');
+	let result;
+	try {
+		// Sync dialog is more reliable on Electron 11 / Yosemite (promise + DevTools races).
+		if (isLegacyElectron() && typeof dialog.showOpenDialogSync === 'function') {
+			result = parent
+				? dialog.showOpenDialogSync(parent, opts)
+				: dialog.showOpenDialogSync(opts);
+		} else {
+			result = parent
+				? await dialog.showOpenDialog(parent, opts)
+				: await dialog.showOpenDialog(opts);
+		}
+	} catch (err) {
+		bootLog(`selectRootFolder dialog error ${err && err.message ? err.message : err}`);
+		console.error('selectRootFolder dialog failed', err);
+		return null;
+	} finally {
+		if (wasOnTop && parent && !parent.isDestroyed()) parent.setAlwaysOnTop(true);
+	}
+
+	const filePaths = pickOpenPaths(result);
+	bootLog(`selectRootFolder: paths=${JSON.stringify(filePaths)}`);
+	if (!filePaths[0]) return null;
+
+	const root = await fileUtil.openRoot(filePaths[0]);
 	if (root && root.path) {
 		startWatch(root.path);
 	}
@@ -133,11 +205,17 @@ const requestClose = async () => {
 
 const createWindow = () => {
 	const icon = loadAppIcon();
+	// Electron 11 / Yosemite: frameless + show:false often never surfaces a window
+	// (ready-to-show may never fire if the renderer stalls on modern bundle syntax).
+	const electronMajor = parseInt(String(process.versions.electron || '0').split('.')[0], 10) || 0;
+	const legacyShell = electronMajor > 0 && electronMajor < 12;
+
 	const browserWindow = new BrowserWindow({
 		width: 1280,
 		height: 800,
-		show: false,
-		frame: false,
+		show: legacyShell,
+		// Legacy: native frame (frameless often never shows on 10.10). Modern: frameless.
+		frame: legacyShell,
 		...(icon ? {icon} : {}),
 		webPreferences: {
 			devTools: true,
@@ -149,11 +227,43 @@ const createWindow = () => {
 		}
 	});
 
-	browserWindow.once('ready-to-show', () => {
+	const reveal = () => {
+		if (browserWindow.isDestroyed()) return;
 		if (icon && typeof browserWindow.setIcon === 'function') {
 			browserWindow.setIcon(icon);
 		}
-		browserWindow.show();
+		if (!browserWindow.isVisible()) browserWindow.show();
+		browserWindow.focus();
+	};
+
+	browserWindow.once('ready-to-show', reveal);
+	// Fallback when ready-to-show never fires (common on older Electron).
+	setTimeout(reveal, legacyShell ? 1500 : 4000);
+
+	if (legacyShell) {
+		// Auto-DevTools on load races first paint on Electron 11 (white screen until refresh).
+		// Use View → Toggle DevTools, or ELECTRON_LEGACY_DEVTOOLS=1.
+		if (process.env.ELECTRON_LEGACY_DEVTOOLS === '1') {
+			try {
+				browserWindow.webContents.openDevTools({mode: 'bottom'});
+			} catch (err) {
+				console.error('openDevTools failed', err);
+				browserWindow.webContents.openDevTools();
+			}
+		}
+		// Optional bring-to-front while debugging; leave off by default so
+		// native open/save panels are not hidden behind the window.
+		if (process.env.ELECTRON_LEGACY_ALWAYS_ON_TOP === '1') {
+			browserWindow.setAlwaysOnTop(true);
+		}
+	}
+
+	browserWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+		const lineOut = `[renderer L${level}] ${message} (${sourceId}:${line})\n`;
+		if (level >= 2) console.error(lineOut.trim());
+		try {
+			fs.appendFileSync(path.join(app.getPath('userData'), 'renderer.log'), lineOut);
+		} catch (err) { /* ignore */ }
 	});
 
 	browserWindow.on('close', e => {
@@ -172,77 +282,169 @@ const createWindow = () => {
 	});
 
 	const start = resolveStartUrl();
+	bootLog(`createWindow start=${JSON.stringify(start)} legacyShell=${legacyShell}`);
+	browserWindow.webContents.on('dom-ready', () => {
+		bootLog('dom-ready');
+		browserWindow.webContents.executeJavaScript(`
+			window.addEventListener('error', function (e) {
+				window.__iblokzErr = String(e.message || e.error || e);
+			});
+			window.addEventListener('unhandledrejection', function (e) {
+				window.__iblokzErr = String((e.reason && e.reason.message) || e.reason || e);
+			});
+			true
+		`).catch(err => bootLog(`dom-ready inject failed ${err}`));
+	});
 	browserWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+		bootLog(`did-fail-load code=${code} desc=${desc} url=${url}`);
 		console.error('did-fail-load', {code, desc, url, start});
+		reveal();
+	});
+	browserWindow.webContents.on('did-finish-load', () => {
+		bootLog('did-finish-load');
+		browserWindow.webContents.executeJavaScript(
+			`({href: location.href, bodyKids: document.body ? document.body.children.length : -1, title: document.title, scripts: document.scripts.length, err: window.__iblokzErr || null})`
+		).then(info => {
+			bootLog(`page ${JSON.stringify(info)}`);
+		}).catch(err => bootLog(`executeJavaScript failed ${err}`));
+		reveal();
 	});
 	if (start.type === 'file') {
+		bootLog(`loadFile exists=${fs.existsSync(start.value)} path=${start.value}`);
 		if (!fs.existsSync(start.value)) {
 			console.error('Packaged index missing:', start.value);
+			bootLog('Packaged index missing');
 		}
 		browserWindow.loadFile(start.value).catch(err => {
+			bootLog(`loadFile catch ${err}`);
 			console.error('Failed to load', start.value, err);
+			reveal();
 		});
 	} else {
 		browserWindow.loadURL(start.value).catch(err => {
+			bootLog(`loadURL catch ${err}`);
 			console.error('Failed to load', start.value, err);
+			reveal();
 		});
 	}
 
 	return browserWindow;
 };
 
-app.whenReady().then(() => {
-	ipcMain.handle('selectRootFolder', () => selectRootFolder());
-	ipcMain.handle('openRootFolder', async (_ev, dirPath) => {
-		if (!dirPath || typeof dirPath !== 'string') return null;
-		try {
-			const root = await fileUtil.openRoot(dirPath);
-			if (root && root.path) startWatch(root.path);
-			return root;
-		} catch (err) {
-			console.error('openRootFolder failed', dirPath, err);
-			return null;
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+	app.quit();
+} else {
+	app.on('second-instance', () => {
+		if (!win || win.isDestroyed()) return;
+		if (win.isMinimized()) win.restore();
+		win.show();
+		win.focus();
+	});
+
+	app.whenReady().then(() => {
+		ipcMain.handle('selectRootFolder', () => selectRootFolder());
+		ipcMain.handle('openRootFolder', async (_ev, dirPath) => {
+			if (!dirPath || typeof dirPath !== 'string') return null;
+			try {
+				const root = await fileUtil.openRoot(dirPath);
+				if (root && root.path) startWatch(root.path);
+				return root;
+			} catch (err) {
+				console.error('openRootFolder failed', dirPath, err);
+				return null;
+			}
+		});
+		ipcMain.handle('listDir', (_ev, dirPath) => fileUtil.listDir(dirPath));
+		ipcMain.handle('readFile', (_ev, filePath) => fileUtil.read(filePath));
+		ipcMain.handle('readFileDataUrl', (_ev, filePath) => fileUtil.readDataUrl(filePath));
+		ipcMain.handle('writeFile', (_ev, filePath, content) => fileUtil.write(filePath, content));
+		ipcMain.handle('setDirty', (_ev, value) => {
+			dirty = !!value;
+			return dirty;
+		});
+		ipcMain.handle('minimize', () => {
+			if (win) win.minimize();
+		});
+		ipcMain.handle('toggleMaximize', () => {
+			if (!win) return false;
+			if (win.isMaximized()) {
+				win.unmaximize();
+				return false;
+			}
+			win.maximize();
+			return true;
+		});
+		ipcMain.handle('close', () => requestClose());
+
+		const icon = loadAppIcon();
+		// Dev / unpackaged: BrowserWindow.icon does not set the macOS Dock icon.
+		if (icon && process.platform === 'darwin' && app.dock) {
+			app.dock.setIcon(icon);
 		}
-	});
-	ipcMain.handle('listDir', (_ev, dirPath) => fileUtil.listDir(dirPath));
-	ipcMain.handle('readFile', (_ev, filePath) => fileUtil.read(filePath));
-	ipcMain.handle('readFileDataUrl', (_ev, filePath) => fileUtil.readDataUrl(filePath));
-	ipcMain.handle('writeFile', (_ev, filePath, content) => fileUtil.write(filePath, content));
-	ipcMain.handle('setDirty', (_ev, value) => {
-		dirty = !!value;
-		return dirty;
-	});
-	ipcMain.handle('minimize', () => {
-		if (win) win.minimize();
-	});
-	ipcMain.handle('toggleMaximize', () => {
-		if (!win) return false;
-		if (win.isMaximized()) {
-			win.unmaximize();
-			return false;
+
+		const electronMajor = parseInt(String(process.versions.electron || '0').split('.')[0], 10) || 0;
+		const openProjectItem = {
+			label: 'Open Project…',
+			accelerator: 'CmdOrCtrl+O',
+			click: () => {
+				if (!win || win.isDestroyed()) return;
+				win.webContents.send('open-folder-request');
+			}
+		};
+		const menuTemplate = [
+			{
+				label: app.name || 'iBloKz IDE',
+				submenu: [
+					{role: 'about'},
+					{type: 'separator'},
+					{role: 'quit'}
+				]
+			},
+			{
+				label: 'File',
+				submenu: [openProjectItem]
+			},
+			{
+				label: 'Edit',
+				submenu: [
+					{role: 'undo'},
+					{role: 'redo'},
+					{type: 'separator'},
+					{role: 'cut'},
+					{role: 'copy'},
+					{role: 'paste'},
+					{role: 'selectall'}
+				]
+			},
+			{
+				label: 'View',
+				submenu: [
+					{role: 'reload'},
+					{role: 'toggledevtools'},
+					{type: 'separator'},
+					{role: 'togglefullscreen'}
+				]
+			}
+		];
+		// Always set File → Open Project so Cmd/Ctrl+O works (renderer hotkey defers to this).
+		Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
+		if (electronMajor > 0 && electronMajor < 12) {
+			bootLog('legacy: application menu set');
 		}
-		win.maximize();
-		return true;
+
+		win = createWindow();
+
+		app.on('activate', () => {
+			if (BrowserWindow.getAllWindows().length === 0) {
+				allowClose = false;
+				win = createWindow();
+			}
+		});
 	});
-	ipcMain.handle('close', () => requestClose());
 
-	const icon = loadAppIcon();
-	// Dev / unpackaged: BrowserWindow.icon does not set the macOS Dock icon.
-	if (icon && process.platform === 'darwin' && app.dock) {
-		app.dock.setIcon(icon);
-	}
-
-	win = createWindow();
-
-	app.on('activate', () => {
-		if (BrowserWindow.getAllWindows().length === 0) {
-			allowClose = false;
-			win = createWindow();
-		}
+	app.on('window-all-closed', () => {
+		stopWatch();
+		if (process.platform !== 'darwin') app.quit();
 	});
-});
-
-app.on('window-all-closed', () => {
-	stopWatch();
-	if (process.platform !== 'darwin') app.quit();
-});
+}

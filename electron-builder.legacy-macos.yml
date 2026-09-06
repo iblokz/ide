@@ -1,0 +1,31 @@
+# Legacy macOS track: Yosemite 10.10+ / x64 (Electron pin in config/macos-legacy.env).
+# Invoked via: pnpm exec electron-builder --config electron-builder.legacy-macos.yml …
+appId: org.iblokz.ide
+productName: iBloKz IDE
+copyright: Copyright © iBloKz
+
+directories:
+  output: artifacts/macos-legacy
+  buildResources: build/assets
+
+files:
+  - electron/**/*
+  - dist/**/*
+  - build/assets/icons/**/*
+  - src/app/util/file-tree.js
+  - package.json
+
+# Electron 11 on Yosemite: loadFile() from app.asar never reaches did-finish-load
+# (blank white window). Unpackaged Resources/app works.
+asar: false
+publish: null
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+  category: public.app-category.developer-tools
+  icon: build/assets/icons/icon.icns
+  minimumSystemVersion: '10.10'
+  artifactName: ${name}-${version}-macos-legacy-${arch}.${ext}

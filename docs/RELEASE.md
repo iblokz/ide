@@ -69,7 +69,7 @@ git push origin master
 git push origin "v$(node -p "require('./package.json').version")"
 ```
 
-Pushing `v*` runs [.github/workflows/native.yml](../.github/workflows/native.yml): builds AppImage, Android APK, universal macOS DMG, and iOS Simulator zip, then attaches them to the GitHub Release.
+Pushing `v*` runs [.github/workflows/native.yml](../.github/workflows/native.yml): builds AppImage, Android APK, universal macOS DMG, **legacy macOS x64 DMG** (Yosemite / Electron 11), and iOS Simulator zip, then attaches them to the GitHub Release.
 
 Expected artifact names:
 
@@ -77,10 +77,11 @@ Expected artifact names:
 iblokz-ide-<version>-linux-<arch>.AppImage
 iblokz-ide-<version>-android-debug.apk
 iblokz-ide-<version>-macos-<arch>.dmg
+iblokz-ide-<version>-macos-legacy-x64.dmg
 iblokz-ide-<version>-ios-simulator.app.zip
 ```
 
-(`macos` arch may be `universal`, `x64`, or `arm64` depending on the build.)
+(`macos` arch may be `universal`, `x64`, or `arm64` depending on the build. Legacy is always `x64`.)
 
 Web/Pages deploy stays on push to `main`/`master` ([deploy.yml](../.github/workflows/deploy.yml)).
 

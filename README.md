@@ -55,7 +55,7 @@ pnpm run lint                # Biome + ESLint
 |---------|------|--------|
 | macOS 12 Monterey + Xcode 14.2 | Local build/dev | Electron **macOS 11+** DMG (host arch). Capacitor **5** iOS Simulator + Android (Cap 5 needs Xcode 14.1+). Prefer sequential native builds on 8 GB RAM. |
 | GitHub Actions `macos-latest` | CI | Unsigned **universal** DMG (x64+arm64) + iOS Simulator zip |
-| Older macOS (e.g. Yosemite 10.10) | — | **Not supported** for Electron 33 desktop (needs macOS 11+). Legacy builds deferred. Web/Pages only if a browser there is usable. |
+| Older macOS (e.g. Yosemite 10.10) | Legacy desktop | `./bin/build.sh --macos-legacy` → x64 DMG (Electron **11.2.3**, macOS 10.10+). Deploy: `./bin/deploy.sh --macos-legacy --host` (`YOSEMITE_HOST` in `.env`). See [planning/2026-09-06-01-yosemite-electron-dmg.md](planning/2026-09-06-01-yosemite-electron-dmg.md). |
 
 ### macOS prerequisites (MacPorts-first)
 

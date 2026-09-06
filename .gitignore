@@ -2,6 +2,7 @@ node_modules
 .pnpm-store
 .DS_Store
 .parcel-cache
+.env
 /dist
 /build
 /android
@@ -12,6 +13,9 @@ artifacts/android/*
 !artifacts/android/.gitkeep
 artifacts/macos/*
 !artifacts/macos/.gitkeep
+artifacts/macos-legacy/*
+!artifacts/macos-legacy/.gitkeep
+artifacts/electron-spike/
 artifacts/ios/*
 !artifacts/ios/.gitkeep
 

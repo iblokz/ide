@@ -23,5 +23,10 @@ contextBridge.exposeInMainWorld('app', {
 	},
 	minimize: () => ipcRenderer.invoke('minimize'),
 	toggleMaximize: () => ipcRenderer.invoke('toggleMaximize'),
-	close: () => ipcRenderer.invoke('close')
+	close: () => ipcRenderer.invoke('close'),
+	onOpenFolderRequest: callback => {
+		const handler = () => callback();
+		ipcRenderer.on('open-folder-request', handler);
+		return () => ipcRenderer.removeListener('open-folder-request', handler);
+	}
 });

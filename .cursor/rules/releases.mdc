@@ -39,7 +39,8 @@ git push origin "v$(node -p "require('./package.json').version")"
 
 ## Expected artifacts
 
-`iblokz-ide-<version>-linux-<arch>.AppImage`  
-`iblokz-ide-<version>-android-debug.apk`  
-`iblokz-ide-<version>-macos-<arch>.dmg`  
+`iblokz-ide-<version>-linux-<arch>.AppImage` 
+`iblokz-ide-<version>-android-debug.apk` 
+`iblokz-ide-<version>-macos-<arch>.dmg` 
+`iblokz-ide-<version>-macos-legacy-x64.dmg` 
 `iblokz-ide-<version>-ios-simulator.app.zip`

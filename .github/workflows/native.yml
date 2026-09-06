@@ -132,6 +132,40 @@ jobs:
           path: artifacts/macos/*.dmg
           if-no-files-found: error
 
+  electron-macos-legacy:
+    name: Electron macOS legacy DMG (x64, Yosemite 10.10+)
+    runs-on: macos-13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install ImageMagick
+        run: brew install imagemagick
+
+      - name: Build macOS legacy DMG (x64, Electron pin)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: ./bin/build.sh --macos-legacy
+
+      - name: Upload legacy DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-macos-legacy
+          path: artifacts/macos-legacy/*.dmg
+          if-no-files-found: error
+
   ios:
     name: iOS Simulator (unsigned)
     runs-on: macos-latest
@@ -170,7 +204,7 @@ jobs:
   release:
     name: Attach release assets
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [electron-appimage, android, electron-macos, ios]
+    needs: [electron-appimage, android, electron-macos, electron-macos-legacy, ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -191,6 +225,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: electron-macos
+          path: release-assets
+
+      - name: Download macOS legacy DMG
+        uses: actions/download-artifact@v4
+        with:
+          name: electron-macos-legacy
           path: release-assets
 
       - name: Download iOS Simulator zip

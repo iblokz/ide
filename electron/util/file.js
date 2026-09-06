@@ -1,7 +1,7 @@
 'use strict';
 
-const fsp = require('node:fs').promises;
-const path = require('node:path');
+const fsp = require('fs').promises;
+const path = require('path');
 const {
 	hashPath,
 	extOf,

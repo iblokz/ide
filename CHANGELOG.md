@@ -11,6 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.14.0] - 2026-09-06
+
+### Added
+
+- Legacy macOS track: Electron **11.2.3** x64 DMG for Yosemite 10.10+ (`./bin/build.sh --macos-legacy`, `artifacts/macos-legacy/`); LAN deploy `./bin/deploy.sh --macos-legacy --host` (`YOSEMITE_HOST` / `.env`)
+- CI: `electron-macos-legacy` job on `macos-13` builds and attaches `iblokz-ide-*-macos-legacy-x64.dmg` to `v*` releases
+- `./bin/spike-electron-yosemite.sh` — on-device Electron boot spike (`loadFile` → `did-finish-load`; pinned **11.2.3** on MacBookPro8,1 / 10.10.5)
+- Electron File → Open Project… (Cmd/Ctrl+O) via main-process menu for all Electron shells
+
+### Fixed
+
+- Modern macOS Electron: restore frameless window (`frame: false`) — legacy shell had inverted `frame: !legacyShell`, which showed a native title bar on Electron 33
+- Electron packaging: replace Parcel `type=module` with `defer` classic scripts (sync head scripts run before `<body>` → Snabbdom `nodeType` of null; modules/`defer` wait until parse completes)
+- Electron CSS: restore `-webkit-mask-*` for layout icons (Parcel drops prefixes; Chromium &lt;120 / Electron 11 ignores unprefixed `mask-image`)
+- Legacy Electron: Open Project folder dialog — parent panel to window, sync dialog on Electron 11, `defaultPath` = home (not macOS Documents), live `window.app` bridge detection
+- Legacy Electron: do not auto-open DevTools on launch (raced first paint → white screen); use View menu or `ELECTRON_LEGACY_DEVTOOLS=1`
+- Legacy Electron shell: framed window, force-show, application menu with Toggle DevTools
+- Legacy macOS package: `asar: false` — Electron 11 on Yosemite never finishes `loadFile` from `app.asar`
+
+---
+
 ## [1.13.1] - 2026-09-06
 
 ### Fixed
@@ -342,7 +363,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.13.1...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/iblokz/ide/compare/v1.13.1...v1.14.0
 [1.13.1]: https://github.com/iblokz/ide/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/iblokz/ide/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/iblokz/ide/compare/v1.11.0...v1.12.0

@@ -1,12 +1,18 @@
 {
   "name": "iblokz-ide",
-  "version": "1.13.1",
+  "version": "1.14.0",
   "description": "in browser / Electron / Capacitor code editor (web, Linux AppImage, macOS, Android, iOS)",
   "source": "src/index.pug",
   "main": "electron/main.js",
   "targets": {
     "main": false
   },
+  "browserslist": [
+    "Chrome >= 87",
+    "Safari >= 14",
+    "iOS >= 14",
+    "defaults"
+  ],
   "scripts": {
     "assets": "./bin/assets.sh",
     "assets:sync": "./bin/assets.sh --sync-only",
@@ -23,7 +29,7 @@
     "prebuild:cap": "pnpm run assets",
     "build:cap": "rm -rf .parcel-cache && parcel build --public-url ./ && pnpm run assets:sync && ./bin/cap-html.sh",
     "prebuild:electron": "pnpm run assets",
-    "build:electron": "rm -rf .parcel-cache && parcel build --public-url ./ && pnpm run assets:sync && ./bin/cap-html.sh",
+    "build:electron": "rm -rf .parcel-cache && parcel build --public-url ./ && pnpm run assets:sync && ./bin/electron-html.sh",
     "dist:app-image": "pnpm run build:electron && electron-builder --linux AppImage --publish never",
     "dist:macos": "pnpm run build:electron && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg --publish never -c.directories.output=artifacts/macos -c.mac.identity=null",
     "lint": "biome lint ./src && eslint src",
@@ -62,6 +68,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
     "@capacitor/cli": "^5.7.8",
+    "@electron/asar": "^4.3.0",
     "@parcel/transformer-pug": "2.16.4",
     "@parcel/transformer-sass": "2.16.4",
     "@parcel/transformer-yaml": "2.16.4",

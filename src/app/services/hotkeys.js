@@ -39,6 +39,11 @@ const run = (action, actions = {}) => {
 		return;
 	}
 	if (verb === 'openFolder' && typeof actions.openFolder === 'function') {
+		// Electron legacy/main File menu owns Cmd/Ctrl+O (open-folder-request).
+		if (typeof window !== 'undefined' && window.app && window.app.platform === 'electron'
+			&& typeof window.app.onOpenFolderRequest === 'function') {
+			return;
+		}
 		actions.openFolder();
 		return;
 	}

@@ -5,6 +5,8 @@
 #   ./bin/deploy.sh --app-image
 #   ./bin/deploy.sh --android
 #   ./bin/deploy.sh --macos
+#   ./bin/deploy.sh --macos --host                 # YOSEMITE_HOST from .env
+#   ./bin/deploy.sh --macos-legacy --host user@ip # legacy x64 → remote
 #   ./bin/deploy.sh --ios
 #   ./bin/deploy.sh --build --macos   # build then install
 #   ./bin/deploy.sh --all
@@ -21,36 +23,57 @@ DO_BUILD=0
 DO_APP_IMAGE=0
 DO_ANDROID=0
 DO_MACOS=0
+DO_MACOS_LEGACY=0
 DO_IOS=0
 USE_ALL=0
+DEPLOY_HOST=""
+DEPLOY_HOST_SET=0
 
 usage() {
-  echo "Usage: $0 [--build] [--app-image] [--android] [--macos] [--ios] [--all] [--help]"
+  echo "Usage: $0 [--build] [--app-image] [--android] [--macos] [--macos-legacy] [--ios] [--host [user@ip]] [--all] [--help]"
   echo ""
   echo "  Install packaged artifacts only (not a substitute for ./bin/start.sh)."
   echo "  If an artifact is missing, prompts to build it first (TTY); use --build to skip the prompt."
   echo ""
-  echo "  --build     Run ./bin/build.sh for the same targets first"
-  echo "  --app-image Install AppImage + .desktop → ~/.local"
-  echo "  --android   adb install latest artifacts/android/*.apk"
-  echo "  --macos     Install .app/.dmg → ~/Applications"
-  echo "  --ios       Install simulator .app from artifacts/ios zip"
-  echo "  --all       Capability-gated deploy for host candidates"
+  echo "  --build         Run ./bin/build.sh for the same targets first"
+  echo "  --app-image     Install AppImage + .desktop → ~/.local"
+  echo "  --android       adb install latest artifacts/android/*.apk"
+  echo "  --macos         Install .app/.dmg → ~/Applications (or --host)"
+  echo "  --macos-legacy  Install legacy Yosemite x64 build from artifacts/macos-legacy/"
+  echo "  --host [user@ip]  Rsync macOS .app to remote ~/Applications (default: YOSEMITE_HOST / .env)"
+  echo "  --ios           Install simulator .app from artifacts/ios zip"
+  echo "  --all           Capability-gated deploy for host candidates"
   echo ""
   echo "  Deprecated: --electron is an alias for --app-image (build/deploy only)."
 }
 
-for arg in "$@"; do
-  case "$arg" in
-    --build) DO_BUILD=1 ;;
-    --app-image) DO_APP_IMAGE=1 ;;
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --build) DO_BUILD=1; shift ;;
+    --app-image) DO_APP_IMAGE=1; shift ;;
     --electron)
       echo "Note: --electron is deprecated for packaging; use --app-image" >&2
       DO_APP_IMAGE=1
+      shift
       ;;
-    --android) DO_ANDROID=1 ;;
-    --macos)   DO_MACOS=1 ;;
-    --ios)     DO_IOS=1 ;;
+    --android) DO_ANDROID=1; shift ;;
+    --macos) DO_MACOS=1; shift ;;
+    --macos-legacy) DO_MACOS_LEGACY=1; shift ;;
+    --ios) DO_IOS=1; shift ;;
+    --host)
+      DEPLOY_HOST_SET=1
+      if [ $# -ge 2 ] && [[ "$2" != --* ]]; then
+        DEPLOY_HOST="$2"
+        shift 2
+      else
+        shift
+      fi
+      ;;
+    --host=*)
+      DEPLOY_HOST_SET=1
+      DEPLOY_HOST="${1#--host=}"
+      shift
+      ;;
     --all)
       USE_ALL=1
       if is_darwin; then
@@ -62,15 +85,25 @@ for arg in "$@"; do
         DO_APP_IMAGE=1
         DO_ANDROID=1
       fi
+      shift
       ;;
     -h|--help) usage; exit 0 ;;
-    *) echo "Unknown option: $arg" >&2; usage >&2; exit 1 ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
   esac
 done
 
-if [ "$DO_APP_IMAGE" -eq 0 ] && [ "$DO_ANDROID" -eq 0 ] && [ "$DO_MACOS" -eq 0 ] && [ "$DO_IOS" -eq 0 ]; then
+if [ "$DO_APP_IMAGE" -eq 0 ] && [ "$DO_ANDROID" -eq 0 ] && [ "$DO_MACOS" -eq 0 ] && [ "$DO_MACOS_LEGACY" -eq 0 ] && [ "$DO_IOS" -eq 0 ]; then
   usage >&2
   exit 1
+fi
+
+REMOTE_HOST=""
+if [ "$DEPLOY_HOST_SET" -eq 1 ]; then
+  REMOTE_HOST=$(resolve_deploy_host "$DEPLOY_HOST") || exit 1
+  if [ "$DO_MACOS" -eq 0 ] && [ "$DO_MACOS_LEGACY" -eq 0 ]; then
+    echo "--host requires --macos or --macos-legacy" >&2
+    exit 1
+  fi
 fi
 
 maybe_skip() {
@@ -141,12 +174,44 @@ has_macos_artifact() {
     ls artifacts/macos/*.dmg &>/dev/null
 }
 
+has_macos_legacy_artifact() {
+  [ -n "$(find artifacts/macos-legacy -name '*.app' -type d 2>/dev/null | head -n1)" ] ||
+    ls artifacts/macos-legacy/*.dmg &>/dev/null
+}
+
 has_android_artifact() {
   ls artifacts/android/*.apk &>/dev/null
 }
 
 has_ios_artifact() {
   ls artifacts/ios/*-ios-simulator.app.zip &>/dev/null
+}
+
+deploy_macos_artifact() {
+  local dir="$1"
+  local label="$2"
+  local app_bundle dmg
+  app_bundle=$(find_macos_app_bundle "$dir")
+  dmg=$(ls -1t "$dir"/*.dmg 2>/dev/null | head -n1 || true)
+  if [ -n "$REMOTE_HOST" ]; then
+    if [ -n "$app_bundle" ]; then
+      install_electron_macos_remote "$REMOTE_HOST" "$app_bundle"
+    elif [ -n "$dmg" ]; then
+      install_electron_macos_remote "$REMOTE_HOST" "$dmg"
+    else
+      echo "No ${label} artifact in ${dir}/ after build." >&2
+      exit 1
+    fi
+  else
+    if [ -n "$app_bundle" ]; then
+      install_electron_macos "$app_bundle"
+    elif [ -n "$dmg" ]; then
+      install_electron_macos "$dmg"
+    else
+      echo "No ${label} artifact in ${dir}/ after build." >&2
+      exit 1
+    fi
+  fi
 }
 
 # Prompt (TTY) to build missing artifacts; non-TTY requires --build.
@@ -159,6 +224,7 @@ ensure_artifacts() {
     [ "$DO_APP_IMAGE" -eq 1 ] && BUILD_NOW_ARGS+=(--app-image)
     [ "$DO_ANDROID" -eq 1 ] && BUILD_NOW_ARGS+=(--android)
     [ "$DO_MACOS" -eq 1 ] && BUILD_NOW_ARGS+=(--macos)
+    [ "$DO_MACOS_LEGACY" -eq 1 ] && BUILD_NOW_ARGS+=(--macos-legacy)
     [ "$DO_IOS" -eq 1 ] && BUILD_NOW_ARGS+=(--ios)
     return 0
   fi
@@ -170,6 +236,10 @@ ensure_artifacts() {
   if [ "$DO_MACOS" -eq 1 ] && ! has_macos_artifact; then
     BUILD_NOW_ARGS+=(--macos)
     missing_labels+=("macos")
+  fi
+  if [ "$DO_MACOS_LEGACY" -eq 1 ] && ! has_macos_legacy_artifact; then
+    BUILD_NOW_ARGS+=(--macos-legacy)
+    missing_labels+=("macos-legacy")
   fi
   if [ "$DO_ANDROID" -eq 1 ] && ! has_android_artifact; then
     BUILD_NOW_ARGS+=(--android)
@@ -211,7 +281,7 @@ maybe_skip DO_MACOS macos can_deploy_macos || true
 maybe_skip DO_ANDROID android can_deploy_android || true
 maybe_skip DO_IOS ios can_deploy_ios || true
 
-if [ "$DO_APP_IMAGE" -eq 0 ] && [ "$DO_ANDROID" -eq 0 ] && [ "$DO_MACOS" -eq 0 ] && [ "$DO_IOS" -eq 0 ]; then
+if [ "$DO_APP_IMAGE" -eq 0 ] && [ "$DO_ANDROID" -eq 0 ] && [ "$DO_MACOS" -eq 0 ] && [ "$DO_MACOS_LEGACY" -eq 0 ] && [ "$DO_IOS" -eq 0 ]; then
   echo "deploy: no capable targets on this host." >&2
   exit 1
 fi
@@ -237,17 +307,12 @@ if [ "$DO_APP_IMAGE" -eq 1 ]; then
 fi
 
 if [ "$DO_MACOS" -eq 1 ]; then
-  # electron-builder often nests .app under mac/ / mac-arm64/ / mac-universal/
-  APP_BUNDLE=$(find artifacts/macos -name '*.app' -type d 2>/dev/null | head -n1 || true)
-  DMG=$(ls -1t artifacts/macos/*.dmg 2>/dev/null | head -n1 || true)
-  if [ -n "$APP_BUNDLE" ]; then
-    install_electron_macos "$APP_BUNDLE"
-  elif [ -n "$DMG" ]; then
-    install_electron_macos "$DMG"
-  else
-    echo "No macOS artifact in artifacts/macos/ after build." >&2
-    exit 1
-  fi
+  deploy_macos_artifact artifacts/macos macos
+  DEPLOYED_ANY=1
+fi
+
+if [ "$DO_MACOS_LEGACY" -eq 1 ]; then
+  deploy_macos_artifact artifacts/macos-legacy macos-legacy
   DEPLOYED_ANY=1
 fi
 

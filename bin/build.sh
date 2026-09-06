@@ -5,12 +5,14 @@
 #   ./bin/build.sh --app-image  # Linux AppImage → artifacts/electron/
 #   ./bin/build.sh --android    # debug APK → artifacts/android/
 #   ./bin/build.sh --macos      # DMG → artifacts/macos/ (Darwin; host arch, or MACOS_ARCHES)
+#   ./bin/build.sh --macos-legacy  # x64 DMG → artifacts/macos-legacy/ (Yosemite 10.10+)
 #   ./bin/build.sh --ios        # simulator .app.zip → artifacts/ios/
 #   ./bin/build.sh --all        # capability-gated
 #
 # Env:
 #   MACOS_ARCHES  — space-separated electron-builder arch flags, e.g. "--x64 --arm64"
 #                   (CI sets this for universal). Default: host arch only.
+#   ELECTRON_LEGACY_VERSION — override pin from config/macos-legacy.env
 #
 set -euo pipefail
 
@@ -23,17 +25,19 @@ source "$SCRIPT_DIR/inc/common.sh"
 DO_APP_IMAGE=0
 DO_ANDROID=0
 DO_MACOS=0
+DO_MACOS_LEGACY=0
 DO_IOS=0
 USE_ALL=0
 
 usage() {
-  echo "Usage: $0 [--app-image] [--android] [--macos] [--ios] [--all] [--help]"
+  echo "Usage: $0 [--app-image] [--android] [--macos] [--macos-legacy] [--ios] [--all] [--help]"
   echo ""
-  echo "  --app-image  Web build (./) + Linux AppImage → artifacts/electron/"
-  echo "  --android    Web build + Cap sync + debug APK → artifacts/android/"
-  echo "  --macos      Web build + Electron macOS DMG → artifacts/macos/ (Darwin)"
-  echo "  --ios        Web build + Cap sync + iOS Simulator app zip → artifacts/ios/"
-  echo "  --all        Host candidates; skip unavailable toolchains with a message"
+  echo "  --app-image     Web build (./) + Linux AppImage → artifacts/electron/"
+  echo "  --android       Web build + Cap sync + debug APK → artifacts/android/"
+  echo "  --macos         Web build + Electron macOS DMG → artifacts/macos/ (Darwin)"
+  echo "  --macos-legacy  Web build + Electron x64 DMG for macOS 10.10+ → artifacts/macos-legacy/"
+  echo "  --ios           Web build + Cap sync + iOS Simulator app zip → artifacts/ios/"
+  echo "  --all           Host candidates; skip unavailable toolchains with a message"
   echo ""
   echo "  Deprecated: --electron is an alias for --app-image (build/deploy only)."
 }
@@ -47,6 +51,7 @@ for arg in "$@"; do
       ;;
     --android) DO_ANDROID=1 ;;
     --macos)   DO_MACOS=1 ;;
+    --macos-legacy) DO_MACOS_LEGACY=1 ;;
     --ios)     DO_IOS=1 ;;
     --all)
       USE_ALL=1
@@ -65,13 +70,13 @@ for arg in "$@"; do
   esac
 done
 
-if [ "$DO_APP_IMAGE" -eq 0 ] && [ "$DO_ANDROID" -eq 0 ] && [ "$DO_MACOS" -eq 0 ] && [ "$DO_IOS" -eq 0 ]; then
+if [ "$DO_APP_IMAGE" -eq 0 ] && [ "$DO_ANDROID" -eq 0 ] && [ "$DO_MACOS" -eq 0 ] && [ "$DO_MACOS_LEGACY" -eq 0 ] && [ "$DO_IOS" -eq 0 ]; then
   usage >&2
   exit 1
 fi
 
 require_pnpm
-mkdir -p artifacts/electron artifacts/android artifacts/macos artifacts/ios
+mkdir -p artifacts/electron artifacts/android artifacts/macos artifacts/macos-legacy artifacts/ios
 
 NAME=$(node -p "require('./package.json').name")
 VERSION=$(node -p "require('./package.json').version")
@@ -106,7 +111,7 @@ maybe_skip DO_MACOS macos can_macos || true
 maybe_skip DO_ANDROID android can_android || true
 maybe_skip DO_IOS ios can_ios || true
 
-if [ "$DO_APP_IMAGE" -eq 0 ] && [ "$DO_ANDROID" -eq 0 ] && [ "$DO_MACOS" -eq 0 ] && [ "$DO_IOS" -eq 0 ]; then
+if [ "$DO_APP_IMAGE" -eq 0 ] && [ "$DO_ANDROID" -eq 0 ] && [ "$DO_MACOS" -eq 0 ] && [ "$DO_MACOS_LEGACY" -eq 0 ] && [ "$DO_IOS" -eq 0 ]; then
   echo "build: no capable targets to build on this host." >&2
   exit 1
 fi
@@ -150,6 +155,37 @@ if [ "$DO_MACOS" -eq 1 ]; then
     ${MACOS_ARCHES:-}
   echo "macOS artifacts under artifacts/macos/"
   ls -la artifacts/macos/*.dmg 2>/dev/null || ls -la artifacts/macos/ 2>/dev/null || true
+  BUILT_ANY=1
+fi
+
+if [ "$DO_MACOS_LEGACY" -eq 1 ]; then
+  require_darwin "macOS legacy DMG build"
+  # shellcheck disable=SC1091
+  if [ -f "$PROJECT_ROOT/config/macos-legacy.env" ]; then
+    set -a
+    # shellcheck source=../config/macos-legacy.env
+    source "$PROJECT_ROOT/config/macos-legacy.env"
+    set +a
+  fi
+  LEGACY_VER="${ELECTRON_LEGACY_VERSION:-}"
+  if [ -z "$LEGACY_VER" ] && [ -f artifacts/electron-spike/PINNED_VERSION ]; then
+    LEGACY_VER=$(tr -d '[:space:]' <artifacts/electron-spike/PINNED_VERSION)
+  fi
+  if [ -z "$LEGACY_VER" ]; then
+    echo "macos-legacy: set ELECTRON_LEGACY_VERSION in config/macos-legacy.env (or run ./bin/spike-electron-yosemite.sh)" >&2
+    exit 1
+  fi
+  ensure_web_assets
+  echo "Building web app for Electron (public-url ./)..."
+  pnpm run build:electron
+  echo "Building macOS legacy DMG (unsigned; Electron ${LEGACY_VER}; macOS ${MACOS_LEGACY_MIN_SYSTEM:-10.10}+; x64)..."
+  export CSC_IDENTITY_AUTO_DISCOVERY=false
+  pnpm exec electron-builder --mac dmg --x64 --publish never \
+    --config electron-builder.legacy-macos.yml \
+    -c.electronVersion="${LEGACY_VER}" \
+    -c.mac.identity=null
+  echo "macOS legacy artifacts under artifacts/macos-legacy/"
+  ls -la artifacts/macos-legacy/*.dmg 2>/dev/null || ls -la artifacts/macos-legacy/ 2>/dev/null || true
   BUILT_ANY=1
 fi
 

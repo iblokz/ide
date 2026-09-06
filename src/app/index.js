@@ -71,6 +71,7 @@ fromEvent(document, 'drop').subscribe(ev => {
 });
 
 let stopFsChange = null;
+let stopOpenFolderRequest = null;
 if (isElectronBridge() && typeof window.app.onFsChange === 'function') {
 	stopFsChange = window.app.onFsChange(payload => {
 		const changedPath = payload && payload.path;
@@ -84,6 +85,11 @@ if (isElectronBridge() && typeof window.app.onFsChange === 'function') {
 			return;
 		}
 		actions.openFile(Object.assign({}, state.file, {source: undefined, url: undefined}));
+	});
+}
+if (isElectronBridge() && typeof window.app.onOpenFolderRequest === 'function') {
+	stopOpenFolderRequest = window.app.onOpenFolderRequest(() => {
+		actions.openFolder();
 	});
 }
 
@@ -109,6 +115,10 @@ if (module.hot) {
 		if (typeof stopFsChange === 'function') {
 			stopFsChange();
 			stopFsChange = null;
+		}
+		if (typeof stopOpenFolderRequest === 'function') {
+			stopOpenFolderRequest();
+			stopOpenFolderRequest = null;
 		}
 		viewport.stop();
 		hotkeys.stop();
