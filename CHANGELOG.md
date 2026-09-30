@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.16.0] - 2026-09-30
+
+### Added
+
+- Electron host theme: detect **Omarchy** `colors.toml` (full palette + light/dark), else GNOME `gsettings` / macOS accent, and map onto `--app-*` tokens; Omarchy `mode` drives syntax highlighting (`.theme-mode-*`) when the desktop theme changes
+- Live updates via Omarchy theme dir watch, `gsettings monitor`, and `nativeTheme.updated` (non-Omarchy builds keep the stock IDE palette)
+
+---
+
 ## [1.15.1] - 2026-09-30
 
 ### Fixed

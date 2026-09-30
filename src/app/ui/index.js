@@ -1,6 +1,6 @@
 import {body, section, p} from 'iblokz-snabbdom-helpers';
 import {fn, obj} from 'iblokz-data';
-import {themeClass} from '../util/theme';
+import {themeClass, hostStyleProps} from '../util/theme';
 import {isStartView} from '../util/project';
 import {clamp} from '../util/split-drag';
 import header from './header';
@@ -14,10 +14,12 @@ import findBar from './comp/find-bar';
 export default ({state, actions}) => fn.pipe(
 	() => ({
 		toggles: state.layout.toggles,
-		dim: state.layout.dim
+		dim: state.layout.dim,
+		hostStyle: hostStyleProps(state.hostTheme)
 	}),
-	({toggles, dim}) => body(
+	({toggles, dim, hostStyle}) => body(
 		`#ui.${themeClass(state.themeMode || 'dark')}${isStartView(state) ? '.start' : ''}`,
+		hostStyle ? {style: hostStyle} : {},
 		isStartView(state)
 			? [
 				header({state, actions}),

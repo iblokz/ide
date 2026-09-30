@@ -1,11 +1,17 @@
 'use strict';
 
-const {app, dialog, BrowserWindow, ipcMain, nativeImage, Menu} = require('electron');
+const {app, dialog, BrowserWindow, ipcMain, nativeImage, Menu, nativeTheme} = require('electron');
 const fs = require('fs');
 const path = require('path');
+const {spawn} = require('child_process');
 const {watch} = require('chokidar');
 const fileUtil = require('./util/file');
 const {detectWindowManager} = require('./util/wm');
+const {
+	OMARCHY_CURRENT,
+	detectHostTheme,
+	toHostThemePayload
+} = require('./util/host-theme');
 
 const bootLogPath = () => {
 	try {
@@ -55,6 +61,89 @@ let watcher = null;
 let loadMode = 'static';
 /** ELECTRON_START_URL wins until the first manual mode toggle this session. */
 let useEnvStartUrl = Boolean(process.env.ELECTRON_START_URL);
+
+let hostTheme = toHostThemePayload(detectHostTheme());
+let hostThemeWatcher = null;
+let gsettingsMonitor = null;
+let hostThemeBroadcastTimer = null;
+
+const getHostThemePayload = () => hostTheme;
+
+const refreshHostTheme = (reason = 'refresh') => {
+	const next = toHostThemePayload(detectHostTheme());
+	const changed = JSON.stringify(next) !== JSON.stringify(hostTheme);
+	hostTheme = next;
+	if (changed) {
+		bootLog(`hostTheme ${reason} ${JSON.stringify(hostTheme)}`);
+	}
+	if (win && !win.isDestroyed()) {
+		win.webContents.send('host-theme', hostTheme);
+	}
+	return hostTheme;
+};
+
+const scheduleHostThemeRefresh = reason => {
+	if (hostThemeBroadcastTimer) clearTimeout(hostThemeBroadcastTimer);
+	hostThemeBroadcastTimer = setTimeout(() => {
+		hostThemeBroadcastTimer = null;
+		refreshHostTheme(reason);
+	}, 120);
+};
+
+const stopHostThemeWatch = () => {
+	if (hostThemeBroadcastTimer) {
+		clearTimeout(hostThemeBroadcastTimer);
+		hostThemeBroadcastTimer = null;
+	}
+	if (hostThemeWatcher) {
+		hostThemeWatcher.close().catch(() => {});
+		hostThemeWatcher = null;
+	}
+	if (gsettingsMonitor) {
+		try {
+			gsettingsMonitor.kill();
+		} catch (err) { /* ignore */ }
+		gsettingsMonitor = null;
+	}
+	try {
+		nativeTheme.removeListener('updated', onNativeThemeUpdated);
+	} catch (err) { /* ignore */ }
+};
+
+const onNativeThemeUpdated = () => scheduleHostThemeRefresh('nativeTheme');
+
+const startHostThemeWatch = () => {
+	stopHostThemeWatch();
+	nativeTheme.on('updated', onNativeThemeUpdated);
+
+	if (fs.existsSync(OMARCHY_CURRENT)) {
+		hostThemeWatcher = watch(OMARCHY_CURRENT, {
+			ignoreInitial: true,
+			depth: 2,
+			awaitWriteFinish: {
+				stabilityThreshold: 200,
+				pollInterval: 100
+			}
+		});
+		hostThemeWatcher.on('all', () => scheduleHostThemeRefresh('omarchy'));
+	}
+
+	if (process.platform === 'linux') {
+		try {
+			gsettingsMonitor = spawn(
+				'gsettings',
+				['monitor', 'org.gnome.desktop.interface'],
+				{stdio: ['ignore', 'pipe', 'ignore']}
+			);
+			gsettingsMonitor.stdout.on('data', () => scheduleHostThemeRefresh('gsettings'));
+			gsettingsMonitor.on('error', () => {
+				gsettingsMonitor = null;
+			});
+		} catch (err) {
+			gsettingsMonitor = null;
+		}
+	}
+};
 
 /** Multi-size app icon — ICO on Windows, PNG representations elsewhere. */
 const loadAppIcon = () => {
@@ -357,6 +446,7 @@ const createWindow = () => {
 		bootLog('did-finish-load');
 		if (!browserWindow.isDestroyed()) {
 			browserWindow.webContents.send('load-mode', loadMode);
+			browserWindow.webContents.send('host-theme', hostTheme);
 		}
 		browserWindow.webContents.executeJavaScript(
 			`({href: location.href, bodyKids: document.body ? document.body.children.length : -1, title: document.title, scripts: document.scripts.length, err: window.__iblokzErr || null})`
@@ -429,6 +519,14 @@ if (!gotLock) {
 		});
 		ipcMain.handle('getLoadMode', () => loadMode);
 		ipcMain.handle('toggleLoadMode', () => toggleLoadMode());
+		ipcMain.on('getHostThemeSync', event => {
+			event.returnValue = getHostThemePayload();
+		});
+		ipcMain.handle('getHostTheme', () => getHostThemePayload());
+
+		hostTheme = toHostThemePayload(detectHostTheme());
+		bootLog(`hostTheme initial ${JSON.stringify(hostTheme)}`);
+		startHostThemeWatch();
 
 		const icon = loadAppIcon();
 		// Dev / unpackaged: BrowserWindow.icon does not set the macOS Dock icon.
@@ -498,6 +596,11 @@ if (!gotLock) {
 
 	app.on('window-all-closed', () => {
 		stopWatch();
+		stopHostThemeWatch();
 		if (process.platform !== 'darwin') app.quit();
+	});
+
+	app.on('will-quit', () => {
+		stopHostThemeWatch();
 	});
 }

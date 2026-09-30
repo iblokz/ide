@@ -64,6 +64,13 @@ contextBridge.exposeInMainWorld('app', {
 		ipcRenderer.on('load-mode', handler);
 		return () => ipcRenderer.removeListener('load-mode', handler);
 	},
+	getHostThemeSync: () => ipcRenderer.sendSync('getHostThemeSync'),
+	getHostTheme: () => ipcRenderer.invoke('getHostTheme'),
+	onHostThemeChange: callback => {
+		const handler = (_event, theme) => callback(theme);
+		ipcRenderer.on('host-theme', handler);
+		return () => ipcRenderer.removeListener('host-theme', handler);
+	},
 	selectRootFolder: () => ipcRenderer.invoke('selectRootFolder'),
 	openRootFolder: dirPath => ipcRenderer.invoke('openRootFolder', dirPath),
 	listDir: dirPath => ipcRenderer.invoke('listDir', dirPath),

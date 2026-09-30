@@ -11,9 +11,10 @@ const viewport = require('./services/viewport');
 const hotkeys = require('./services/hotkeys');
 const {filesFromDrop, isElectronBridge} = require('./services/drop-files');
 const {
-	STORAGE_KEY,
-	serializeTheme,
-	applyDocumentTheme
+	applyDocumentTheme,
+	applyHostAccent,
+	readHostTheme,
+	shouldFollowHostMode
 } = require('./util/theme');
 const {triggerSave} = require('./util/trigger-save');
 
@@ -22,6 +23,7 @@ let {actions, state$} = createState(actionsTree);
 viewport.start();
 hotkeys.start(actions);
 applyDocumentTheme(state$.getValue().themeMode);
+applyHostAccent(readHostTheme());
 actions.refreshFsCapabilities();
 
 state$
@@ -31,7 +33,8 @@ state$
 	)
 	.subscribe(mode => {
 		applyDocumentTheme(mode);
-		localStorage.setItem(STORAGE_KEY, serializeTheme(mode));
+		// Re-apply after theme class swap so host vars stay on #ui/body.
+		applyHostAccent(readHostTheme());
 	});
 
 state$
@@ -72,6 +75,7 @@ fromEvent(document, 'drop').subscribe(ev => {
 
 let stopFsChange = null;
 let stopOpenFolderRequest = null;
+let stopHostTheme = null;
 if (isElectronBridge() && typeof window.app.onFsChange === 'function') {
 	stopFsChange = window.app.onFsChange(payload => {
 		const changedPath = payload && payload.path;
@@ -90,6 +94,16 @@ if (isElectronBridge() && typeof window.app.onFsChange === 'function') {
 if (isElectronBridge() && typeof window.app.onOpenFolderRequest === 'function') {
 	stopOpenFolderRequest = window.app.onOpenFolderRequest(() => {
 		actions.openFolder();
+	});
+}
+if (isElectronBridge() && typeof window.app.onHostThemeChange === 'function') {
+	stopHostTheme = window.app.onHostThemeChange(host => {
+		applyHostAccent(host);
+		actions.setHostTheme(host);
+		// Omarchy `mode` → themeMode so .theme-mode-* syntax colors track the palette.
+		if (shouldFollowHostMode(host)) {
+			actions.setThemeMode(host.mode);
+		}
 	});
 }
 
@@ -119,6 +133,10 @@ if (module.hot) {
 		if (typeof stopOpenFolderRequest === 'function') {
 			stopOpenFolderRequest();
 			stopOpenFolderRequest = null;
+		}
+		if (typeof stopHostTheme === 'function') {
+			stopHostTheme();
+			stopHostTheme = null;
 		}
 		viewport.stop();
 		hotkeys.stop();

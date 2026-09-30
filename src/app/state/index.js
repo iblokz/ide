@@ -1,7 +1,7 @@
 'use strict';
 
 const {obj, arr} = require('iblokz-data');
-const {getInitialThemeMode} = require('../util/theme');
+const {getInitialThemeMode, persistThemeMode, readHostTheme} = require('../util/theme');
 const {
 	mergeAt,
 	isImageFile,
@@ -50,6 +50,7 @@ const clearOpenFile = state => {
 
 const initial = {
 	themeMode: getInitialThemeMode(),
+	hostTheme: readHostTheme(),
 	view: 'start',
 	fsBackend: getFs().id,
 	canOpenFolder: getFs().canOpenFolder,
@@ -252,11 +253,12 @@ const toggleFolder = (path = [], item) => {
 };
 
 const setThemeMode = mode => state => obj.patch(state, 'themeMode', mode);
-const toggleTheme = () => state => obj.patch(
-	state,
-	'themeMode',
-	state.themeMode === 'dark' ? 'light' : 'dark'
-);
+const setHostTheme = host => state => obj.patch(state, 'hostTheme', host || null);
+const toggleTheme = () => state => {
+	const mode = state.themeMode === 'dark' ? 'light' : 'dark';
+	persistThemeMode(mode);
+	return obj.patch(state, 'themeMode', mode);
+};
 
 const applyProjectResult = (fs, result) => {
 	const recentRoots = pushRecent({
@@ -530,6 +532,7 @@ module.exports = {
 	redo,
 	toggleFolder,
 	setThemeMode,
+	setHostTheme,
 	toggleTheme,
 	openFolder,
 	openRecent,
