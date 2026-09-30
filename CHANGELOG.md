@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.15.1] - 2026-09-30
+
+### Fixed
+
+- CI: bump `android-actions/setup-android` to **v4** and install SDK packages via the action (cmdline-tools 16 / `sdkmanager --licenses` hung interactive on ubuntu-latest under v3)
+
+---
+
 ## [1.15.0] - 2026-09-30
 
 ### Added
@@ -385,7 +393,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.15.1...HEAD
+[1.15.1]: https://github.com/iblokz/ide/compare/v1.15.0...v1.15.1
 [1.15.0]: https://github.com/iblokz/ide/compare/v1.14.1...v1.15.0
 [1.14.1]: https://github.com/iblokz/ide/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/iblokz/ide/compare/v1.13.1...v1.14.0
