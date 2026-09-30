@@ -1,6 +1,7 @@
 'use strict';
 
 const {obj, arr} = require('iblokz-data');
+const {dispatch} = require('iblokz-state');
 const {getInitialThemeMode, persistThemeMode, readHostTheme} = require('../util/theme');
 const {
 	mergeAt,
@@ -9,6 +10,7 @@ const {
 	collectExpandedPaths,
 	reapplyExpandedPaths
 } = require('../util/file-tree');
+const {indexFilesDeep} = require('../util/file-search');
 const {loadRecent, pushRecent} = require('../util/recent');
 const {getFs, probeCapabilities, resetFs} = require('../services/fs');
 const layout = require('./layout').default ?? require('./layout');
@@ -34,7 +36,25 @@ const {
 } = require('../util/tabs');
 
 const emptyFind = find.initial || {open: false, query: '', caseSensitive: false};
-const emptyFileSearch = fileSearch.initial || {open: false, query: '', activeIndex: 0};
+const emptyFileSearch = fileSearch.initial || {
+	open: false,
+	query: '',
+	activeIndex: 0,
+	index: null,
+	indexPath: null,
+	indexing: false
+};
+
+/** Close project file search and clear the query; keep the file index. */
+const clearFileSearchUi = state => obj.patch(
+	state,
+	'fileSearch',
+	Object.assign({}, state.fileSearch || emptyFileSearch, {
+		open: false,
+		query: '',
+		activeIndex: 0
+	})
+);
 
 const revokeFileUrl = file => {
 	if (!file || !file.url) return;
@@ -80,11 +100,9 @@ const arrToggle = (key, value) => state =>
 		arr.toggle(obj.sub(state, key), value)
 	);
 
-const loadFile = file => state =>
-	upsertTab(state, createTextTab(file));
+const loadFile = file => state => clearFileSearchUi(upsertTab(state, createTextTab(file)));
 
-const loadImage = file => state =>
-	upsertTab(state, createImageTab(file));
+const loadImage = file => state => clearFileSearchUi(upsertTab(state, createImageTab(file)));
 
 const openImage = file => {
 	if (typeof file.url === 'string' && file.url) {
@@ -341,7 +359,14 @@ const refreshFilesTree = (project, prevTree) => {
 				files: files || []
 			}];
 			return reapplyExpandedPaths(fs, baseTree, expandedPaths, project.path)
-				.then(filesTree => state => Object.assign({}, state, {filesTree}));
+				.then(filesTree => state => Object.assign({}, state, {
+					filesTree,
+					fileSearch: Object.assign({}, state.fileSearch || emptyFileSearch, {
+						index: null,
+						indexPath: null,
+						indexing: false
+					})
+				}));
 		})
 		.catch(err => {
 			console.error('refreshFilesTree failed', project.path, err);
@@ -506,11 +531,56 @@ const setFileSearchQuery = query => state => obj.patch(
 	})
 );
 
+/** Build / refresh flat file index for Mod+P (walks unloaded subdirs via listDir). */
+const startFileSearchIndex = (filesTree, projectPath) => {
+	const fs = getFs();
+	const listDir = typeof fs.listDir === 'function'
+		? node => fs.listDir(node)
+		: null;
+	const token = projectPath || '';
+	indexFilesDeep(filesTree || [], listDir)
+		.then(files => {
+			dispatch(state => {
+				const cur = state.fileSearch || emptyFileSearch;
+				const path = state.project && state.project.path;
+				if (path !== token) return state;
+				return obj.patch(
+					state,
+					'fileSearch',
+					Object.assign({}, cur, {
+						index: files,
+						indexPath: token,
+						indexing: false
+					})
+				);
+			});
+		})
+		.catch(err => {
+			console.error('file search index failed', err);
+			dispatch(state => {
+				const cur = state.fileSearch || emptyFileSearch;
+				const path = state.project && state.project.path;
+				if (path !== token) return state;
+				return obj.patch(
+					state,
+					'fileSearch',
+					Object.assign({}, cur, {indexing: false})
+				);
+			});
+		});
+};
+
 const openFileSearch = () => state => {
+	const projectPath = state.project && state.project.path;
+	const cur = state.fileSearch || emptyFileSearch;
+	const needsIndex = !cur.index || cur.indexPath !== projectPath;
 	const next = obj.patch(
 		state,
 		'fileSearch',
-		Object.assign({}, state.fileSearch || emptyFileSearch, {open: true})
+		Object.assign({}, cur, {
+			open: true,
+			indexing: needsIndex ? true : !!cur.indexing
+		})
 	);
 	if (typeof document !== 'undefined') {
 		queueMicrotask(() => {
@@ -521,17 +591,13 @@ const openFileSearch = () => state => {
 			}
 		});
 	}
+	if (needsIndex && !cur.indexing) {
+		startFileSearchIndex(state.filesTree || [], projectPath);
+	}
 	return next;
 };
 
-const closeFileSearch = () => state => obj.patch(
-	state,
-	'fileSearch',
-	Object.assign({}, state.fileSearch || emptyFileSearch, {
-		open: false,
-		activeIndex: 0
-	})
-);
+const closeFileSearch = () => state => clearFileSearchUi(state);
 
 const saveFile = (file, source, pickedHandle) => {
 	const fs = getFs();

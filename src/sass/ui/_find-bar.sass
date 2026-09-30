@@ -3,20 +3,26 @@
 	display: flex
 	align-items: center
 	gap: 4px
-	padding: 4px 6px
+	box-sizing: border-box
+	height: 36px
+	padding: 4px
 	border-radius: 6px
 	background: var(--app-bg-panel)
 	border: 1px solid var(--app-border)
 	box-shadow: var(--app-shadow-soft)
+	overflow: hidden
 	-webkit-app-region: no-drag
-	transition: opacity .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease
+	// Width slide like the sidebar; keep chrome fades in sync
+	max-width: 36px
+	transition: max-width .18s ease-in-out, opacity .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease, padding .18s ease-in-out, gap .18s ease-in-out
 
 	&.collapsed
-		// Same padding as .open so the search icon lines up with the close (X) control
 		opacity: 0.4
 		background: transparent
 		border-color: transparent
 		box-shadow: none
+		padding: 4px
+		gap: 0
 
 		&:hover,
 		&:focus-within
@@ -25,27 +31,62 @@
 			border-color: var(--app-border)
 			box-shadow: var(--app-shadow-soft)
 
+		.find-query-wrap,
+		.find-prev,
+		.find-next,
+		.find-case,
+		.find-close
+			opacity: 0
+			pointer-events: none
+
 	&.open
 		opacity: 1
+		max-width: 26rem
+		padding: 4px 4px 4px 6px
 
-	.find-query
+		.find-toggle
+			width: 0
+			min-width: 0
+			padding: 0
+			margin: 0
+			opacity: 0
+			pointer-events: none
+			overflow: hidden
+			border: none
+
+	.find-query-wrap
+		flex: 1 1 auto
+		min-width: 8rem
 		width: 220px
-		padding: 4px 8px
+		display: flex
+		align-items: center
+		gap: 2px
+		box-sizing: border-box
+		padding: 0 2px 0 8px
 		border: 1px solid var(--app-input-border)
 		border-radius: 4px
 		background: var(--app-input-bg)
+		transition: opacity .14s ease, border-color .15s ease
+
+		&:focus-within
+			border-color: var(--app-accent)
+
+	.find-query
+		flex: 1 1 auto
+		min-width: 0
+		width: 100%
+		padding: 4px 0
+		border: none
+		outline: none
+		background: transparent
 		color: var(--app-input-text)
 		font: inherit
 		font-size: 0.85rem
 
-		&:focus
-			outline: none
-			border-color: var(--app-accent)
-
 		&::-webkit-search-cancel-button
 			-webkit-appearance: none
 
-	button
+	button:not(.inset-clear)
 		flex: 0 0 auto
 		width: 28px
 		height: 28px
@@ -58,6 +99,7 @@
 		display: flex
 		align-items: center
 		justify-content: center
+		transition: background-color .15s ease, color .15s ease, opacity .14s ease, width .18s ease-in-out
 
 		&:hover
 			background: var(--app-bg-hover)
@@ -76,3 +118,7 @@
 		padding: 0 6px
 		font-size: 0.75rem
 		font-weight: 600
+
+	// Inset clears share `.inset-clear`; close only needs trailing spacing
+	.find-close
+		margin-left: 2px

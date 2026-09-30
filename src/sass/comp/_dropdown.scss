@@ -252,23 +252,22 @@ $dropdown-item-height: 28px;
   }
 
   &.file-search {
-    flex: 0 0 14rem;
-    width: 14rem;
+    flex: 1 1 14rem;
+    width: auto;
     min-width: 10rem;
-    max-width: 18rem;
+    max-width: 14rem;
+    // Stay right-anchored so width grows left into the tab space
     margin-left: auto;
     display: block;
     cursor: default;
     -webkit-app-region: no-drag;
-    transition: flex-basis .18s ease, max-width .18s ease;
+    // Same timing curve as sidebar width slide
+    transition: max-width .18s ease-in-out, min-width .18s ease-in-out;
 
     &.is-open,
     &:focus-within {
-      flex: 1 1 auto;
-      width: auto;
+      max-width: 36rem;
       min-width: 14rem;
-      max-width: none;
-      margin-left: 0;
     }
 
     > .handle {
@@ -277,7 +276,7 @@ $dropdown-item-height: 28px;
       gap: 6px;
       box-sizing: border-box;
       height: $dropdown-item-height;
-      padding: 0 8px;
+      padding: 0 2px 0 8px;
       border: 1px solid var(--app-input-border);
       border-radius: 6px;
       background: var(--app-input-bg);
@@ -305,6 +304,10 @@ $dropdown-item-height: 28px;
       &::-webkit-search-cancel-button {
         -webkit-appearance: none;
       }
+    }
+
+    .file-search-clear {
+      order: 99;
     }
 
     ul {
@@ -345,14 +348,29 @@ $dropdown-item-height: 28px;
 
     .file-search-option {
       display: flex;
+      flex-direction: row;
       align-items: baseline;
-      gap: 10px;
+      gap: 0;
       height: auto;
       min-height: $dropdown-item-height;
       padding: 4px 10px;
       box-sizing: border-box;
       font-size: 12px;
       line-height: 1.25;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .file-search-path {
+      flex: 0 1 auto;
+      min-width: 0;
+      color: var(--app-text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 11px;
+      text-align: left;
+      direction: ltr;
     }
 
     .file-search-name {
@@ -362,17 +380,27 @@ $dropdown-item-height: 28px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      font-weight: 500;
     }
 
-    .file-search-path {
-      flex: 1 1 auto;
-      min-width: 0;
-      color: var(--app-text-muted);
-      text-align: right;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 11px;
+    ul > li.active {
+      .file-search-path,
+      .file-search-name {
+        color: inherit;
+      }
+
+      .file-search-hit {
+        color: inherit;
+        background: rgba(255, 255, 255, 0.22);
+      }
+    }
+
+    .file-search-hit {
+      color: var(--app-accent, #2f6fed);
+      font-weight: 700;
+      background: var(--app-accent-soft, rgba(47, 111, 237, 0.12));
+      border-radius: 2px;
+      padding: 0 1px;
     }
   }
 

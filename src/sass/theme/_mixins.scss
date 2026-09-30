@@ -132,6 +132,40 @@
   }
 }
 
+/** Small × / chevron control inset in search fields (file search + find bar). */
+@mixin inset-clear-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 1.15rem;
+  height: 1.15rem;
+  min-width: 1.15rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--app-text-muted);
+  cursor: pointer;
+  opacity: 0.55;
+  line-height: 1;
+  font-size: inherit;
+
+  > .fa {
+    font-size: 0.75em;
+    opacity: 1;
+    line-height: 1;
+  }
+
+  &:hover {
+    opacity: 0.85;
+    color: var(--app-text);
+    background: var(--app-bg-hover);
+  }
+}
+
 @mixin masked-icon-fill-shadow($url, $fill: var(--app-arrow-fill), $shadow: var(--app-arrow-shadow), $shadow-offset: 4px) {
   &::before,
   &::after {

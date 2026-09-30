@@ -1,21 +1,48 @@
-import {input, span, i} from 'iblokz-snabbdom-helpers';
+import {input, span, i, button} from 'iblokz-snabbdom-helpers';
 import {formatHotkey} from '../../util/hotkey';
 import {flattenFiles, filterFiles} from '../../util/file-search';
 import dropdown from './dropdown';
 
-const parentPath = path => {
-	const normalized = String(path || '').replace(/\\/g, '/');
-	const i = normalized.lastIndexOf('/');
-	return i > 0 ? normalized.slice(0, i) : '';
+/** Build text nodes with `.file-search-hit` spans for match ranges. */
+const highlightText = (text, ranges) => {
+	const src = String(text || '');
+	const list = (ranges || []).filter(r => r && r.end > r.start);
+	if (!src || !list.length) return [src];
+
+	const parts = [];
+	let cursor = 0;
+	list.forEach(r => {
+		const start = Math.max(0, Math.min(src.length, r.start));
+		const end = Math.max(start, Math.min(src.length, r.end));
+		if (start > cursor) parts.push(src.slice(cursor, start));
+		if (end > start) {
+			parts.push(span('.file-search-hit', [src.slice(start, end)]));
+		}
+		cursor = end;
+	});
+	if (cursor < src.length) parts.push(src.slice(cursor));
+	return parts;
 };
 
 const renderItem = item => {
-	const name = String(item.name || '');
-	const dir = parentPath(item.path);
-	return span('.file-search-option', [].concat(
-		span('.file-search-name', [name]),
-		dir ? span('.file-search-path', [dir]) : []
+	const label = item.label || {};
+	const dir = label.dir || '';
+	const name = label.name || item.name || '';
+	return span('.file-search-option', {
+		attrs: {title: label.full || item.path || ''}
+	}, [].concat(
+		dir
+			? span('.file-search-path', highlightText(dir + '/', label.dirRanges))
+			: [],
+		span('.file-search-name', highlightText(name, label.nameRanges))
 	));
+};
+
+const focusQuery = () => {
+	queueMicrotask(() => {
+		const field = document.querySelector('.file-search .file-search-query');
+		if (field) field.focus();
+	});
 };
 
 export default ({state, actions}) => {
@@ -23,21 +50,28 @@ export default ({state, actions}) => {
 	const open = !!fsState.open;
 	const query = fsState.query || '';
 	const rootPath = state.project && state.project.path;
-	const results = filterFiles(
-		flattenFiles(state.filesTree || []),
-		query,
-		rootPath
-	);
+	const indexed = fsState.indexPath === rootPath && Array.isArray(fsState.index)
+		? fsState.index
+		: flattenFiles(state.filesTree || []);
+	const results = filterFiles(indexed, query, rootPath);
 	const activeIndex = Math.max(
 		0,
 		Math.min(fsState.activeIndex || 0, Math.max(results.length - 1, 0))
 	);
 	const hotkey = formatHotkey('Mod+P');
+	const showClear = query.length > 0;
 
 	const pick = item => {
 		if (!item || !item.file) return;
 		actions.openFile(item.file);
 		actions.closeFileSearch();
+	};
+
+	const clearSearch = ev => {
+		ev.preventDefault();
+		ev.stopPropagation();
+		actions.setFileSearchQuery('');
+		focusQuery();
 	};
 
 	const onKeydown = ev => {
@@ -129,8 +163,22 @@ export default ({state, actions}) => {
 					input: ev => actions.setFileSearchQuery(ev.target.value),
 					keydown: onKeydown
 				}
-			})
-		],
+			}),
+			showClear
+				? button('.file-search-clear.inset-clear', {
+					attrs: {
+						type: 'button',
+						title: 'Clear',
+						'aria-label': 'Clear file search'
+					},
+					on: {
+						// Keep focus in the field so the dropdown doesn't dismiss first
+						mousedown: ev => ev.preventDefault(),
+						click: clearSearch
+					}
+				}, [i('.fa.fa-times')])
+				: null
+		].filter(Boolean),
 		items: open
 			? results.map((item, index) => Object.assign({}, item, {
 				active: index === activeIndex

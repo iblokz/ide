@@ -36,6 +36,11 @@
   @include control-select;
 }
 
+.inset-clear,
+button.inset-clear {
+  @include inset-clear-btn;
+}
+
 .panel {
   @include surface-panel;
 }

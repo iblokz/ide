@@ -5,13 +5,13 @@
 	align-items: center
 	gap: 8px
 	position: relative
-	z-index: 100
+	z-index: 110
 	width: 100%
 	background: var(--app-bg-panel)
 	border-bottom: 1px solid var(--app-border)
 	box-shadow: var(--app-shadow-soft)
 	box-sizing: border-box
-	padding: 0 12px
+	padding: 0 12px 0 4px
 	overflow: visible
 	transition: background-color .25s ease, border-color .25s ease, box-shadow .25s ease
 
@@ -37,6 +37,9 @@
 		align-items: center
 		justify-content: flex-start
 		gap: 6px
+
+		.tab-strip
+			margin-left: 8px
 
 		// Yield strip space so Go to File can grow left to the tabs
 		&:has(.file-search:focus-within),
@@ -78,7 +81,7 @@
 		justify-content: flex-end
 		gap: 6px
 
-	button
+	button:not(.inset-clear):not(.tab-close)
 		+header-height($panel-row-height)
 		flex: 0 0 auto
 		display: inline-flex
