@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.15.0] - 2026-09-30
+
+### Added
+
+- Electron load mode: default **static** (`dist/`); `CmdOrCtrl+Shift+H` toggles Parcel HMR (`http://127.0.0.1:1234`); header **HMR** chip when attached (click returns to static)
+- Electron: detect tiling WMs/compositors (Hyprland, i3, Sway, …) and hide custom −/× chrome + titlebar dblclick-maximize on those sessions (already hidden on web / Capacitor)
+
+### Fixed
+
+- Sandboxed preload: do not `require()` sibling modules (broke `window.app` when loading `./util/wm`); inline WM detect in preload
+- Load-mode toggle: debounce / avoid double-fire so one chord does not flip twice; read mode live via `getLoadModeSync` after `loadURL` navigations
+
+---
+
 ## [1.14.1] - 2026-09-06
 
 ### Fixed
@@ -371,7 +385,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.14.1...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/iblokz/ide/compare/v1.14.1...v1.15.0
 [1.14.1]: https://github.com/iblokz/ide/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/iblokz/ide/compare/v1.13.1...v1.14.0
 [1.13.1]: https://github.com/iblokz/ide/compare/v1.13.0...v1.13.1

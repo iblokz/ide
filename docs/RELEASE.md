@@ -65,6 +65,14 @@ git tag -a v1.6.1 -m "v1.6.1 — …"
 ### 4. Push commit + tag
 
 ```bash
+./bin/tag-push.sh
+# or: ./bin/tag-push.sh --dry-run
+```
+
+Equivalent manual steps:
+
+```bash
+git tag -a "v$(node -p "require('./package.json').version")" -m "v$(node -p "require('./package.json').version")"
 git push origin master
 git push origin "v$(node -p "require('./package.json').version")"
 ```

@@ -138,6 +138,25 @@
 			i
 				transform: none
 
+		&.load-mode-flag
+			min-width: auto
+			padding: 0 7px
+			font-size: 0.7rem
+			font-weight: 700
+			letter-spacing: 0.04em
+			line-height: 1
+			color: var(--app-accent)
+			border-color: var(--app-accent)
+			background: var(--app-accent-soft)
+
+			.load-mode-label
+				line-height: 1
+
+			&:hover:not(:disabled)
+				color: var(--app-accent)
+				border-color: var(--app-accent)
+				background: var(--app-bg-hover)
+
 	// Match header button metrics so the layout glyph sits with FA icons
 	.dropdown.layout-menu
 		+header-height($panel-row-height)

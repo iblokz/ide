@@ -16,6 +16,18 @@ export const isElectron = () =>
 /** @deprecated use isElectron */
 export const isElectronBridge = isElectron;
 
+/** Heuristic from Electron preload (`window.app.windowManager.tiling`). */
+export const isTilingWindowManager = () =>
+	isElectron()
+	&& !!(window.app.windowManager && window.app.windowManager.tiling);
+
+/**
+ * Custom − / × chrome: Electron floating desktops only.
+ * Hidden on web, Capacitor/mobile, and tiling WMs (Hyprland, i3, Sway, …).
+ */
+export const showWindowControls = () =>
+	isElectron() && !isTilingWindowManager();
+
 /** Capacitor WebView with native bridge (Android / iOS app). */
 export const isCapacitorNative = () => {
 	if (typeof window === 'undefined') return false;
@@ -100,6 +112,8 @@ export default {
 	modKeyLabel,
 	isElectron,
 	isElectronBridge,
+	isTilingWindowManager,
+	showWindowControls,
 	isCapacitorNative,
 	capacitorPlatform,
 	getCapacitor

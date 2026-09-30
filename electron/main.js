@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const {watch} = require('chokidar');
 const fileUtil = require('./util/file');
+const {detectWindowManager} = require('./util/wm');
 
 const bootLogPath = () => {
 	try {
@@ -18,7 +19,8 @@ const bootLog = msg => {
 		fs.appendFileSync(bootLogPath(), `[${new Date().toISOString()}] ${msg}\n`);
 	} catch (err) { /* ignore */ }
 };
-bootLog(`start electron=${process.versions.electron} chrome=${process.versions.chrome} packaged=${app.isPackaged}`);
+const windowManager = detectWindowManager();
+bootLog(`start electron=${process.versions.electron} chrome=${process.versions.chrome} packaged=${app.isPackaged} wm=${JSON.stringify(windowManager)}`);
 
 const electronMajorEarly = parseInt(String(process.versions.electron || '0').split('.')[0], 10) || 0;
 if (electronMajorEarly > 0 && electronMajorEarly < 12) {
@@ -49,6 +51,10 @@ let win = null;
 let dirty = false;
 let allowClose = false;
 let watcher = null;
+/** Session load source: static dist (default) or Parcel HMR. Toggle: CmdOrCtrl+Shift+H. */
+let loadMode = 'static';
+/** ELECTRON_START_URL wins until the first manual mode toggle this session. */
+let useEnvStartUrl = Boolean(process.env.ELECTRON_START_URL);
 
 /** Multi-size app icon — ICO on Windows, PNG representations elsewhere. */
 const loadAppIcon = () => {
@@ -80,16 +86,63 @@ const loadAppIcon = () => {
 	return image.isEmpty() ? null : image;
 };
 
-const resolveStartUrl = () => {
-	if (process.env.ELECTRON_START_URL) {
-		return {type: 'url', value: process.env.ELECTRON_START_URL};
+const resolveStaticIndex = () => path.join(app.getAppPath(), 'dist', 'index.html');
+
+const resolveStart = () => {
+	if (useEnvStartUrl && process.env.ELECTRON_START_URL) {
+		return {type: 'url', value: process.env.ELECTRON_START_URL, mode: 'env'};
 	}
-	if (!app.isPackaged) {
-		return {type: 'url', value: DEV_URL};
+	if (loadMode === 'dev') {
+		return {type: 'url', value: DEV_URL, mode: 'dev'};
 	}
-	// Packaged: prefer app root (asar) so paths stay correct under electron/
-	const indexHtml = path.join(app.getAppPath(), 'dist', 'index.html');
-	return {type: 'file', value: indexHtml};
+	return {type: 'file', value: resolveStaticIndex(), mode: 'static'};
+};
+
+const applyStart = browserWindow => {
+	if (!browserWindow || browserWindow.isDestroyed()) return null;
+	const start = resolveStart();
+	bootLog(`applyStart ${JSON.stringify(start)}`);
+	if (start.type === 'file') {
+		bootLog(`loadFile exists=${fs.existsSync(start.value)} path=${start.value}`);
+		if (!fs.existsSync(start.value)) {
+			console.error('Static index missing:', start.value);
+			bootLog('Static index missing');
+		}
+		browserWindow.loadFile(start.value).catch(err => {
+			bootLog(`loadFile catch ${err}`);
+			console.error('Failed to load', start.value, err);
+		});
+	} else {
+		browserWindow.loadURL(start.value).catch(err => {
+			bootLog(`loadURL catch ${err}`);
+			console.error('Failed to load', start.value, err);
+		});
+	}
+	return start;
+};
+
+const setLoadMode = mode => {
+	if (mode !== 'static' && mode !== 'dev') return loadMode;
+	useEnvStartUrl = false;
+	if (loadMode === mode) return loadMode;
+	loadMode = mode;
+	bootLog(`setLoadMode ${loadMode}`);
+	if (win && !win.isDestroyed()) {
+		applyStart(win);
+	}
+	return loadMode;
+};
+
+/** Guard against menu accelerator + before-input-event both firing once. */
+let loadModeToggleAt = 0;
+const toggleLoadMode = () => {
+	const now = Date.now();
+	if (now - loadModeToggleAt < 500) {
+		bootLog(`toggleLoadMode ignored (debounce, mode=${loadMode})`);
+		return loadMode;
+	}
+	loadModeToggleAt = now;
+	return setLoadMode(loadMode === 'dev' ? 'static' : 'dev');
 };
 
 const stopWatch = () => {
@@ -281,8 +334,7 @@ const createWindow = () => {
 		});
 	});
 
-	const start = resolveStartUrl();
-	bootLog(`createWindow start=${JSON.stringify(start)} legacyShell=${legacyShell}`);
+	bootLog(`createWindow loadMode=${loadMode} legacyShell=${legacyShell}`);
 	browserWindow.webContents.on('dom-ready', () => {
 		bootLog('dom-ready');
 		browserWindow.webContents.executeJavaScript(`
@@ -296,12 +348,16 @@ const createWindow = () => {
 		`).catch(err => bootLog(`dom-ready inject failed ${err}`));
 	});
 	browserWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+		const start = resolveStart();
 		bootLog(`did-fail-load code=${code} desc=${desc} url=${url}`);
 		console.error('did-fail-load', {code, desc, url, start});
 		reveal();
 	});
 	browserWindow.webContents.on('did-finish-load', () => {
 		bootLog('did-finish-load');
+		if (!browserWindow.isDestroyed()) {
+			browserWindow.webContents.send('load-mode', loadMode);
+		}
 		browserWindow.webContents.executeJavaScript(
 			`({href: location.href, bodyKids: document.body ? document.body.children.length : -1, title: document.title, scripts: document.scripts.length, err: window.__iblokzErr || null})`
 		).then(info => {
@@ -309,24 +365,16 @@ const createWindow = () => {
 		}).catch(err => bootLog(`executeJavaScript failed ${err}`));
 		reveal();
 	});
-	if (start.type === 'file') {
-		bootLog(`loadFile exists=${fs.existsSync(start.value)} path=${start.value}`);
-		if (!fs.existsSync(start.value)) {
-			console.error('Packaged index missing:', start.value);
-			bootLog('Packaged index missing');
-		}
-		browserWindow.loadFile(start.value).catch(err => {
-			bootLog(`loadFile catch ${err}`);
-			console.error('Failed to load', start.value, err);
-			reveal();
-		});
-	} else {
-		browserWindow.loadURL(start.value).catch(err => {
-			bootLog(`loadURL catch ${err}`);
-			console.error('Failed to load', start.value, err);
-			reveal();
-		});
-	}
+	// CmdOrCtrl+Shift+H — sole handler (menu accel would double-fire with this).
+	browserWindow.webContents.on('before-input-event', (event, input) => {
+		if (input.type !== 'keyDown' || input.isAutoRepeat) return;
+		if (!input.control && !input.meta) return;
+		if (!input.shift || input.alt) return;
+		if (String(input.key || '').toLowerCase() !== 'h') return;
+		event.preventDefault();
+		toggleLoadMode();
+	});
+	applyStart(browserWindow);
 
 	return browserWindow;
 };
@@ -376,6 +424,11 @@ if (!gotLock) {
 			return true;
 		});
 		ipcMain.handle('close', () => requestClose());
+		ipcMain.on('getLoadModeSync', event => {
+			event.returnValue = loadMode;
+		});
+		ipcMain.handle('getLoadMode', () => loadMode);
+		ipcMain.handle('toggleLoadMode', () => toggleLoadMode());
 
 		const icon = loadAppIcon();
 		// Dev / unpackaged: BrowserWindow.icon does not set the macOS Dock icon.
