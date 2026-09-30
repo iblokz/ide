@@ -1,30 +1,15 @@
-import {h1, button, header, span, i} from 'iblokz-snabbdom-helpers';
+import {button, header, h1, span, i} from 'iblokz-snabbdom-helpers';
 import svgHamburger from './comp/svg/hamburger';
-import {canSave, saveHint} from '../util/save';
 import {isStartView} from '../util/project';
-import {triggerSave} from '../util/trigger-save';
 import {isElectron, showWindowControls} from '../util/platform';
 import {formatHotkey, chordForAction} from '../util/hotkey';
 import hotkeyMap from '../../../config/hotkeys.yml';
 import dropdown from './comp/dropdown';
+import tabs from './comp/tabs';
+import fileSearch from './comp/file-search';
 
 const ideTitle = 'iBlokz IDE';
 const loadModeHotkey = formatHotkey('Mod+Shift+H');
-
-const prepFileTitle = state =>
-	!isStartView(state) && state.file && state.file.name
-		? span('.file-title', [].concat(
-			' — ',
-			String(state.file.name),
-			state.dirty ? ' •' : [],
-			state.externalChange
-				? span('.external-change', ' (changed on disk)')
-				: [],
-			state.saveError
-				? span('.save-error', ` — ${state.saveError}`)
-				: []
-		))
-		: [];
 
 const layoutIcon = name => span(`.layout-icon.${name}`);
 
@@ -49,7 +34,6 @@ const resolveLoadMode = () => {
 		const mode = window.app.getLoadModeSync();
 		if (mode === 'dev' || mode === 'static') return mode;
 	}
-	// Legacy preload snapshot / URL fallback
 	if (window.app.loadMode === 'dev' || window.app.loadMode === 'static') {
 		return window.app.loadMode;
 	}
@@ -64,98 +48,87 @@ const resolveLoadMode = () => {
 
 const isHmrLoadMode = () => resolveLoadMode() === 'dev';
 
-export default ({state, actions}) => header({
-	on: showWindowControls() ? {
-		dblclick: ev => {
-			const t = ev.target;
-			if (!t || !t.closest) return;
-			if (t.closest('button, a, input')) return;
-			if (typeof window.app.toggleMaximize === 'function') {
-				window.app.toggleMaximize();
-			}
-		}
-	} : {}
-}, [].concat(
-	span('.header-start', [].concat(
-		span('.app-icon', {
-			attrs: {
-				role: 'img',
-				'aria-label': 'iBloKz IDE'
-			}
-		}),
-		isStartView(state)
-			? []
-			: button('.menu-toggle', {
-				attrs: {'aria-label': 'Toggle sidebar'},
-				on: {click: () => actions.toggle(['layout', 'toggles', 'leftSideBar'])}
-			}, [
-				svgHamburger(({state: state.layout.toggles.leftSideBar ? 1 : 0, strokeWidth: '3px', size: 22}))
-			])
-	)),
-	h1([].concat(ideTitle, prepFileTitle(state))),
-	span('.header-actions', [].concat(
-		isStartView(state) ? [] : button('.save-file', {
-			attrs: {
-				'aria-label': 'Save file',
-				title: state.saveError || saveHint(state)
-			},
-			props: {
-				disabled: !canSave(state)
-			},
-			on: {
-				click: ev => {
-					ev.preventDefault();
-					triggerSave({state, actions});
+export default ({state, actions}) => {
+	const start = isStartView(state);
+	const tabStrip = start ? null : tabs({state, actions});
+
+	return header({
+		on: showWindowControls() ? {
+			dblclick: ev => {
+				const t = ev.target;
+				if (!t || !t.closest) return;
+				if (t.closest('button, a, input, .tab, .tab-strip, .file-search, .dropdown')) return;
+				if (typeof window.app.toggleMaximize === 'function') {
+					window.app.toggleMaximize();
 				}
 			}
-		}, [
-			i('.fa.fa-save')
-		]),
-		dropdown('.layout-menu', {
-			handle: layoutIcon('menu'),
-			itemSelect: (ev, item) =>
-				actions.toggle(['layout', 'toggles', item.toggleKey]),
-			items: layoutMenuItems.map(item => ({
-				...item,
-				active: !!state.layout.toggles[item.toggleKey]
-			})),
-			renderItem: renderLayoutItem,
-			toLeft: true
-		}),
-		button('.theme-toggle', {
-			attrs: {
-				'aria-label': state.themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
-				title: state.themeMode === 'dark' ? 'Light theme' : 'Dark theme'
-			},
-			on: {click: () => actions.toggleTheme()}
-		}, [
-			i(`.fa.${state.themeMode === 'dark' ? 'fa-sun-o' : 'fa-moon-o'}`)
-		]),
-		isHmrLoadMode()
-			? button('.load-mode-flag.is-hmr', {
+		} : {}
+	}, [].concat(
+		span('.header-start', [].concat(
+			start
+				? []
+				: button('.menu-toggle', {
+					attrs: {'aria-label': 'Toggle sidebar'},
+					on: {click: () => actions.toggle(['layout', 'toggles', 'leftSideBar'])}
+				}, [
+					svgHamburger(({state: state.layout.toggles.leftSideBar ? 1 : 0, strokeWidth: '3px', size: 22}))
+				]),
+			span('.app-icon', {
 				attrs: {
-					'aria-label': 'Development HMR — switch to static',
-					title: `Development (HMR) — ${loadModeHotkey}`
+					role: 'img',
+					'aria-label': 'iBloKz IDE'
+				}
+			}),
+			start ? h1([ideTitle]) : (tabStrip || []),
+			start ? [] : fileSearch({state, actions})
+		)),
+		span('.header-actions', [].concat(
+			start ? [] : dropdown('.layout-menu', {
+				handle: layoutIcon('menu'),
+				itemSelect: (ev, item) =>
+					actions.toggle(['layout', 'toggles', item.toggleKey]),
+				items: layoutMenuItems.map(item => ({
+					...item,
+					active: !!state.layout.toggles[item.toggleKey]
+				})),
+				renderItem: renderLayoutItem,
+				toLeft: true
+			}),
+			button('.theme-toggle', {
+				attrs: {
+					'aria-label': state.themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
+					title: state.themeMode === 'dark' ? 'Light theme' : 'Dark theme'
 				},
-				on: {
-					click: ev => {
-						ev.preventDefault();
-						if (typeof window.app.toggleLoadMode === 'function') {
-							window.app.toggleLoadMode();
+				on: {click: () => actions.toggleTheme()}
+			}, [
+				i(`.fa.${state.themeMode === 'dark' ? 'fa-sun-o' : 'fa-moon-o'}`)
+			]),
+			isHmrLoadMode()
+				? button('.load-mode-flag.is-hmr', {
+					attrs: {
+						'aria-label': 'Development HMR — switch to static',
+						title: `Development (HMR) — ${loadModeHotkey}`
+					},
+					on: {
+						click: ev => {
+							ev.preventDefault();
+							if (typeof window.app.toggleLoadMode === 'function') {
+								window.app.toggleLoadMode();
+							}
 						}
 					}
-				}
-			}, [
-				span('.load-mode-label', 'HMR')
-			])
-			: [],
-		showWindowControls() ? [
-			button('.window-minimize[aria-label="Minimize"][title="Minimize"]', {
-				on: {click: () => window.app.minimize()}
-			}, [i('.fa.fa-minus')]),
-			button('.window-close[aria-label="Close"][title="Close"]', {
-				on: {click: () => window.app.close()}
-			}, [i('.fa.fa-close')])
-		] : []
-	))
-));
+				}, [
+					span('.load-mode-label', 'HMR')
+				])
+				: [],
+			showWindowControls() ? [
+				button('.window-minimize[aria-label="Minimize"][title="Minimize"]', {
+					on: {click: () => window.app.minimize()}
+				}, [i('.fa.fa-minus')]),
+				button('.window-close[aria-label="Close"][title="Close"]', {
+					on: {click: () => window.app.close()}
+				}, [i('.fa.fa-close')])
+			] : []
+		))
+	));
+};

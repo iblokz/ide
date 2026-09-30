@@ -13,77 +13,28 @@ const {loadRecent, pushRecent} = require('../util/recent');
 const {getFs, probeCapabilities, resetFs} = require('../services/fs');
 const layout = require('./layout').default ?? require('./layout');
 const find = require('./find').default ?? require('./find');
+const fileSearch = require('./file-search').default ?? require('./file-search');
 const {findMatch, findFirstMatch} = require('../util/find-in-source');
 const findHighlight = require('../util/find-highlight').default
 	?? require('../util/find-highlight');
+const {
+	emptyPos,
+	emptyTabFields,
+	createTextTab,
+	createImageTab,
+	activeTab,
+	projectActive,
+	anyDirty,
+	mapActiveTab,
+	activateTabId,
+	upsertTab,
+	findTabIndexById,
+	findTabIndexByPath,
+	neighborTabId
+} = require('../util/tabs');
 
 const emptyFind = find.initial || {open: false, query: '', caseSensitive: false};
-
-const emptyPos = {
-	start: {row: 0, col: 0},
-	end: {row: 0, col: 0}
-};
-
-/** Cleared buffer when opening / switching to a real project (no file selected). */
-const clearOpenFile = state => {
-	revokeFileUrl(state && state.file);
-	return {
-		file: null,
-		source: '',
-		type: 'js',
-		dirty: false,
-		externalChange: null,
-		saveError: null,
-		index: 0,
-		maxIndex: 0,
-		pos: emptyPos,
-		history: [
-			{
-				type: 'js',
-				source: '',
-				pos: emptyPos
-			}
-		],
-		find: emptyFind
-	};
-};
-
-const initial = {
-	themeMode: getInitialThemeMode(),
-	hostTheme: readHostTheme(),
-	view: 'start',
-	fsBackend: getFs().id,
-	canOpenFolder: getFs().canOpenFolder,
-	// project-scoped: true only after opening a writable folder
-	canWrite: false,
-	project: null,
-	recentRoots: loadRecent(),
-	file: null,
-	dirty: false,
-	externalChange: null,
-	saveError: null,
-	type: 'js',
-	index: 0,
-	maxIndex: 0,
-	source: '',
-	pos: emptyPos,
-	history: [
-		{
-			type: 'js',
-			source: '',
-			pos: emptyPos
-		}
-	],
-	filesTree: [],
-	find: emptyFind
-};
-
-const set = (key, value) => state => obj.patch(state, key, value);
-const toggle = key => state => obj.patch(state, key, !obj.sub(state, key));
-const arrToggle = (key, value) => state =>
-	obj.patch(state, key,
-		arr.toggle(obj.sub(state, key), value)
-	);
+const emptyFileSearch = fileSearch.initial || {open: false, query: '', activeIndex: 0};
 
 const revokeFileUrl = file => {
 	if (!file || !file.url) return;
@@ -93,50 +44,47 @@ const revokeFileUrl = file => {
 	}
 };
 
-const loadFile = file => state => {
-	if (state.file && state.file !== file) revokeFileUrl(state.file);
-	return Object.assign({}, state, {
-		file,
-		source: file.source,
-		type: file.ext || 'js',
-		dirty: false,
-		externalChange: null,
-		index: state.index + 1,
-		maxIndex: state.index + 1,
-		pos: emptyPos,
-		history: [].concat(
-			state.history.slice(0, state.index + 1),
-			[{
-				type: file.ext || 'js',
-				source: file.source,
-				pos: emptyPos
-			}]
-		)
+/** Clear all tabs when opening / switching project. */
+const clearOpenFile = state => {
+	((state && state.tabs) || []).forEach(tab => {
+		revokeFileUrl(tab && tab.file);
+	});
+	return Object.assign({}, emptyTabFields(), {
+		tabs: [],
+		activeTabId: null,
+		find: emptyFind,
+		fileSearch: emptyFileSearch
 	});
 };
 
-const loadImage = file => state => {
-	if (state.file && state.file !== file) revokeFileUrl(state.file);
-	return Object.assign({}, state, {
-		file,
-		source: '',
-		type: 'image',
-		dirty: false,
-		externalChange: null,
-		saveError: null,
-		index: state.index + 1,
-		maxIndex: state.index + 1,
-		pos: emptyPos,
-		history: [].concat(
-			state.history.slice(0, state.index + 1),
-			[{
-				type: 'image',
-				source: '',
-				pos: emptyPos
-			}]
-		)
-	});
-};
+const initial = Object.assign({
+	themeMode: getInitialThemeMode(),
+	hostTheme: readHostTheme(),
+	view: 'start',
+	fsBackend: getFs().id,
+	canOpenFolder: getFs().canOpenFolder,
+	canWrite: false,
+	project: null,
+	recentRoots: loadRecent(),
+	tabs: [],
+	activeTabId: null,
+	filesTree: [],
+	find: emptyFind,
+	fileSearch: emptyFileSearch
+}, emptyTabFields());
+
+const set = (key, value) => state => obj.patch(state, key, value);
+const toggle = key => state => obj.patch(state, key, !obj.sub(state, key));
+const arrToggle = (key, value) => state =>
+	obj.patch(state, key,
+		arr.toggle(obj.sub(state, key), value)
+	);
+
+const loadFile = file => state =>
+	upsertTab(state, createTextTab(file));
+
+const loadImage = file => state =>
+	upsertTab(state, createImageTab(file));
 
 const openImage = file => {
 	if (typeof file.url === 'string' && file.url) {
@@ -181,37 +129,81 @@ const openFile = file => {
 		});
 };
 
-const updateSource = (source, pos) => state => Object.assign({}, state, {
-	source,
-	dirty: true,
-	externalChange: null,
-	saveError: null,
-	index: state.index + 1,
-	maxIndex: state.index + 1,
-	pos: pos || state.pos || emptyPos,
-	history: [].concat(
-		state.history.slice(0, state.index + 1),
-		[{type: state.type, source, pos: pos || state.pos || emptyPos}]
-	)
+const setActiveTab = id => state => activateTabId(state, id);
+
+const cycleTab = delta => state => {
+	const tabs = state.tabs || [];
+	if (tabs.length < 2) return state;
+	const idx = findTabIndexById(tabs, state.activeTabId);
+	if (idx < 0) return activateTabId(state, tabs[0].id);
+	const next = (idx + delta + tabs.length) % tabs.length;
+	return activateTabId(state, tabs[next].id);
+};
+
+const nextTab = () => cycleTab(1);
+const prevTab = () => cycleTab(-1);
+
+const closeTab = id => state => {
+	const tabs = state.tabs || [];
+	const idx = findTabIndexById(tabs, id);
+	if (idx < 0) return state;
+	const closing = tabs[idx];
+	revokeFileUrl(closing && closing.file);
+	const nextTabs = tabs.slice(0, idx).concat(tabs.slice(idx + 1));
+	let activeTabId = state.activeTabId;
+	if (activeTabId === id) {
+		activeTabId = neighborTabId(nextTabs, idx);
+	}
+	return projectActive(Object.assign({}, state, {
+		tabs: nextTabs,
+		activeTabId
+	}));
+};
+
+const updateSource = (source, pos) => state => mapActiveTab(state, tab => {
+	const nextPos = pos || tab.pos || emptyPos;
+	return Object.assign({}, tab, {
+		source,
+		dirty: true,
+		externalChange: null,
+		saveError: null,
+		index: tab.index + 1,
+		maxIndex: tab.index + 1,
+		pos: nextPos,
+		history: [].concat(
+			tab.history.slice(0, tab.index + 1),
+			[{type: tab.type, source, pos: nextPos}]
+		)
+	});
 });
 
-const updatePos = pos => state => Object.assign({}, state, {
+const updatePos = pos => state => mapActiveTab(state, tab => Object.assign({}, tab, {
 	pos,
 	history: [].concat(
-		state.history.slice(0, state.history.length - 1),
-		[obj.patch(state.history[state.history.length - 1], 'pos', pos)]
+		tab.history.slice(0, tab.history.length - 1),
+		[obj.patch(tab.history[tab.history.length - 1], 'pos', pos)]
 	)
+}));
+
+const undo = () => state => mapActiveTab(state, tab => {
+	const index = tab.index > 0 ? tab.index - 1 : 0;
+	const entry = tab.history[index];
+	if (!entry) return tab;
+	return Object.assign({}, tab, entry, {
+		index,
+		dirty: true
+	});
 });
 
-const undo = () => state => Object.assign({}, state, {
-	index: state.index > 0 ? state.index - 1 : 0,
-	dirty: true
-}, state.history[state.index > 0 ? state.index - 1 : 0]);
-
-const redo = () => state => Object.assign({}, state, {
-	index: state.index < state.maxIndex ? state.index + 1 : state.index,
-	dirty: true
-}, state.history[state.index < state.maxIndex ? state.index + 1 : state.index]);
+const redo = () => state => mapActiveTab(state, tab => {
+	const index = tab.index < tab.maxIndex ? tab.index + 1 : tab.index;
+	const entry = tab.history[index];
+	if (!entry) return tab;
+	return Object.assign({}, tab, entry, {
+		index,
+		dirty: true
+	});
+});
 
 const toggleFolder = (path = [], item) => {
 	if (!item || !item.isDir) return state => state;
@@ -321,7 +313,6 @@ const openRecent = root => {
 				return openFolder();
 			});
 	}
-	// Web / backends without path reopen: fall through to picker
 	return openFolder();
 };
 
@@ -359,13 +350,15 @@ const refreshFilesTree = (project, prevTree) => {
 };
 
 const markExternalChange = filePath => state => {
-	if (!filePath || !state.file || state.file.path !== filePath) {
-		return state;
-	}
-	if (!state.dirty) {
-		return state;
-	}
-	return Object.assign({}, state, {externalChange: filePath});
+	if (!filePath) return state;
+	const tabs = state.tabs || [];
+	const idx = findTabIndexByPath(tabs, filePath);
+	if (idx < 0) return state;
+	const tab = tabs[idx];
+	if (!tab.dirty) return state;
+	const nextTabs = tabs.slice();
+	nextTabs[idx] = Object.assign({}, tab, {externalChange: filePath});
+	return projectActive(Object.assign({}, state, {tabs: nextTabs}));
 };
 
 const refreshFsCapabilities = () => state => {
@@ -435,7 +428,7 @@ const findQuery = query => state => {
 		return next;
 	}
 	applyFindCaret(hit);
-	return Object.assign(next, {pos: hit});
+	return mapActiveTab(Object.assign(next, {pos: hit}), tab => Object.assign({}, tab, {pos: hit}));
 };
 
 const openFind = () => state => {
@@ -455,7 +448,7 @@ const openFind = () => state => {
 		});
 		if (hit) {
 			applyFindCaret(hit);
-			next = Object.assign(next, {pos: hit});
+			next = mapActiveTab(Object.assign(next, {pos: hit}), tab => Object.assign({}, tab, {pos: hit}));
 		}
 	}
 	if (typeof document !== 'undefined') {
@@ -491,11 +484,54 @@ const findStep = direction => state => {
 	});
 	if (!hit) return state;
 	applyFindCaret(hit);
-	return Object.assign({}, state, {pos: hit});
+	return mapActiveTab(Object.assign({}, state, {pos: hit}), tab => Object.assign({}, tab, {pos: hit}));
 };
 
 const findNext = () => findStep(1);
 const findPrev = () => findStep(-1);
+
+const setFileSearch = patch => state => obj.patch(
+	state,
+	'fileSearch',
+	Object.assign({}, state.fileSearch || emptyFileSearch, patch)
+);
+
+const setFileSearchQuery = query => state => obj.patch(
+	state,
+	'fileSearch',
+	Object.assign({}, state.fileSearch || emptyFileSearch, {
+		query: query || '',
+		activeIndex: 0,
+		open: true
+	})
+);
+
+const openFileSearch = () => state => {
+	const next = obj.patch(
+		state,
+		'fileSearch',
+		Object.assign({}, state.fileSearch || emptyFileSearch, {open: true})
+	);
+	if (typeof document !== 'undefined') {
+		queueMicrotask(() => {
+			const field = document.querySelector('.file-search .file-search-query');
+			if (field) {
+				field.focus();
+				field.select();
+			}
+		});
+	}
+	return next;
+};
+
+const closeFileSearch = () => state => obj.patch(
+	state,
+	'fileSearch',
+	Object.assign({}, state.fileSearch || emptyFileSearch, {
+		open: false,
+		activeIndex: 0
+	})
+);
 
 const saveFile = (file, source, pickedHandle) => {
 	const fs = getFs();
@@ -503,17 +539,38 @@ const saveFile = (file, source, pickedHandle) => {
 		return Promise.resolve(state => state);
 	}
 	return fs.writeFile(file, source, pickedHandle)
-		.then(result => state => Object.assign({}, state, {
-			dirty: false,
-			externalChange: null,
-			saveError: null,
-			canWrite: state.canWrite || (result && result.method === 'handle'),
-			file: Object.assign({}, file, {source})
-		}))
+		.then(result => state => {
+			const path = file.path;
+			const tabs = state.tabs || [];
+			const idx = findTabIndexByPath(tabs, path);
+			if (idx < 0) {
+				return Object.assign({}, state, {
+					dirty: false,
+					externalChange: null,
+					saveError: null,
+					canWrite: state.canWrite || (result && result.method === 'handle'),
+					file: Object.assign({}, file, {source})
+				});
+			}
+			const tab = tabs[idx];
+			const nextFile = Object.assign({}, tab.file, file, {source});
+			const nextTabs = tabs.slice();
+			nextTabs[idx] = Object.assign({}, tab, {
+				file: nextFile,
+				source,
+				dirty: false,
+				externalChange: null,
+				saveError: null
+			});
+			return projectActive(Object.assign({}, state, {
+				tabs: nextTabs,
+				canWrite: state.canWrite || (result && result.method === 'handle')
+			}));
+		})
 		.catch(err => {
 			console.error('saveFile failed', file && file.path, err);
 			const message = (err && err.message) || 'Save failed';
-			return state => Object.assign({}, state, {saveError: message});
+			return state => mapActiveTab(state, tab => Object.assign({}, tab, {saveError: message}));
 		});
 };
 
@@ -521,11 +578,16 @@ module.exports = {
 	initial,
 	layout,
 	find,
+	fileSearch,
 	set,
 	toggle,
 	arrToggle,
 	loadFile,
 	openFile,
+	setActiveTab,
+	nextTab,
+	prevTab,
+	closeTab,
 	updateSource,
 	updatePos,
 	undo,
@@ -546,5 +608,11 @@ module.exports = {
 	openFind,
 	closeFind,
 	findNext,
-	findPrev
+	findPrev,
+	setFileSearch,
+	setFileSearchQuery,
+	openFileSearch,
+	closeFileSearch,
+	activeTab,
+	anyDirty
 };

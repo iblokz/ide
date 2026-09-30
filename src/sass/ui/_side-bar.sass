@@ -62,7 +62,8 @@
 	> ul.file-list
 		+reset
 		flex: 1 1 auto
-		height: calc(100% - #{$header-height})
+		min-height: 0
+		height: auto
 		overflow-y: auto
 		margin-top: 12px
 		line-height: $panel-row-height
@@ -105,6 +106,12 @@
 
 			&:hover
 				background: var(--app-bg-hover)
+				color: var(--app-text-strong)
+				i
+					color: var(--app-accent)
+
+			&.active
+				background: var(--app-accent-soft)
 				color: var(--app-text-strong)
 				i
 					color: var(--app-accent)

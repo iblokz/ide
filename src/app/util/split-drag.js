@@ -46,7 +46,6 @@ const startSplitDrag = ({
 		document.removeEventListener('pointermove', onPointerMove);
 		document.removeEventListener('pointerup', onPointerUp);
 		document.removeEventListener('pointercancel', onPointerUp);
-		document.body.classList.remove('is-resizing-x', 'is-resizing-y');
 		if (target && target.releasePointerCapture) {
 			try {
 				if (target.hasPointerCapture && target.hasPointerCapture(event.pointerId)) {
@@ -57,7 +56,12 @@ const startSplitDrag = ({
 			}
 		}
 		// Always commit last seen delta — pointercancel clientX/Y are often wrong.
-		if (typeof onEnd === 'function') onEnd(lastDelta, ev);
+		// Keep is-resizing-* until after commit so width transition stays off.
+		try {
+			if (typeof onEnd === 'function') onEnd(lastDelta, ev);
+		} finally {
+			document.body.classList.remove('is-resizing-x', 'is-resizing-y');
+		}
 	};
 
 	document.addEventListener('pointermove', onPointerMove, {passive: false});

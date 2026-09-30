@@ -1,25 +1,21 @@
-& > header
+> header,
+> .main > header
 	+header-height($header-height)
 	display: flex
 	align-items: center
 	gap: 8px
-	position: fixed
-	top: 0
-	left: 0
-	right: 0
-	width: auto
+	position: relative
 	z-index: 100
+	width: 100%
 	background: var(--app-bg-panel)
 	border-bottom: 1px solid var(--app-border)
 	box-shadow: var(--app-shadow-soft)
 	box-sizing: border-box
 	padding: 0 12px
-	// visible so hover dropdown panels can extend below the bar
 	overflow: visible
 	transition: background-color .25s ease, border-color .25s ease, box-shadow .25s ease
 
-	// Frameless Electron: drag empty chrome (dblclick maximize/restore like media-browser);
-	// only interactive controls punch no-drag holes
+	// Frameless Electron: drag empty chrome
 	&::before
 		position: absolute
 		content: ''
@@ -28,7 +24,9 @@
 		-webkit-app-region: drag
 
 	button,
-	.dropdown
+	.dropdown,
+	.tab-strip,
+	.file-search
 		-webkit-app-region: no-drag
 		color: var(--app-icon)
 
@@ -39,6 +37,12 @@
 		align-items: center
 		justify-content: flex-start
 		gap: 6px
+
+		// Yield strip space so Go to File can grow left to the tabs
+		&:has(.file-search:focus-within),
+		&:has(.file-search.is-open)
+			.tab-strip
+				flex: 0 1 auto
 
 	.app-icon
 		flex: 0 0 auto
@@ -56,35 +60,18 @@
 
 	h1
 		+header-height($header-height)
-		position: absolute
-		left: 50%
-		transform: translateX(-50%)
-		max-width: min(56vw, 640px)
 		margin: 0
 		font-size: 1.05rem
 		font-weight: 600
 		color: var(--app-text-strong)
-		text-align: center
+		text-align: left
 		overflow: hidden
 		text-overflow: ellipsis
 		white-space: nowrap
 		pointer-events: none
 
-		.file-title
-			font-weight: 400
-			color: var(--app-text-muted)
-			font-size: 0.9em
-
-			.save-error
-				color: var(--app-danger)
-				font-size: 0.9em
-
-			.external-change
-				color: var(--app-warning, var(--app-text-muted))
-				font-size: 0.9em
-
 	.header-actions
-		flex: 1 1 0
+		flex: 0 0 auto
 		min-width: 0
 		display: flex
 		align-items: center
@@ -111,10 +98,11 @@
 		i
 			transition: transform .2s ease
 		svg
+			display: block
 			transition: transform .2s ease
 			path
 				stroke: var(--app-icon)
-				transition: stroke .2s ease
+				transition: d .3s ease, stroke-width .3s ease, stroke .2s ease
 
 		&:hover:not(:disabled)
 			background: var(--app-bg-hover)
@@ -131,6 +119,15 @@
 		&:focus-visible
 			border-color: var(--app-accent)
 			box-shadow: 0 0 0 3px var(--app-accent-soft)
+
+		&.menu-toggle
+			width: $panel-row-height
+			min-width: $panel-row-height
+			padding: 0
+			border-radius: 6px
+
+			svg
+				display: block
 
 		&.window-close:hover:not(:disabled)
 			background: var(--app-danger)
@@ -157,7 +154,6 @@
 				border-color: var(--app-accent)
 				background: var(--app-bg-hover)
 
-	// Match header button metrics so the layout glyph sits with FA icons
 	.dropdown.layout-menu
 		+header-height($panel-row-height)
 		flex: 0 0 auto

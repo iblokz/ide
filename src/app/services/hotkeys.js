@@ -49,6 +49,18 @@ const run = (action, actions = {}) => {
 	}
 	if (verb === 'openFind' && typeof actions.openFind === 'function') {
 		actions.openFind();
+		return;
+	}
+	if (verb === 'openFileSearch' && typeof actions.openFileSearch === 'function') {
+		actions.openFileSearch();
+		return;
+	}
+	if (verb === 'nextTab' && typeof actions.nextTab === 'function') {
+		actions.nextTab();
+		return;
+	}
+	if (verb === 'prevTab' && typeof actions.prevTab === 'function') {
+		actions.prevTab();
 	}
 };
 

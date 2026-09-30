@@ -16,6 +16,7 @@ const {
 	readHostTheme,
 	shouldFollowHostMode
 } = require('./util/theme');
+const {anyDirty} = require('./util/tabs');
 const {triggerSave} = require('./util/trigger-save');
 
 let {actions, state$} = createState(actionsTree);
@@ -39,7 +40,7 @@ state$
 
 state$
 	.pipe(
-		map(s => !!s.dirty),
+		map(s => anyDirty(s)),
 		distinctUntilChanged()
 	)
 	.subscribe(dirty => {
@@ -49,7 +50,7 @@ state$
 	});
 
 fromEvent(window, 'beforeunload').subscribe(ev => {
-	if (!state$.getValue().dirty) return;
+	if (!anyDirty(state$.getValue())) return;
 	if (isElectronBridge()) return;
 	ev.preventDefault();
 	ev.returnValue = '';

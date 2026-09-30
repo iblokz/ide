@@ -1,8 +1,5 @@
 .find-bar
-	position: fixed
-	top: calc(#{$header-height} + 4px)
-	right: 12px
-	z-index: 101
+	position: relative
 	display: flex
 	align-items: center
 	gap: 4px
@@ -27,6 +24,9 @@
 			background: var(--app-bg-panel)
 			border-color: var(--app-border)
 			box-shadow: var(--app-shadow-soft)
+
+	&.open
+		opacity: 1
 
 	.find-query
 		width: 220px

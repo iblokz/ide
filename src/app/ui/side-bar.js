@@ -11,7 +11,7 @@ export const sortedWithIndex = (list = []) => list
 	.map((item, index) => ({item, index}))
 	.sort((a, b) => fileSort(a.item, b.item));
 
-const fileLeafNode = (item, path = [], level = 0, cb) =>
+const fileLeafNode = (item, path = [], level = 0, cb, activePath) =>
 	// main node
 	(!item || !item.name) ? [] : li([].concat(
 		a({
@@ -20,7 +20,8 @@ const fileLeafNode = (item, path = [], level = 0, cb) =>
 			},
 			class: {
 				expanded: !!item.expanded,
-				disabled: item.readable === false
+				disabled: item.readable === false,
+				active: !item.isDir && !!activePath && item.path === activePath
 			},
 			attrs: {
 				title: item.path || item.name
@@ -42,27 +43,31 @@ const fileLeafNode = (item, path = [], level = 0, cb) =>
 		// children nodes
 		(item.isDir && item.expanded && Array.isArray(item.files) && item.files.length)
 		? ul([].concat(...sortedWithIndex(item.files).map(({item: child, index}) =>
-			fileLeafNode(child, [].concat(path, index), level + 1, cb)
+			fileLeafNode(child, [].concat(path, index), level + 1, cb, activePath)
 		)))
 		: []
 	));
 
 export default ({state, actions, width}) => fn.pipe(
 	// prep vars
-	() => ({
-		recent: (state.recentRoots || []).filter(root => root && root.name),
-		fileTree: [].concat(...sortedWithIndex(state.filesTree || [])
-			.map(({item, index}) => fileLeafNode(item, [index], 0,
-				(item, path, level) => item.isDir
-					? actions.toggleFolder(path, item)
-					: actions.openFile(item)
-			))),
-		title: !state.project
-			? 'Open Project'
-			: (state.project.name || 'Project'),
-		open: !!obj.sub(state, ['layout', 'toggles', 'leftSideBar']),
-		dim: obj.sub(state, ['layout', 'dim', 'leftSideBar']) || 260
-	}),
+	() => {
+		const activePath = state.file && state.file.path;
+		return {
+			recent: (state.recentRoots || []).filter(root => root && root.name),
+			fileTree: [].concat(...sortedWithIndex(state.filesTree || [])
+				.map(({item, index}) => fileLeafNode(item, [index], 0,
+					(item, path, level) => item.isDir
+						? actions.toggleFolder(path, item)
+						: actions.openFile(item),
+					activePath
+				))),
+			title: !state.project
+				? 'Open Project'
+				: (state.project.name || 'Project'),
+			open: !!obj.sub(state, ['layout', 'toggles', 'leftSideBar']),
+			dim: obj.sub(state, ['layout', 'dim', 'leftSideBar']) || 260
+		};
+	},
 	({open, dim, ...rest}) => ({
 		...rest,
 		open,
@@ -77,8 +82,9 @@ export default ({state, actions, width}) => fn.pipe(
 		},
 		style: {
 			width: `${resolvedWidth}px`,
-			minWidth: open ? '140px' : '0px',
-			maxWidth: open ? '480px' : '0px'
+			// Keep min/max stable so width can animate open/close
+			minWidth: '0px',
+			maxWidth: '480px'
 		}
 	}, [].concat(
 		header([

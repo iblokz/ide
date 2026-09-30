@@ -1,7 +1,9 @@
-import {body, section, p} from 'iblokz-snabbdom-helpers';
-import {fn, obj} from 'iblokz-data';
+import {body, main, section, p, button, i} from 'iblokz-snabbdom-helpers';
+import {fn} from 'iblokz-data';
 import {themeClass, hostStyleProps} from '../util/theme';
 import {isStartView} from '../util/project';
+import {canSave, saveHint} from '../util/save';
+import {triggerSave} from '../util/trigger-save';
 import {clamp} from '../util/split-drag';
 import header from './header';
 import sideBar from './side-bar';
@@ -10,6 +12,53 @@ import imageViewer from './image-viewer';
 import startScreen from './start-screen';
 import splitGutter from './comp/split-gutter';
 import findBar from './comp/find-bar';
+
+const editorPane = ({state, actions}) => {
+	if (!(state.file && state.file.name)) {
+		return section('.empty-editor', [
+			p(['Select a file from the sidebar to open it.'])
+		]);
+	}
+	if (state.type === 'image') {
+		return imageViewer({file: state.file});
+	}
+	return codebin({
+		source: state.source || '',
+		pos: state.pos,
+		type: state.type || 'js',
+		layout: state.layout ?? {},
+		setLayout: patch => actions.setLayout(patch),
+		change: (source, pos) => actions.updateSource(source, pos),
+		updatePos: pos => actions.updatePos(pos),
+		undo: () => actions.undo(),
+		redo: () => actions.redo()
+	});
+};
+
+const editorFloat = ({state, actions}) => {
+	if (!(state.file && state.file.name) || state.type === 'image') {
+		return null;
+	}
+	return section('.editor-float', [
+		findBar({state, actions}),
+		button('.save-file', {
+			attrs: {
+				'aria-label': 'Save file',
+				title: state.saveError || saveHint(state),
+				type: 'button'
+			},
+			props: {
+				disabled: !canSave(state)
+			},
+			on: {
+				click: ev => {
+					ev.preventDefault();
+					triggerSave({state, actions});
+				}
+			}
+		}, [i('.fa.fa-save')])
+	]);
+};
 
 export default ({state, actions}) => fn.pipe(
 	() => ({
@@ -50,25 +99,11 @@ export default ({state, actions}) => fn.pipe(
 						actions.setLayout({leftSideBar: next});
 					}
 				}),
-				header({state, actions}),
-				findBar({state, actions}),
-				!(state.file && state.file.name)
-					? section('.empty-editor', [
-						p(['Select a file from the sidebar to open it.'])
-					])
-					: state.type === 'image'
-						? imageViewer({file: state.file})
-						: codebin({
-							source: state.source || '',
-							pos: state.pos,
-							type: state.type || 'js',
-							layout: state.layout ?? {},
-							setLayout: patch => actions.setLayout(patch),
-							change: (source, pos) => actions.updateSource(source, pos),
-							updatePos: pos => actions.updatePos(pos),
-							undo: () => actions.undo(),
-							redo: () => actions.redo()
-						})
+				main('.main', [
+					header({state, actions}),
+					editorFloat({state, actions}),
+					editorPane({state, actions})
+				])
 			]
 	)
 )();

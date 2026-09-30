@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.17.0] - 2026-09-30
+
+### Added
+
+- Multi-file editor tabs in the header (activate, close, dirty marker); buffers kept in `tabs[]` with active projection
+- Keyboard tab cycle: **Mod+Tab** / **Mod+Shift+Tab** and **Mod+PageDown** / **Mod+PageUp**
+- Project file search (**Mod+P**) after the tab strip — dropdown + filter over the loaded tree; preview toggle moved to **Mod+Shift+P**
+- Notes-style sidebar open/close width slide and hamburger ↔ X morph
+
+### Changed
+
+- Shell layout: `sidebar | main(header → editor)` flex fill; Save sits with the floating find control (no second toolbar row)
+- Sidebar highlights the active file; Electron dirty flag / beforeunload use any open dirty tab
+
+---
+
 ## [1.16.0] - 2026-09-30
 
 ### Added

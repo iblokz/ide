@@ -1,7 +1,7 @@
 import { a, span, ul, li, i } from 'iblokz-snabbdom-helpers';
 
 /**
- * Hover dropdown
+ * Hover dropdown (optional forced open via `open`)
  */
 export default (className, {
   handle,
@@ -11,10 +11,13 @@ export default (className, {
   items = [],
   toLeft = false,
   flags = false,
+  open = false,
+  hook,
 }) => {
-  const mods = ['.dropdown', className];
-  if (toLeft) mods.push('.to-left');
-  if (flags) mods.push('.flags');
+  let mods = ['.dropdown', className];
+  if (toLeft) mods = mods.concat(['.to-left']);
+  if (flags) mods = mods.concat(['.flags']);
+  if (open) mods = mods.concat(['.is-open']);
 
   const handleNode = flags
     ? span('.flag-handle', handle)
@@ -27,7 +30,7 @@ export default (className, {
       } : {},
     }, handle);
 
-  return a(mods.filter(Boolean).join(''), [
+  return a(mods.filter(Boolean).join(''), hook ? {hook} : {}, [
     handleNode,
     items.length ? ul(items.map(item => li({
       class: {
