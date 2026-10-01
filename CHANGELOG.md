@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.18.0] - 2026-10-01
+
+### Added
+
+- JSON syntax highlighting: object keys styled distinctly from string values (`iblokz-json`)
+
+### Changed
+
+- Sidebar open/close: 180ms delay before width/border/shadow slide (border fades with the slide)
+- Find bar and project file search: 90ms delay on expand/collapse
+- Soften tab hover and active background/border
+
+---
+
 ## [1.17.1] - 2026-09-30
 
 ### Fixed

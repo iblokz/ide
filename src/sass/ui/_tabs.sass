@@ -28,12 +28,12 @@
 		transition: background-color .15s ease, color .15s ease, border-color .15s ease
 
 		&:hover
-			background: var(--app-bg-hover)
+			background: color-mix(in srgb, var(--app-bg-hover) 55%, transparent)
 			color: var(--app-text)
 
 		&.is-active
-			background: var(--app-accent-soft)
-			border-color: var(--app-accent)
+			background: color-mix(in srgb, var(--app-accent) 10%, transparent)
+			border-color: color-mix(in srgb, var(--app-accent) 40%, transparent)
 			color: var(--app-text-strong)
 
 		.tab-label

@@ -261,8 +261,8 @@ $dropdown-item-height: 28px;
     display: block;
     cursor: default;
     -webkit-app-region: no-drag;
-    // Same timing curve as sidebar width slide
-    transition: max-width .18s ease-in-out, min-width .18s ease-in-out;
+    // Same timing curve + delay as sidebar width slide
+    transition: max-width .18s .09s ease-in-out, min-width .18s .09s ease-in-out;
 
     &.is-open,
     &:focus-within {

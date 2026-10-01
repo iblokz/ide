@@ -22,7 +22,9 @@ const prettify = require('code-prettify');
 require('code-prettify/src/lang-css.js');
 require('code-prettify/src/lang-yaml.js');
 const prettifyJs = require('../../ext/prettify-js').default ?? require('../../ext/prettify-js');
+const prettifyJson = require('../../ext/prettify-json').default ?? require('../../ext/prettify-json');
 prettifyJs.register();
+prettifyJson.register();
 const vm = require('../../util/vm');
 const caret = require('../../util/caret');
 const findHighlight = require('../../util/find-highlight').default
@@ -116,7 +118,7 @@ const escapeHtml = s => String(s)
 	.replace(/</g, '&lt;')
 	.replace(/>/g, '&gt;');
 
-/** File ext → code-prettify lang id (core + lang-css / lang-yaml + iblokz-js). */
+/** File ext → code-prettify lang id (core + lang-css / lang-yaml + iblokz-js / iblokz-json). */
 const PRETTIFY_LANG = {
 	htm: 'html',
 	svg: 'xml',
@@ -132,6 +134,9 @@ const prettifyLang = type => {
 	const key = type || 'js';
 	if (prettifyJs.JS_FAMILY.has(key) || key === prettifyJs.LANG_ID) {
 		return prettifyJs.LANG_ID;
+	}
+	if (prettifyJson.JSON_FAMILY.has(key) || key === prettifyJson.LANG_ID) {
+		return prettifyJson.LANG_ID;
 	}
 	return PRETTIFY_LANG[key] || key;
 };
@@ -228,7 +233,7 @@ const process = (type, sourceCode, iframe) => {
 	if (type === 'js') {
 		sandbox(sourceCode, iframe, {}, ({res, log, err}) => {
 			if (err) console$.next(`<p class="err">${err}</p>\n`);
-			if (log) log.map(l => prettify.prettyPrintOne(JSON.stringify(l), 'json'))
+			if (log) log.map(l => prettify.prettyPrintOne(JSON.stringify(l), prettifyJson.LANG_ID))
 				.forEach(l => console$.next(`${l}\n`));
 		});
 	}

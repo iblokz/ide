@@ -33,17 +33,19 @@
 		min-height: 0
 		min-width: 0
 		overflow: hidden
-		transition: width .18s ease-in-out, box-shadow .28s ease, background-color .25s ease, border-color .25s ease
+		// Width + border/shadow share the .18s delay so the edge doesn't pop early
+		transition: width .18s .18s ease-in-out, border-color .18s .18s ease-in-out, box-shadow .18s .18s ease-in-out, background-color .25s ease
 
 		&:not(.toggled)
 			overflow: hidden
-			border: none
+			// Keep border-width so border-color can transition after the delay
+			border-color: transparent
 			box-shadow: none
 			pointer-events: none
 
 	// #ui is the <body>; gutter drag adds .is-resizing-x on the same element
 	&.is-resizing-x > .side-bar
-		transition: box-shadow .28s ease, background-color .25s ease, border-color .25s ease
+		transition: box-shadow .18s ease, background-color .25s ease, border-color .18s ease
 
 	> .main
 		flex: 1 1 auto

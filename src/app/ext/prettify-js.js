@@ -11,6 +11,14 @@
  * - post-pass: destructured bindings in const/let/var / import { } / arrow params → `.var`
  */
 
+import {
+	IS_WS,
+	skipWs,
+	forEachSpan,
+	withPostPasses,
+	registerLang
+} from './prettify-util';
+
 export const LANG_ID = 'iblokz-js';
 export const STYLE_FUN = 'fun';
 export const STYLE_VAR = 'var';
@@ -42,12 +50,6 @@ export const JS_FAMILY = new Set([
 
 const IDENT_RE = /^[A-Za-z_$][\w$]*$/;
 const DECL_KW = new Set(['const', 'let', 'var']);
-const IS_WS = c => c === ' ' || c === '\t' || c === '\n' || c === '\r';
-
-const skipWs = (src, j, len) => {
-	while (j < len && IS_WS(src[j])) j += 1;
-	return j;
-};
 
 /** Balanced `{…}` or `[…]` starting at `openIdx` (must be { or [). Returns end index after closer, or -1. */
 const scanBalanced = (src, openIdx) => {
@@ -176,37 +178,22 @@ const spanInRanges = (start, end, ranges) => {
 
 /**
  * Reclassify `.pln` / `.typ` spans that are call callees: `foo(`, `Foo(`, `foo?.(`.
- * Operates on prettify's decorations array: [pos, style, pos, style, …].
  */
 export const markCallIdents = (job) => {
-	const src = job && job.sourceCode;
-	const d = job && job.decorations;
-	if (!src || !d || d.length < 2) return;
+	forEachSpan(job, ({i, style, start, end, decorations, source, srcLen}) => {
+		if (style !== STYLE_PLAIN && style !== STYLE_TYPE) return;
 
-	const basePos = job.basePos || 0;
-	const srcLen = src.length;
-
-	for (let i = 0; i < d.length; i += 2) {
-		const style = d[i + 1];
-		if (style !== STYLE_PLAIN && style !== STYLE_TYPE) continue;
-
-		const absStart = d[i];
-		const absEnd = i + 2 < d.length ? d[i + 2] : basePos + srcLen;
-		const start = absStart - basePos;
-		const end = absEnd - basePos;
-		if (start < 0 || end > srcLen || start >= end) continue;
-
-		const ident = src.slice(start, end);
-		if (!IDENT_RE.test(ident)) continue;
+		const ident = source.slice(start, end);
+		if (!IDENT_RE.test(ident)) return;
 
 		let j = end;
-		while (j < srcLen && IS_WS(src[j])) j += 1;
+		while (j < srcLen && IS_WS(source[j])) j += 1;
 		// Optional chaining / TS non-null before call: foo?.( / foo!(
-		if (src[j] === '!' && src[j + 1] !== '=') j += 1;
-		if (src[j] === '?' && src[j + 1] === '.') j += 2;
-		while (j < srcLen && IS_WS(src[j])) j += 1;
-		if (src[j] === '(') d[i + 1] = STYLE_FUN;
-	}
+		if (source[j] === '!' && source[j + 1] !== '=') j += 1;
+		if (source[j] === '?' && source[j + 1] === '.') j += 2;
+		while (j < srcLen && IS_WS(source[j])) j += 1;
+		if (source[j] === '(') decorations[i + 1] = STYLE_FUN;
+	});
 };
 
 /**
@@ -215,50 +202,32 @@ export const markCallIdents = (job) => {
  */
 export const markDestructuredBindings = (job) => {
 	const src = job && job.sourceCode;
-	const d = job && job.decorations;
-	if (!src || !d || d.length < 2) return;
+	if (!src) return;
 
 	const ranges = collectDestructureRanges(src);
 	if (!ranges.length) return;
 
-	const basePos = job.basePos || 0;
-	const srcLen = src.length;
-
-	for (let i = 0; i < d.length; i += 2) {
-		if (d[i + 1] !== STYLE_PLAIN) continue;
-
-		const absStart = d[i];
-		const absEnd = i + 2 < d.length ? d[i + 2] : basePos + srcLen;
-		const start = absStart - basePos;
-		const end = absEnd - basePos;
-		if (start < 0 || end > srcLen || start >= end) continue;
-
-		const ident = src.slice(start, end);
-		if (!IDENT_RE.test(ident)) continue;
-		if (spanInRanges(start, end, ranges)) d[i + 1] = STYLE_VAR;
-	}
+	forEachSpan(job, ({i, style, start, end, decorations, source}) => {
+		if (style !== STYLE_PLAIN) return;
+		const ident = source.slice(start, end);
+		if (!IDENT_RE.test(ident)) return;
+		if (spanInRanges(start, end, ranges)) decorations[i + 1] = STYLE_VAR;
+	});
 };
 
-export const withCallMarks = decorate => job => {
-	decorate(job);
-	markCallIdents(job);
-	markDestructuredBindings(job);
-};
+export const withCallMarks = decorate =>
+	withPostPasses(decorate, markCallIdents, markDestructuredBindings);
 
-export const register = () => {
-	const PR = typeof window !== 'undefined' ? window.PR : null;
-	if (!PR || typeof PR.registerLangHandler !== 'function' || typeof PR.sourceDecorator !== 'function') {
-		return false;
-	}
-	const base = PR.sourceDecorator({
+export const register = () => registerLang(
+	LANG_ID,
+	{
 		keywords: KEYWORDS,
 		cStyleComments: true,
 		multiLineStrings: true,
 		regexLiterals: true
-	});
-	PR.registerLangHandler(withCallMarks(base), [LANG_ID]);
-	return true;
-};
+	},
+	[markCallIdents, markDestructuredBindings]
+);
 
 export default {
 	LANG_ID,

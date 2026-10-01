@@ -14,7 +14,7 @@
 	-webkit-app-region: no-drag
 	// Width slide like the sidebar; keep chrome fades in sync
 	max-width: 36px
-	transition: max-width .18s ease-in-out, opacity .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease, padding .18s ease-in-out, gap .18s ease-in-out
+	transition: max-width .18s .09s ease-in-out, opacity .18s .09s ease, background-color .18s .09s ease, border-color .18s .09s ease, box-shadow .18s .09s ease, padding .18s .09s ease-in-out, gap .18s .09s ease-in-out
 
 	&.collapsed
 		opacity: 0.4
@@ -66,7 +66,7 @@
 		border: 1px solid var(--app-input-border)
 		border-radius: 4px
 		background: var(--app-input-bg)
-		transition: opacity .14s ease, border-color .15s ease
+		transition: opacity .14s .09s ease, border-color .15s ease
 
 		&:focus-within
 			border-color: var(--app-accent)
@@ -99,7 +99,7 @@
 		display: flex
 		align-items: center
 		justify-content: center
-		transition: background-color .15s ease, color .15s ease, opacity .14s ease, width .18s ease-in-out
+		transition: background-color .15s ease, color .15s ease, opacity .14s .09s ease, width .18s .09s ease-in-out
 
 		&:hover
 			background: var(--app-bg-hover)
