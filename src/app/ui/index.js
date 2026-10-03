@@ -25,13 +25,16 @@ const editorPane = ({state, actions}) => {
 	return codebin({
 		source: state.source || '',
 		pos: state.pos,
+		scroll: state.scroll || {top: 0, left: 0},
+		tabId: state.activeTabId || null,
 		type: state.type || 'js',
 		layout: state.layout ?? {},
-		setLayout: patch => actions.setLayout(patch),
-		change: (source, pos) => actions.updateSource(source, pos),
-		updatePos: pos => actions.updatePos(pos),
-		undo: () => actions.undo(),
-		redo: () => actions.redo()
+		setLayout: patch => actions.layout.set(patch),
+		change: (source, pos) => actions.editor.updateSource(source, pos),
+		updatePos: pos => actions.editor.updatePos(pos),
+		updateScroll: (scroll, tabId) => actions.editor.updateScroll(scroll, tabId),
+		undo: () => actions.editor.undo(),
+		redo: () => actions.editor.redo()
 	});
 };
 
@@ -64,10 +67,10 @@ export default ({state, actions}) => fn.pipe(
 	() => ({
 		toggles: state.layout.toggles,
 		dim: state.layout.dim,
-		hostStyle: hostStyleProps(state.hostTheme)
+		hostStyle: hostStyleProps(state.theme && state.theme.host)
 	}),
 	({toggles, dim, hostStyle}) => body(
-		`#ui.${themeClass(state.themeMode || 'dark')}${isStartView(state) ? '.start' : ''}`,
+		`#ui.${themeClass((state.theme && state.theme.mode) || 'dark')}${isStartView(state) ? '.start' : ''}`,
 		hostStyle ? {style: hostStyle} : {},
 		isStartView(state)
 			? [
@@ -96,7 +99,7 @@ export default ({state, actions}) => fn.pipe(
 					onEnd: (delta, ev, ctx) => {
 						const next = clamp((ctx && ctx.start || dim.leftSideBar) + delta, 140, 480);
 						if (ctx && ctx.el) ctx.el.style.width = `${next}px`;
-						actions.setLayout({leftSideBar: next});
+						actions.layout.set({leftSideBar: next});
 					}
 				}),
 				main('.main', [

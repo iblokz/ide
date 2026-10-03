@@ -33,7 +33,7 @@ const triggerSave = async ({state, actions}) => {
 
 	// Native path write (Electron) — in-place save, no picker/download.
 	if (fs.id === 'electron' && file && file.path) {
-		actions.saveFile(file, source);
+		actions.project.saveFile(file, source);
 		return;
 	}
 
@@ -57,11 +57,11 @@ const triggerSave = async ({state, actions}) => {
 	if (!hasFileHandle && !pickedHandle && typeof fs.downloadText === 'function') {
 		console.info('[fs] saving via download (no writable handle / save picker)');
 		fs.downloadText(file.name || 'untitled.txt', source);
-		actions.saveFile(file, source, {__downloadDone: true});
+		actions.project.saveFile(file, source, {__downloadDone: true});
 		return;
 	}
 
-	actions.saveFile(file, source, pickedHandle);
+	actions.project.saveFile(file, source, pickedHandle);
 };
 
 module.exports = {

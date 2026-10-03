@@ -32,7 +32,7 @@ module.exports = ({state, actions}) => {
 					on: {
 						click: ev => {
 							ev.preventDefault();
-							actions.openFolder();
+							actions.project.openFolder();
 						}
 					}
 				}, [
@@ -53,7 +53,7 @@ module.exports = ({state, actions}) => {
 								on: {
 									click: ev => {
 										ev.preventDefault();
-										actions.openRecent(root);
+										actions.project.openRecent(root);
 									}
 								}
 							}, [].concat(

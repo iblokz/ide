@@ -23,13 +23,16 @@ let {actions, state$} = createState(actionsTree);
 
 viewport.start();
 hotkeys.start(actions);
-applyDocumentTheme(state$.getValue().themeMode);
+{
+	const boot = state$.getValue();
+	applyDocumentTheme(boot.theme && boot.theme.mode);
+}
 applyHostAccent(readHostTheme());
-actions.refreshFsCapabilities();
+actions.project.refreshFsCapabilities();
 
 state$
 	.pipe(
-		map(s => s.themeMode),
+		map(s => s.theme && s.theme.mode),
 		distinctUntilChanged()
 	)
 	.subscribe(mode => {
@@ -68,7 +71,7 @@ fromEvent(document, 'drop').subscribe(ev => {
 	filesFromDrop(ev.dataTransfer).then(nodes => {
 		if (!nodes.length) return;
 		const file = nodes[0];
-		actions.openFile(file);
+		actions.project.openFile(file);
 	}).catch(err => {
 		console.error('drop open failed', err);
 	});
@@ -82,28 +85,28 @@ if (isElectronBridge() && typeof window.app.onFsChange === 'function') {
 		const changedPath = payload && payload.path;
 		const state = state$.getValue();
 		if (state.view === 'workspace' && state.project && state.project.path) {
-			actions.refreshFilesTree(state.project, state.filesTree);
+			actions.project.refreshFilesTree(state.project, state.filesTree);
 		}
 		if (!changedPath || !state.file || state.file.path !== changedPath) return;
 		if (state.dirty) {
-			actions.markExternalChange(changedPath);
+			actions.project.markExternalChange(changedPath);
 			return;
 		}
-		actions.openFile(Object.assign({}, state.file, {source: undefined, url: undefined}));
+		actions.project.openFile(Object.assign({}, state.file, {source: undefined, url: undefined}));
 	});
 }
 if (isElectronBridge() && typeof window.app.onOpenFolderRequest === 'function') {
 	stopOpenFolderRequest = window.app.onOpenFolderRequest(() => {
-		actions.openFolder();
+		actions.project.openFolder();
 	});
 }
 if (isElectronBridge() && typeof window.app.onHostThemeChange === 'function') {
 	stopHostTheme = window.app.onHostThemeChange(host => {
 		applyHostAccent(host);
-		actions.setHostTheme(host);
-		// Omarchy `mode` → themeMode so .theme-mode-* syntax colors track the palette.
+		actions.theme.setHost(host);
+		// Omarchy `mode` → theme.mode so .theme-mode-* syntax colors track the palette.
 		if (shouldFollowHostMode(host)) {
-			actions.setThemeMode(host.mode);
+			actions.theme.setMode(host.mode);
 		}
 	});
 }

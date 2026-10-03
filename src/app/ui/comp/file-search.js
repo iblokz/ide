@@ -63,7 +63,7 @@ export default ({state, actions}) => {
 
 	const pick = item => {
 		if (!item || !item.file) return;
-		actions.openFile(item.file);
+		actions.project.openFile(item.file);
 		actions.closeFileSearch();
 	};
 

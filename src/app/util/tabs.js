@@ -5,6 +5,11 @@ const emptyPos = {
 	end: {row: 0, col: 0}
 };
 
+const emptyScroll = {
+	top: 0,
+	left: 0
+};
+
 const emptyHistory = (type = 'js', source = '') => [{
 	type,
 	source,
@@ -21,6 +26,7 @@ const emptyTabFields = () => ({
 	index: 0,
 	maxIndex: 0,
 	pos: emptyPos,
+	scroll: emptyScroll,
 	history: emptyHistory()
 });
 
@@ -44,6 +50,7 @@ const createTextTab = file => {
 		index: 0,
 		maxIndex: 0,
 		pos: emptyPos,
+		scroll: emptyScroll,
 		history: emptyHistory(type, source)
 	};
 };
@@ -59,6 +66,7 @@ const createImageTab = file => ({
 	index: 0,
 	maxIndex: 0,
 	pos: emptyPos,
+	scroll: emptyScroll,
 	history: emptyHistory('image', '')
 });
 
@@ -84,6 +92,7 @@ const projectActive = state => {
 		index: tab.index,
 		maxIndex: tab.maxIndex,
 		pos: tab.pos,
+		scroll: tab.scroll || emptyScroll,
 		history: tab.history
 	});
 };
@@ -145,6 +154,7 @@ const neighborTabId = (tabs, closedIdx) => {
 
 module.exports = {
 	emptyPos,
+	emptyScroll,
 	emptyHistory,
 	emptyTabFields,
 	newTabId,

@@ -23,7 +23,7 @@ Successor to earlier CodeMirror / PHP experiments, expanded from a slide-framewo
 |--------|-----|-------|--------|
 | Web / shared Parcel | `pnpm start` / `./bin/start.sh` | `pnpm build` | GitHub Pages (push to `main`/`master`) |
 | Electron shell | `pnpm start:electron` | — | — |
-| Linux AppImage | — | `./bin/build.sh --app-image` | `./bin/deploy.sh --app-image` (`~/.local`) |
+| Linux AppImage | — | `./bin/build.sh --app-image` | `./bin/deploy.sh --app-image` (`~/.local`); optional `--build`, `--hmr-server` |
 | macOS DMG | `pnpm start:macos` | `./bin/build.sh --macos` | `./bin/deploy.sh --macos` (`~/Applications`) |
 | Android | `./bin/start.sh --android` | `./bin/build.sh --android` | `./bin/deploy.sh --android` (adb) |
 | iOS | `./bin/start.sh --ios` | `./bin/build.sh --ios` | `./bin/deploy.sh --ios` (Simulator) |

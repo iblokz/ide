@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install built artifacts (does not start a dev session).
+# Install built artifacts; optionally build first and/or start Parcel HMR after.
 #
 # Usage:
 #   ./bin/deploy.sh --app-image
@@ -9,6 +9,7 @@
 #   ./bin/deploy.sh --macos-legacy --host user@ip # legacy x64 → remote
 #   ./bin/deploy.sh --ios
 #   ./bin/deploy.sh --build --macos   # build then install
+#   ./bin/deploy.sh --build --app-image --hmr-server
 #   ./bin/deploy.sh --all
 #
 set -euo pipefail
@@ -20,6 +21,7 @@ cd "$PROJECT_ROOT"
 source "$SCRIPT_DIR/inc/common.sh"
 
 DO_BUILD=0
+DO_HMR_SERVER=0
 DO_APP_IMAGE=0
 DO_ANDROID=0
 DO_MACOS=0
@@ -30,12 +32,13 @@ DEPLOY_HOST=""
 DEPLOY_HOST_SET=0
 
 usage() {
-  echo "Usage: $0 [--build] [--app-image] [--android] [--macos] [--macos-legacy] [--ios] [--host [user@ip]] [--all] [--help]"
+  echo "Usage: $0 [--build] [--hmr-server] [--app-image] [--android] [--macos] [--macos-legacy] [--ios] [--host [user@ip]] [--all] [--help]"
   echo ""
-  echo "  Install packaged artifacts only (not a substitute for ./bin/start.sh)."
+  echo "  Install packaged artifacts (not a full substitute for ./bin/start.sh clients)."
   echo "  If an artifact is missing, prompts to build it first (TTY); use --build to skip the prompt."
   echo ""
   echo "  --build         Run ./bin/build.sh for the same targets first"
+  echo "  --hmr-server    After a successful deploy, start Parcel HMR (same as ./bin/start.sh with no platform flags)"
   echo "  --app-image     Install AppImage + .desktop → ~/.local"
   echo "  --android       adb install latest artifacts/android/*.apk"
   echo "  --macos         Install .app/.dmg → ~/Applications (or --host)"
@@ -45,11 +48,13 @@ usage() {
   echo "  --all           Capability-gated deploy for host candidates"
   echo ""
   echo "  Deprecated: --electron is an alias for --app-image (build/deploy only)."
+  echo "  Alias: --hrm-server → --hmr-server"
 }
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --build) DO_BUILD=1; shift ;;
+    --hmr-server|--hrm-server) DO_HMR_SERVER=1; shift ;;
     --app-image) DO_APP_IMAGE=1; shift ;;
     --electron)
       echo "Note: --electron is deprecated for packaging; use --app-image" >&2
@@ -382,3 +387,9 @@ if [ "$DEPLOYED_ANY" -eq 0 ]; then
 fi
 
 echo "deploy done."
+
+if [ "$DO_HMR_SERVER" -eq 1 ]; then
+  echo "Starting Parcel HMR server (./bin/start.sh)..."
+  # Replace this process so Ctrl+C / signals match a normal start session.
+  exec "$SCRIPT_DIR/start.sh"
+fi

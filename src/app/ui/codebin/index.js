@@ -167,18 +167,44 @@ const insertNewlineAtPos = (source, pos) => {
 	const tail = lines.slice(endRow + 1);
 	const before = startLine.slice(0, startCol);
 	const after = endLine.slice(endCol);
-	const nextSource = [].concat(head, [before, after], tail).join('\n');
+	// Carry leading whitespace from the split line onto the new one.
+	const indent = (before.match(/^\s*/) || [''])[0];
+	const nextLine = indent + after;
+	const nextSource = [].concat(head, [before, nextLine], tail).join('\n');
 	const nextPos = {
-		start: {row: startRow + 1, col: 0},
-		end: {row: startRow + 1, col: 0}
+		start: {row: startRow + 1, col: indent.length},
+		end: {row: startRow + 1, col: indent.length}
 	};
 	return {source: nextSource, pos: nextPos};
 };
-
 // Debounced input sync must not overwrite structural edits (Enter) —
 // especially right after Backspace, when state.source can still equal the
 // post-Enter string while the live DOM has not been rewritten yet.
 let inputSyncGen = 0;
+
+const readScroll = el => ({
+	top: (el && el.scrollTop) || 0,
+	left: (el && el.scrollLeft) || 0
+});
+
+const applyScroll = (el, scroll) => {
+	if (!el || !scroll) return;
+	el.scrollTop = scroll.top || 0;
+	el.scrollLeft = scroll.left || 0;
+};
+
+/** Debounced scroll → state; keyed by tabId so a late fire can't write to another tab. */
+let scrollSaveTimer = null;
+const scheduleScrollSave = (el, tabId, updateScroll) => {
+	if (!el || typeof updateScroll !== 'function') return;
+	const id = tabId || null;
+	clearTimeout(scrollSaveTimer);
+	scrollSaveTimer = setTimeout(() => {
+		scrollSaveTimer = null;
+		if (!el.isConnected) return;
+		updateScroll(readScroll(el), id);
+	}, 120);
+};
 
 const sandbox = (source, iframe, context = {}, cb) => {
 	let log = [];
@@ -243,10 +269,13 @@ const process = (type, sourceCode, iframe) => {
 // ui
 module.exports = ({
 	source, pos, type,
+	scroll = {top: 0, left: 0},
+	tabId = null,
 	layout = {},
 	setLayout = () => {},
 	change = code => {},
 	updatePos = pos => {},
+	updateScroll = () => {},
 	undo = () => {},
 	redo = () => {}
 }) => {
@@ -292,6 +321,7 @@ module.exports = ({
 					elm.spellcheck = false;
 					elm.innerHTML = prettifySource(source || '', type);
 					caret.set(elm, pos);
+					applyScroll(elm, scroll);
 				},
 				update: (oldVnode, vnode) => {
 					const elm = vnode.elm;
@@ -304,23 +334,44 @@ module.exports = ({
 						? oldVnode.data.dataset.posKey
 						: null;
 					const nextPos = JSON.stringify(pos || null);
-					if (prev === next && prevPos === nextPos) return;
+					const prevTab = oldVnode.data && oldVnode.data.dataset
+						? oldVnode.data.dataset.tabKey
+						: '';
+					const nextTab = tabId || '';
+					const tabChanged = prevTab !== nextTab;
+					const liveScroll = readScroll(elm);
+					if (prev === next && prevPos === nextPos && !tabChanged) return;
+					// Flush outgoing tab scroll before the DOM is reused (don't wait on debounce).
+					if (tabChanged && prevTab) {
+						updateScroll(liveScroll, prevTab);
+					}
 					if (prev !== next) {
 						elm.innerHTML = prettifySource(next, type);
 						findHighlight.clearFindMarkup(elm);
+					}
+					if (tabChanged) {
+						applyScroll(elm, scroll);
+					} else if (prev !== next) {
+						// innerHTML resets scroll — keep the live viewport for this tab
+						applyScroll(elm, liveScroll);
 					}
 					if (findHighlight.isFindBarFocused()) {
 						findHighlight.applyFindMarkup(elm, pos);
 					} else {
 						caret.set(elm, pos);
 					}
+					if (tabChanged) {
+						applyScroll(elm, scroll);
+					}
 				}
 			},
 			dataset: {
 				source: source || '',
-				posKey: JSON.stringify(pos || null)
+				posKey: JSON.stringify(pos || null),
+				tabKey: tabId || ''
 			},
 			on: {
+				scroll: ev => scheduleScrollSave(ev.target, tabId, updateScroll),
 				keydown: ev => {
 					if (ev.key === 'Tab') {
 						ev.preventDefault();
@@ -352,7 +403,9 @@ module.exports = ({
 							// Apply DOM immediately: after Backspace, state may already
 							// equal next.source (stale trailing \\n), so the snabbdom
 							// update hook would skip and Enter would look like a no-op.
+							const liveScroll = readScroll(el);
 							el.innerHTML = prettifySource(next.source, type);
+							applyScroll(el, liveScroll);
 							caret.set(el, next.pos);
 							change(next.source, next.pos);
 						} catch (err) {
@@ -383,9 +436,11 @@ module.exports = ({
 								return 0;
 							}
 							if (gen !== inputSyncGen) return 0;
+							const liveScroll = readScroll(el);
 							const sourceCode = unprettify(el.innerHTML);
 							el.innerHTML = prettifySource(sourceCode, type);
 							if (gen !== inputSyncGen) return 0;
+							applyScroll(el, liveScroll);
 							caret.set(el, nextPos);
 							return 1;
 						})

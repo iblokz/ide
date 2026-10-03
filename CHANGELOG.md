@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.19.0] - 2026-10-03
+
+### Added
+
+- Editor toggle comment (**Mod+/**): `actions.editor.toggleComment` — line comments for JS/TS/CSS/`#` langs; `<!-- -->` for HTML-like; no-op for strict JSON
+- Enter in the editor copies the current line’s leading indentation onto the new line
+- Per-tab editor scroll (`scroll.top` / `scroll.left`): restored on tab switch / remount; debounced save while scrolling
+
+### Changed
+
+- `deploy.sh`: `--hmr-server` (alias `--hrm-server`) starts Parcel HMR after a successful deploy; `--build` already builds matching targets first
+- State actions split into nested domains: `layout`, `theme`, `editor`, `project` (`actions.layout.toggle`, `actions.editor.updateSource`, …)
+- Theme state moved to `state.theme.mode` / `state.theme.host` (was `themeMode` / `hostTheme`)
+- Hotkeys resolve dotted action paths (`layout.toggle leftSideBar`, `project.openFolder`)
+
+---
+
 ## [1.18.0] - 2026-10-01
 
 ### Added

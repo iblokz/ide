@@ -19,7 +19,7 @@ const layoutMenuItems = [
 	{id: 'bottom-panel', label: 'Bottom Panel', toggleKey: 'bottomPanel'},
 	{id: 'preview', label: 'Preview', toggleKey: 'preview'}
 ].map(item => Object.assign({}, item, {
-	hotkey: formatHotkey(chordForAction(hotkeyMap, `toggle layout.toggles.${item.toggleKey}`))
+	hotkey: formatHotkey(chordForAction(hotkeyMap, `layout.toggle ${item.toggleKey}`))
 }));
 
 const renderLayoutItem = item => span('.layout-option', [
@@ -69,7 +69,7 @@ export default ({state, actions}) => {
 				? []
 				: button('.menu-toggle', {
 					attrs: {'aria-label': 'Toggle sidebar'},
-					on: {click: () => actions.toggle(['layout', 'toggles', 'leftSideBar'])}
+					on: {click: () => actions.layout.toggle('leftSideBar')}
 				}, [
 					svgHamburger(({state: state.layout.toggles.leftSideBar ? 1 : 0, strokeWidth: '3px', size: 22}))
 				]),
@@ -86,7 +86,7 @@ export default ({state, actions}) => {
 			start ? [] : dropdown('.layout-menu', {
 				handle: layoutIcon('menu'),
 				itemSelect: (ev, item) =>
-					actions.toggle(['layout', 'toggles', item.toggleKey]),
+					actions.layout.toggle(item.toggleKey),
 				items: layoutMenuItems.map(item => ({
 					...item,
 					active: !!state.layout.toggles[item.toggleKey]
@@ -96,12 +96,12 @@ export default ({state, actions}) => {
 			}),
 			button('.theme-toggle', {
 				attrs: {
-					'aria-label': state.themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
-					title: state.themeMode === 'dark' ? 'Light theme' : 'Dark theme'
+					'aria-label': (state.theme && state.theme.mode) === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
+					title: (state.theme && state.theme.mode) === 'dark' ? 'Light theme' : 'Dark theme'
 				},
-				on: {click: () => actions.toggleTheme()}
+				on: {click: () => actions.theme.toggle()}
 			}, [
-				i(`.fa.${state.themeMode === 'dark' ? 'fa-sun-o' : 'fa-moon-o'}`)
+				i(`.fa.${(state.theme && state.theme.mode) === 'dark' ? 'fa-sun-o' : 'fa-moon-o'}`)
 			]),
 			isHmrLoadMode()
 				? button('.load-mode-flag.is-hmr', {

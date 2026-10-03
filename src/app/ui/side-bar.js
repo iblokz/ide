@@ -57,11 +57,11 @@ export default ({state, actions, width}) => fn.pipe(
 			fileTree: [].concat(...sortedWithIndex(state.filesTree || [])
 				.map(({item, index}) => fileLeafNode(item, [index], 0,
 					(item, path, level) => item.isDir
-						? actions.toggleFolder(path, item)
-						: actions.openFile(item),
+						? actions.project.toggleFolder(path, item)
+						: actions.project.openFile(item),
 					activePath
 				))),
-			title: !state.project
+			title: !(state.project && state.project.path)
 				? 'Open Project'
 				: (state.project.name || 'Project'),
 			open: !!obj.sub(state, ['layout', 'toggles', 'leftSideBar']),
@@ -90,7 +90,7 @@ export default ({state, actions, width}) => fn.pipe(
 		header([
 			span({
 				class: {
-					placeholder: !state.project
+					placeholder: !(state.project && state.project.path)
 				}
 			}, title),
 			button('.open-folder', {
@@ -103,7 +103,7 @@ export default ({state, actions, width}) => fn.pipe(
 					click: ev => {
 						ev.preventDefault();
 						ev.stopPropagation();
-						actions.openFolder();
+						actions.project.openFolder();
 					}
 				}
 			}, [i('.fa.fa-folder-open-o')])
@@ -119,7 +119,7 @@ export default ({state, actions, width}) => fn.pipe(
 							on: {
 								click: ev => {
 									ev.preventDefault();
-									actions.openRecent(root);
+									actions.project.openRecent(root);
 								}
 							}
 						}, [span([String(root.name)])])

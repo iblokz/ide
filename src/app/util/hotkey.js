@@ -32,7 +32,7 @@ export const formatHotkey = chord => {
 	}).join('+');
 };
 
-/** Invert config map: `toggle layout.toggles.leftSideBar` → `Mod+B`. */
+/** Invert config map: `layout.toggle leftSideBar` → `Mod+B`. */
 export const chordForAction = (hotkeyMap, action) =>
 	Object.entries(hotkeyMap).find(([, a]) => a === action)?.[0] || '';
 
