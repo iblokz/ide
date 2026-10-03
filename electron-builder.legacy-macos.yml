@@ -12,6 +12,7 @@ files:
   - electron/**/*
   - dist/**/*
   - build/assets/icons/**/*
+  - config/settings.yml
   - src/app/util/file-tree.js
   - package.json
 

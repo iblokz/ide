@@ -1,105 +1,87 @@
-.codebin
-	position: relative
+// Editor surface + preview-body (iframe / console). No panes-* modes.
+
+code.source
 	flex: 1 1 auto
 	min-width: 0
 	min-height: 0
-	height: auto
-	margin-top: 0
+	height: 100%
+	overflow: auto
+	font-family: 'Fira Code', monospace
+	font-size: 0.95em
+	white-space: pre
+	padding: 12px 10px
+	color: var(--app-editor-text)
+	background: var(--app-editor-bg)
+	li.find-match-line
+		background: color-mix(in srgb, var(--app-accent) 6%, transparent)
+	mark.find-match
+		background: color-mix(in srgb, var(--app-accent) 35%, transparent)
+		color: inherit
+	&::highlight(find-match)
+		background-color: color-mix(in srgb, var(--app-accent) 35%, transparent)
+		color: inherit
+	tab-size: 2
+	transition: background-color .25s ease, color .25s ease, border-color .25s ease
+	border: 1px solid var(--app-border)
+	box-sizing: border-box
+	&:focus
+		outline: none
+
+.preview-body
+	position: relative
 	display: flex
+	flex-direction: column
 	overflow: hidden
+	text-align: left
 	background: var(--app-bg-page)
 
-	> code.source
+	iframe.sandbox
 		flex: 0 0 50%
-		min-width: 8rem
-		height: 100%
+		min-height: 4rem
+		width: 100%
+		display: block
+		border: 1px solid var(--app-border)
+		box-sizing: border-box
+		background: var(--app-bg-panel)
+		&.hidden
+			display: none !important
+			flex: 0 0 0
+			min-height: 0
+			height: 0
+			border: none
+
+	code.console
+		flex: 1 1 auto
+		min-height: 4rem
+		width: 100%
 		overflow: auto
 		font-family: 'Fira Code', monospace
 		font-size: 0.95em
 		white-space: pre
 		padding: 12px 10px
-		color: var(--app-editor-text)
-		background: var(--app-editor-bg)
-		li.find-match-line
-			background: color-mix(in srgb, var(--app-accent) 6%, transparent)
-		mark.find-match
-			background: color-mix(in srgb, var(--app-accent) 35%, transparent)
-			color: inherit
-		&::highlight(find-match)
-			background-color: color-mix(in srgb, var(--app-accent) 35%, transparent)
-			color: inherit
-		tab-size: 2
-		transition: background-color .25s ease, color .25s ease, border-color .25s ease
 		border: 1px solid var(--app-border)
+		border-bottom: none
 		box-sizing: border-box
-		&:focus
-			outline: none
-
-	&.panes-editor
-		> code.source
-			min-width: 0
-
-	&.panes-console
-		flex-direction: column
-		> code.source
-			width: 100%
-			min-width: 0
-			min-height: 6rem
-			height: auto
-		.output
-			width: 100%
-			min-width: 0
-			min-height: 6rem
-			iframe.sandbox
-				display: none !important
-				flex: 0 0 0
-				min-height: 0
-				height: 0
-				border: none
-			code.console
-				min-height: 6rem
-
-	.output
-		flex: 1 1 auto
-		min-width: 8rem
-		height: 100%
-		display: flex
-		flex-direction: column
-		overflow: hidden
-		text-align: left
-
+		background: var(--app-console-bg)
+		color: var(--app-editor-text)
 		&.hidden
 			display: none
+		.err
+			color: var(--app-danger)
+			font-size: inherit
 
-		code.console
-			flex: 1 1 auto
-			min-height: 4rem
-			width: 100%
-			overflow: auto
-			font-family: 'Fira Code', monospace
-			font-size: 0.95em
-			white-space: pre
-			padding: 12px 10px
-			border: 1px solid var(--app-border)
-			border-bottom: none
-			box-sizing: border-box
-			background: var(--app-console-bg)
-			color: var(--app-editor-text)
-			&.hidden
-				display: none
-			.err
-				color: var(--app-danger)
-				font-size: inherit
+// Slides / embed compose (optional all-in-one)
+.codebin.embed
+	position: relative
+	flex: 1 1 auto
+	min-width: 0
+	min-height: 0
+	display: flex
+	overflow: hidden
+	background: var(--app-bg-page)
 
-		iframe
-			flex: 0 0 50%
-			min-height: 4rem
-			width: 100%
-			display: block
-			border: 1px solid var(--app-border)
-			box-sizing: border-box
-			background: var(--app-bg-panel)
-
-	&.panes-preview
-		.output iframe
-			min-height: 0
+	> .codebin-editor,
+	> .codebin-preview
+		min-width: 0
+		min-height: 0
+		overflow: hidden

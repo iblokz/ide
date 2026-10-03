@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Releases
 
-Full detail: [docs/RELEASE.md](docs/RELEASE.md).
+Full detail: [docs/release.md](docs/release.md).
 
 AppImage / APK / macOS DMG / iOS Simulator zip filenames use **`package.json` `version`**, not the git tag. Never tag a commit that still has the previous version.
 

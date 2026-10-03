@@ -1,5 +1,5 @@
 import {
-	div, a, span, ul, li, i, button, header
+	aside, div, a, span, ul, li, i, button, header
 } from 'iblokz-snabbdom-helpers';
 import {fn, obj} from 'iblokz-data';
 import {fileIcon} from '../util/file-tree';
@@ -76,7 +76,7 @@ export default ({state, actions, width}) => fn.pipe(
 			: 0
 	}),
 	// render
-	({recent, fileTree, title, open, resolvedWidth}) => div('.side-bar', {
+	({recent, fileTree, title, open, resolvedWidth}) => aside('.left-pane', {
 		class: {
 			toggled: open
 		},

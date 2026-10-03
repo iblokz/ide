@@ -1,0 +1,13 @@
+# Bundled defaults for Electron user settings.
+# On first run a copy is written to userData (edit that file, not this one):
+#   Linux:   ~/.config/iblokz-ide/settings.yml
+#   macOS:   ~/Library/Application Support/iblokz-ide/settings.yml
+#   Windows: %APPDATA%\iblokz-ide\settings.yml
+#
+# Keep this file small — only prefs the main process must know before the window opens.
+# Theme / recent projects stay in renderer localStorage (see docs/storage.md).
+
+windows:
+  # true  — second launch focuses the existing window (requestSingleInstanceLock)
+  # false — each launch may open another window (pre-1.14 behavior)
+  singleInstance: false

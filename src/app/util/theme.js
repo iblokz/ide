@@ -139,8 +139,8 @@ const clearHostVars = el => {
 };
 
 /**
- * Apply host palette on <html> only (early paint / non-#ui).
- * #ui/body vars must go through snabbdom `style` via hostStyleProps — otherwise
+ * Apply host palette on <html> only (early paint / before body.app mounts).
+ * body.app vars must go through snabbdom `style` via hostStyleProps — otherwise
  * the attributes module strips the style attribute on the first patch.
  */
 const applyHostAccent = host => {

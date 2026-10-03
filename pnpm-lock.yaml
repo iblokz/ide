@@ -44,6 +44,9 @@ importers:
       iblokz-state:
         specifier: ^1.1.0
         version: 1.1.0
+      js-yaml:
+        specifier: ^4.1.0
+        version: 4.1.0
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2

@@ -1,6 +1,6 @@
 {
   "name": "iblokz-ide",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "description": "in browser / Electron / Capacitor code editor (web, Linux AppImage, macOS, Android, iOS)",
   "source": "src/index.pug",
   "main": "electron/main.js",
@@ -60,6 +60,7 @@
     "iblokz-data": "^1.6.0",
     "iblokz-snabbdom-helpers": "^2.0.0",
     "iblokz-state": "^1.1.0",
+    "js-yaml": "^4.1.0",
     "rxjs": "^7.8.2",
     "snabbdom": "^3.6.3",
     "snapsvg": "^0.5.1",

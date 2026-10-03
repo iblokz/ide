@@ -1,4 +1,4 @@
-#ui
+.app
 	@import 'header'
 	@import 'tabs'
 	@import 'find-bar'
@@ -26,7 +26,7 @@
 	&.start
 		flex-direction: column
 
-	> .side-bar
+	> .left-pane
 		flex: 0 0 auto
 		align-self: stretch
 		height: 100%
@@ -43,11 +43,11 @@
 			box-shadow: none
 			pointer-events: none
 
-	// #ui is the <body>; gutter drag adds .is-resizing-x on the same element
-	&.is-resizing-x > .side-bar
+	// body.app; gutter drag adds .is-resizing-x on the same element
+	&.is-resizing-x > .left-pane
 		transition: box-shadow .18s ease, background-color .25s ease, border-color .18s ease
 
-	> .main
+	> .layout
 		flex: 1 1 auto
 		min-width: 0
 		min-height: 0
@@ -59,51 +59,226 @@
 		> header
 			flex: 0 0 auto
 
-		> .editor-float
-			position: absolute
-			top: calc(#{$header-height} + 4px)
-			right: 12px
-			z-index: 101
-			display: flex
-			align-items: center
-			gap: 4px
-			-webkit-app-region: no-drag
-
-			.save-file
-				flex: 0 0 auto
-				width: 36px
-				height: 36px
-				padding: 4px 6px
-				box-sizing: border-box
-				display: inline-flex
-				align-items: center
-				justify-content: center
-				border: 1px solid transparent
-				border-radius: 6px
-				background: transparent
-				color: var(--app-icon)
-				cursor: pointer
-				opacity: 0.4
-				font-size: 0.95em
-				box-shadow: none
-				transition: opacity .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease
-
-				&:hover:not(:disabled)
-					opacity: 1
-					background: var(--app-bg-panel)
-					border-color: var(--app-border)
-					box-shadow: var(--app-shadow-soft)
-					color: var(--app-icon-hover)
-
-				&:disabled
-					opacity: 0.25
-					cursor: default
-
-		> .codebin,
-		> .empty-editor,
-		> .image-viewer
+		> .workspace
 			flex: 1 1 auto
 			min-height: 0
 			min-width: 0
-			height: auto
-			margin-top: 0
+			display: flex
+			flex-direction: row
+			align-items: stretch
+			overflow: hidden
+			position: relative
+
+			> .editor
+				position: relative
+				display: flex
+				flex-direction: column
+				min-width: 0
+				min-height: 0
+				overflow: hidden
+				// Match left-pane open/close timing
+				transition: flex-basis .18s .18s ease-in-out
+
+				> .editor-toolbox
+					position: absolute
+					top: 4px
+					right: 12px
+					z-index: 101
+					display: flex
+					align-items: center
+					gap: 4px
+					-webkit-app-region: no-drag
+
+					.save-file
+						flex: 0 0 auto
+						width: 36px
+						height: 36px
+						padding: 4px 6px
+						box-sizing: border-box
+						display: inline-flex
+						align-items: center
+						justify-content: center
+						border: 1px solid transparent
+						border-radius: 6px
+						background: transparent
+						color: var(--app-icon)
+						cursor: pointer
+						opacity: 0.4
+						font-size: 0.95em
+						box-shadow: none
+						transition: opacity .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease
+
+						&:hover:not(:disabled)
+							opacity: 1
+							background: var(--app-bg-panel)
+							border-color: var(--app-border)
+							box-shadow: var(--app-shadow-soft)
+							color: var(--app-icon-hover)
+
+						&:disabled
+							opacity: 0.25
+							cursor: default
+
+				> code.source,
+				> .empty-editor,
+				> .image-viewer
+					flex: 1 1 auto
+					min-height: 0
+					min-width: 0
+
+			> .preview
+				display: flex
+				flex-direction: column
+				min-width: 0
+				min-height: 0
+				overflow: hidden
+				border-left: 1px solid var(--app-border)
+				// Width share + border share the .18s delay (same as left-pane)
+				transition: flex-basis .18s .18s ease-in-out, border-color .18s .18s ease-in-out, max-width .18s .18s ease-in-out
+
+				&:not(.toggled)
+					overflow: hidden
+					border-color: transparent
+					pointer-events: none
+					max-width: 0 !important
+
+				> .preview-chrome
+					flex: 0 0 auto
+					+header-height($panel-row-height)
+					display: flex
+					align-items: center
+					gap: 6px
+					padding: 0 8px
+					box-sizing: border-box
+					background: var(--app-bg-muted)
+					border-bottom: 1px solid var(--app-border)
+					color: var(--app-text-muted)
+					font-size: 0.8em
+
+					.preview-mode-group
+						flex: 0 0 auto
+						align-self: center
+						display: inline-flex
+						align-items: center
+						height: 24px
+						border: 1px solid var(--app-border)
+						border-radius: 6px
+						overflow: hidden
+						background: var(--app-bg-panel)
+						box-sizing: border-box
+
+						.preview-mode-btn
+							flex: 0 0 auto
+							height: 100%
+							padding: 0 8px
+							display: inline-flex
+							align-items: center
+							justify-content: center
+							border: none
+							border-right: 1px solid var(--app-border)
+							background: transparent
+							color: var(--app-text-muted)
+							font: inherit
+							font-size: 0.75em
+							font-weight: 600
+							letter-spacing: 0.02em
+							line-height: 1
+							cursor: pointer
+							&:last-child
+								border-right: none
+							&:hover:not(:disabled):not(.is-active)
+								background: var(--app-bg-hover)
+								color: var(--app-text)
+							&.is-active
+								background: var(--app-accent-soft)
+								color: var(--app-accent)
+							&:disabled
+								opacity: 0.35
+								cursor: default
+
+					> button.preview-reload,
+					> button.preview-go
+						flex: 0 0 auto
+						width: 24px
+						height: 24px
+						padding: 0
+						display: inline-flex
+						align-items: center
+						justify-content: center
+						border: 1px solid transparent
+						border-radius: 4px
+						background: transparent
+						color: var(--app-icon)
+						cursor: pointer
+						&:hover
+							background: var(--app-bg-hover)
+							color: var(--app-icon-hover)
+
+					.preview-address
+						flex: 1 1 auto
+						min-width: 0
+						display: inline-flex
+						align-items: center
+						gap: 6px
+						height: 24px
+						padding: 0 8px
+						border-radius: 4px
+						background: var(--app-input-bg)
+						border: 1px solid var(--app-input-border)
+						box-sizing: border-box
+
+						> .fa
+							flex: 0 0 auto
+							opacity: 0.75
+
+						.preview-address-input
+							flex: 1 1 auto
+							min-width: 0
+							height: 100%
+							border: none
+							outline: none
+							background: transparent
+							color: var(--app-input-text)
+							font: inherit
+							padding: 0
+
+					.preview-file-label
+						flex: 1 1 auto
+						min-width: 0
+						display: inline-flex
+						align-items: center
+						gap: 6px
+						overflow: hidden
+						white-space: nowrap
+						text-overflow: ellipsis
+						color: var(--app-text)
+
+				> .preview-body,
+				> iframe.sandbox,
+				> .preview-file
+					flex: 1 1 auto
+					min-height: 0
+					min-width: 0
+					width: 100%
+					border: none
+					background: var(--app-bg-panel)
+					display: flex
+					flex-direction: column
+					overflow: hidden
+
+					> .preview-file-frame
+						flex: 1 1 auto
+						min-height: 0
+						width: 100%
+						border: none
+						background: var(--app-editor-bg, var(--app-bg-page))
+
+				> .preview-file-empty
+					padding: 16px 20px
+					color: var(--app-text-muted)
+					font-size: 0.9em
+
+	// body.app; gutter drag adds .is-resizing-x — kill flex-basis transition mid-drag
+	&.is-resizing-x > .layout > .workspace > .editor,
+	&.is-resizing-x > .layout > .workspace > .preview
+		transition: border-color .18s ease

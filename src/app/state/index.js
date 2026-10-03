@@ -29,6 +29,7 @@ const layout = require('./layout').default ?? require('./layout');
 const theme = require('./theme').default ?? require('./theme');
 const editor = require('./editor').default ?? require('./editor');
 const project = require('./project').default ?? require('./project');
+const preview = require('./preview').default ?? require('./preview');
 const find = require('./find').default ?? require('./find');
 const fileSearch = require('./file-search').default ?? require('./file-search');
 
@@ -312,6 +313,7 @@ module.exports = {
 	theme,
 	editor,
 	project,
+	preview,
 	find,
 	fileSearch,
 	set,

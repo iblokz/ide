@@ -1,5 +1,7 @@
 'use strict';
 
+const {extOf} = require('./file-tree');
+
 const emptyPos = {
 	start: {row: 0, col: 0},
 	end: {row: 0, col: 0}
@@ -37,7 +39,7 @@ const newTabId = file => {
 };
 
 const createTextTab = file => {
-	const type = file.ext || 'js';
+	const type = (file && file.ext) || extOf(file && file.name) || 'js';
 	const source = typeof file.source === 'string' ? file.source : '';
 	return {
 		id: newTabId(file),

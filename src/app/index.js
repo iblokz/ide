@@ -18,8 +18,48 @@ const {
 } = require('./util/theme');
 const {anyDirty} = require('./util/tabs');
 const {triggerSave} = require('./util/trigger-save');
+const {
+	sessionKey,
+	serializeSession,
+	saveSession,
+	isSessionRestoring
+} = require('./util/session.js');
 
 let {actions, state$} = createState(actionsTree);
+
+/** Debounced per-project session write (layout / preview / tab paths). */
+let sessionSaveTimer = null;
+let lastSessionFingerprint = '';
+const persistProjectSession = (state, {immediate = false} = {}) => {
+	if (isSessionRestoring()) return;
+	if (!state || state.view !== 'workspace') return;
+	const key = sessionKey(state.project);
+	if (!key) return;
+	const payload = serializeSession(state);
+	if (!payload) return;
+	const fingerprint = key + '\n' + JSON.stringify(payload);
+	if (fingerprint === lastSessionFingerprint) return;
+	const flush = () => {
+		sessionSaveTimer = null;
+		if (isSessionRestoring()) return;
+		const cur = state$.getValue();
+		if (!cur || cur.view !== 'workspace') return;
+		const curKey = sessionKey(cur.project);
+		if (!curKey || curKey !== key) return;
+		const nextPayload = serializeSession(cur);
+		saveSession(curKey, nextPayload);
+		lastSessionFingerprint = curKey + '\n' + JSON.stringify(nextPayload);
+	};
+	if (immediate) {
+		if (sessionSaveTimer) clearTimeout(sessionSaveTimer);
+		flush();
+		return;
+	}
+	if (sessionSaveTimer) clearTimeout(sessionSaveTimer);
+	sessionSaveTimer = setTimeout(flush, 300);
+};
+
+state$.subscribe(state => persistProjectSession(state));
 
 viewport.start();
 hotkeys.start(actions);
@@ -37,7 +77,7 @@ state$
 	)
 	.subscribe(mode => {
 		applyDocumentTheme(mode);
-		// Re-apply after theme class swap so host vars stay on #ui/body.
+		// Re-apply after theme class swap so host vars stay on body.app.
 		applyHostAccent(readHostTheme());
 	});
 
@@ -53,7 +93,9 @@ state$
 	});
 
 fromEvent(window, 'beforeunload').subscribe(ev => {
-	if (!anyDirty(state$.getValue())) return;
+	const state = state$.getValue();
+	persistProjectSession(state, {immediate: true});
+	if (!anyDirty(state)) return;
 	if (isElectronBridge()) return;
 	ev.preventDefault();
 	ev.returnValue = '';

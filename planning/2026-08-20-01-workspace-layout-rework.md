@@ -1,8 +1,7 @@
 # Workspace layout rework (IDE)
 
-**Date:** 2026-08-20  
-**Updated:** 2026-08-23  
-**Status:** Phase 1 done (ide-2 baseline); Phase 2 next  
+**Updated:** 2026-10-03  
+**Status:** Phase 1 done; Phase 2 in progress (shell + codebin kit; right/bottom deferred)  
 **Scope:** `org/iblokz/ide` only  
 **Baseline tree:** work in / continue from the `ide-2` checkout (same repo, parallel working copy)  
 **Related:** [`org/iblokz/layout/planning/2026-08-20-01-layout-package.md`](../../layout/planning/2026-08-20-01-layout-package.md), [`org/iblokz/layout/planning/2026-08-20-02-layout-adoption.md`](../../layout/planning/2026-08-20-02-layout-adoption.md)
@@ -12,6 +11,37 @@
 ## Goal
 
 Rework the IDE workspace into a clear semantic shell (left / center / right, with center hosting editor + preview and a bottom pane), replace the panes cycle with independent toggles, and keep structure/naming such that a later extract into a reusable layout package is natural — **without building that package in this plan**.
+
+---
+
+## Phase 2 (revised 2026-10-03)
+
+**In scope now**
+
+```
+body.app
+  aside.left-pane
+  main.layout
+    header
+    .workspace
+      .editor
+        .editor-toolbox
+        codebin/editor (or empty / image)
+      .preview
+        .preview-chrome   # stub
+        codebin/preview-pane (iframe + nested console)
+```
+
+- Codebin kit under `ui/codebin/`: `editor`, `preview`, `console`, `vm`, `preview-pane`, `embed`
+- IDE workspace picks pieces; `embed` keeps slides-style all-in-one
+- No `panes-*` modes; right/bottom chrome deferred
+
+**Still deferred (old Phase 2 leftovers)**
+
+- Right / bottom placeholders
+- Layout persistence (`config/layout` + `services/layout`)
+- Full editor header (title + Save strip) — toolbox is enough for now
+- Extract codebin to a publishable iblokz package
 
 ---
 
@@ -52,8 +82,12 @@ Shipped in the ide-2 working tree (changelog toward **1.9.0**):
 
 ## Target shell (semantic)
 
+**Current (Phase 2):** see revised tree above (`body.app` — no `#ui` id).
+
+**Original (superseded):**
+
 ```
-#ui
+body.app
   header (app chrome)
   workspace (row)                 # when not start screen
     left-pane                     # files sidebar

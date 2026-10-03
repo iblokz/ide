@@ -1,4 +1,5 @@
 import {obj} from 'iblokz-data';
+import {dispatch} from 'iblokz-state';
 import {
 	mergeAt,
 	isImageFile,
@@ -7,6 +8,15 @@ import {
 	reapplyExpandedPaths
 } from '../../util/file-tree';
 import {pushRecent} from '../../util/recent';
+import {
+	sessionKey,
+	loadSession,
+	beginSessionRestore,
+	endSessionRestore,
+	sessionStillCurrent,
+	fileStubFromPath,
+	resolveFileInTree
+} from '../../util/session.js';
 import {getFs, probeCapabilities, resetFs} from '../../services/fs';
 import {
 	emptyTabFields,
@@ -15,8 +25,11 @@ import {
 	projectActive,
 	mapActiveTab,
 	upsertTab,
-	findTabIndexByPath
+	findTabIndexByPath,
+	activateTabId
 } from '../../util/tabs';
+import {initial as layoutInitial} from '../layout/index.js';
+import {initial as previewInitial} from '../preview/index.js';
 import find from '../find';
 import fileSearch from '../file-search';
 
@@ -154,12 +167,88 @@ export const toggleFolder = (path = [], item) => {
 		});
 };
 
+const layoutFromSession = (state, session) => {
+	if (session && session.layout) {
+		return {
+			toggles: Object.assign({}, layoutInitial.toggles, session.layout.toggles || {}),
+			dim: Object.assign({}, layoutInitial.dim, (state.layout && state.layout.dim) || {}, session.layout.dim || {})
+		};
+	}
+	return {
+		toggles: Object.assign({}, layoutInitial.toggles, state.layout && state.layout.toggles, {
+			leftSideBar: true
+		}),
+		dim: Object.assign({}, layoutInitial.dim, state.layout && state.layout.dim)
+	};
+};
+
+const previewFromSession = session => {
+	if (session && session.preview) {
+		return Object.assign({}, previewInitial, {
+			mode: session.preview.mode,
+			url: session.preview.url,
+			input: session.preview.input,
+			reloadToken: 0
+		});
+	}
+	return Object.assign({}, previewInitial);
+};
+
+/** Re-open saved tab paths after project switch (disk read; skips missing files). */
+const restoreSessionTabs = async (session, filesTree, token) => {
+	const paths = (session && session.tabPaths) || [];
+	if (!paths.length) {
+		endSessionRestore(token);
+		return;
+	}
+	const activePath = session.activePath;
+	const ordered = activePath
+		? paths.filter(p => p !== activePath).concat([activePath])
+		: paths.slice();
+
+	try {
+		for (let i = 0; i < ordered.length; i++) {
+			if (!sessionStillCurrent(token)) return;
+			const path = ordered[i];
+			const node = resolveFileInTree(filesTree, path) || fileStubFromPath(path);
+			if (!node || node.isDir || node.readable === false) continue;
+			try {
+				const result = openFile(node);
+				const reducer = (result && typeof result.then === 'function')
+					? await result
+					: result;
+				if (!sessionStillCurrent(token)) return;
+				if (typeof reducer === 'function') dispatch(reducer);
+			} catch (err) {
+				console.warn('[session] tab restore skipped', path, err);
+			}
+		}
+		if (activePath && sessionStillCurrent(token)) {
+			dispatch(state => {
+				const tabs = state.tabs || [];
+				const tab = tabs.find(t => t && t.file && t.file.path === activePath);
+				if (!tab) return state;
+				return activateTabId(state, tab.id);
+			});
+		}
+	} finally {
+		endSessionRestore(token);
+	}
+};
+
 const applyProjectResult = (fs, result) => {
 	const recentRoots = pushRecent({
 		id: result.id,
 		name: result.name,
 		path: result.path
 	});
+	const key = sessionKey(result);
+	const session = loadSession(key);
+	const token = beginSessionRestore();
+	queueMicrotask(() => {
+		restoreSessionTabs(session, result.filesTree || [], token);
+	});
+
 	return state => Object.assign({}, state, clearOpenFile(state), {
 		view: 'workspace',
 		fsBackend: fs.id,
@@ -173,13 +262,8 @@ const applyProjectResult = (fs, result) => {
 		},
 		filesTree: result.filesTree,
 		recentRoots,
-		layout: {
-			...state.layout,
-			toggles: {
-				...(state.layout && state.layout.toggles),
-				leftSideBar: true
-			}
-		}
+		layout: layoutFromSession(state, session),
+		preview: previewFromSession(session)
 	});
 };
 

@@ -1,12 +1,13 @@
 'use strict';
 
-const {app, dialog, BrowserWindow, ipcMain, nativeImage, Menu, nativeTheme} = require('electron');
+const {app, dialog, BrowserWindow, ipcMain, nativeImage, Menu, nativeTheme, shell} = require('electron');
 const fs = require('fs');
 const path = require('path');
 const {spawn} = require('child_process');
 const {watch} = require('chokidar');
 const fileUtil = require('./util/file');
 const {detectWindowManager} = require('./util/wm');
+const {loadSettings, userSettingsPath} = require('./util/settings');
 const {
 	OMARCHY_CURRENT,
 	detectHostTheme,
@@ -469,60 +470,130 @@ const createWindow = () => {
 	return browserWindow;
 };
 
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-	app.quit();
-} else {
-	app.on('second-instance', () => {
-		if (!win || win.isDestroyed()) return;
-		if (win.isMinimized()) win.restore();
-		win.show();
-		win.focus();
-	});
+let settings = {windows: {singleInstance: false}};
+try {
+	settings = loadSettings(app.getPath('userData'));
+} catch (err) {
+	bootLog(`settings load failed ${err && err.message ? err.message : err}`);
+}
+bootLog(`settings ${JSON.stringify(settings)}`);
+const singleInstance = !!(settings.windows && settings.windows.singleInstance);
 
+const openUserSettings = () => {
+	const filePath = userSettingsPath(app.getPath('userData'));
+	shell.openPath(filePath).catch(err => {
+		bootLog(`openUserSettings failed ${err && err.message ? err.message : err}`);
+	});
+};
+
+const registerIpc = () => {
+	ipcMain.handle('selectRootFolder', () => selectRootFolder());
+	ipcMain.handle('openRootFolder', async (_ev, dirPath) => {
+		if (!dirPath || typeof dirPath !== 'string') return null;
+		try {
+			const root = await fileUtil.openRoot(dirPath);
+			if (root && root.path) startWatch(root.path);
+			return root;
+		} catch (err) {
+			console.error('openRootFolder failed', dirPath, err);
+			return null;
+		}
+	});
+	ipcMain.handle('listDir', (_ev, dirPath) => fileUtil.listDir(dirPath));
+	ipcMain.handle('readFile', (_ev, filePath) => fileUtil.read(filePath));
+	ipcMain.handle('readFileDataUrl', (_ev, filePath) => fileUtil.readDataUrl(filePath));
+	ipcMain.handle('writeFile', (_ev, filePath, content) => fileUtil.write(filePath, content));
+	ipcMain.handle('setDirty', (_ev, value) => {
+		dirty = !!value;
+		return dirty;
+	});
+	ipcMain.handle('minimize', () => {
+		if (win) win.minimize();
+	});
+	ipcMain.handle('toggleMaximize', () => {
+		if (!win) return false;
+		if (win.isMaximized()) {
+			win.unmaximize();
+			return false;
+		}
+		win.maximize();
+		return true;
+	});
+	ipcMain.handle('close', () => requestClose());
+	ipcMain.on('getLoadModeSync', event => {
+		event.returnValue = loadMode;
+	});
+	ipcMain.handle('getLoadMode', () => loadMode);
+	ipcMain.handle('toggleLoadMode', () => toggleLoadMode());
+	ipcMain.on('getHostThemeSync', event => {
+		event.returnValue = getHostThemePayload();
+	});
+	ipcMain.handle('getHostTheme', () => getHostThemePayload());
+};
+
+const buildAppMenu = () => {
+	const electronMajor = parseInt(String(process.versions.electron || '0').split('.')[0], 10) || 0;
+	const openProjectItem = {
+		label: 'Open Project…',
+		accelerator: 'CmdOrCtrl+O',
+		click: () => {
+			if (!win || win.isDestroyed()) return;
+			win.webContents.send('open-folder-request');
+		}
+	};
+	const openSettingsItem = {
+		label: 'Open Settings File…',
+		click: () => openUserSettings()
+	};
+	const menuTemplate = [
+		{
+			label: app.name || 'iBloKz IDE',
+			submenu: [
+				{role: 'about'},
+				{type: 'separator'},
+				{role: 'quit'}
+			]
+		},
+		{
+			label: 'File',
+			submenu: [
+				openProjectItem,
+				{type: 'separator'},
+				openSettingsItem
+			]
+		},
+		{
+			label: 'Edit',
+			submenu: [
+				{role: 'undo'},
+				{role: 'redo'},
+				{type: 'separator'},
+				{role: 'cut'},
+				{role: 'copy'},
+				{role: 'paste'},
+				{role: 'selectall'}
+			]
+		},
+		{
+			label: 'View',
+			submenu: [
+				{role: 'reload'},
+				{role: 'toggledevtools'},
+				{type: 'separator'},
+				{role: 'togglefullscreen'}
+			]
+		}
+	];
+	// Always set File → Open Project so Cmd/Ctrl+O works (renderer hotkey defers to this).
+	Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
+	if (electronMajor > 0 && electronMajor < 12) {
+		bootLog('legacy: application menu set');
+	}
+};
+
+const startApp = () => {
 	app.whenReady().then(() => {
-		ipcMain.handle('selectRootFolder', () => selectRootFolder());
-		ipcMain.handle('openRootFolder', async (_ev, dirPath) => {
-			if (!dirPath || typeof dirPath !== 'string') return null;
-			try {
-				const root = await fileUtil.openRoot(dirPath);
-				if (root && root.path) startWatch(root.path);
-				return root;
-			} catch (err) {
-				console.error('openRootFolder failed', dirPath, err);
-				return null;
-			}
-		});
-		ipcMain.handle('listDir', (_ev, dirPath) => fileUtil.listDir(dirPath));
-		ipcMain.handle('readFile', (_ev, filePath) => fileUtil.read(filePath));
-		ipcMain.handle('readFileDataUrl', (_ev, filePath) => fileUtil.readDataUrl(filePath));
-		ipcMain.handle('writeFile', (_ev, filePath, content) => fileUtil.write(filePath, content));
-		ipcMain.handle('setDirty', (_ev, value) => {
-			dirty = !!value;
-			return dirty;
-		});
-		ipcMain.handle('minimize', () => {
-			if (win) win.minimize();
-		});
-		ipcMain.handle('toggleMaximize', () => {
-			if (!win) return false;
-			if (win.isMaximized()) {
-				win.unmaximize();
-				return false;
-			}
-			win.maximize();
-			return true;
-		});
-		ipcMain.handle('close', () => requestClose());
-		ipcMain.on('getLoadModeSync', event => {
-			event.returnValue = loadMode;
-		});
-		ipcMain.handle('getLoadMode', () => loadMode);
-		ipcMain.handle('toggleLoadMode', () => toggleLoadMode());
-		ipcMain.on('getHostThemeSync', event => {
-			event.returnValue = getHostThemePayload();
-		});
-		ipcMain.handle('getHostTheme', () => getHostThemePayload());
+		registerIpc();
 
 		hostTheme = toHostThemePayload(detectHostTheme());
 		bootLog(`hostTheme initial ${JSON.stringify(hostTheme)}`);
@@ -534,55 +605,7 @@ if (!gotLock) {
 			app.dock.setIcon(icon);
 		}
 
-		const electronMajor = parseInt(String(process.versions.electron || '0').split('.')[0], 10) || 0;
-		const openProjectItem = {
-			label: 'Open Project…',
-			accelerator: 'CmdOrCtrl+O',
-			click: () => {
-				if (!win || win.isDestroyed()) return;
-				win.webContents.send('open-folder-request');
-			}
-		};
-		const menuTemplate = [
-			{
-				label: app.name || 'iBloKz IDE',
-				submenu: [
-					{role: 'about'},
-					{type: 'separator'},
-					{role: 'quit'}
-				]
-			},
-			{
-				label: 'File',
-				submenu: [openProjectItem]
-			},
-			{
-				label: 'Edit',
-				submenu: [
-					{role: 'undo'},
-					{role: 'redo'},
-					{type: 'separator'},
-					{role: 'cut'},
-					{role: 'copy'},
-					{role: 'paste'},
-					{role: 'selectall'}
-				]
-			},
-			{
-				label: 'View',
-				submenu: [
-					{role: 'reload'},
-					{role: 'toggledevtools'},
-					{type: 'separator'},
-					{role: 'togglefullscreen'}
-				]
-			}
-		];
-		// Always set File → Open Project so Cmd/Ctrl+O works (renderer hotkey defers to this).
-		Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
-		if (electronMajor > 0 && electronMajor < 12) {
-			bootLog('legacy: application menu set');
-		}
+		buildAppMenu();
 
 		win = createWindow();
 
@@ -603,4 +626,21 @@ if (!gotLock) {
 	app.on('will-quit', () => {
 		stopHostThemeWatch();
 	});
+};
+
+if (singleInstance) {
+	const gotLock = app.requestSingleInstanceLock();
+	if (!gotLock) {
+		app.quit();
+	} else {
+		app.on('second-instance', () => {
+			if (!win || win.isDestroyed()) return;
+			if (win.isMinimized()) win.restore();
+			win.show();
+			win.focus();
+		});
+		startApp();
+	}
+} else {
+	startApp();
 }

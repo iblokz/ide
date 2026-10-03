@@ -13,9 +13,8 @@ Successor to earlier CodeMirror / PHP experiments, expanded from a slide-framewo
 - Open a local folder (desktop full FS via Electron; browser File System Access API or directory input; Android/iOS user-picked folder via Capacitor SAF / document picker)
 - File tree, open / save (when the backend is writable), recent project names
 - Unsaved-change confirm on leave / window close; drag-and-drop to open files
-- Resizable sidebar, editor, preview, and console panes
-- Layout cycle: editor only → editor + preview → full (persisted in `localStorage`)
-- Light / dark theme toggle
+- Resizable sidebar, editor, preview, and console panes (layout toggles; not persisted yet)
+- Light / dark theme toggle and recent projects (persisted — see [docs/storage.md](docs/storage.md))
 
 ## Run / build matrix
 
@@ -78,6 +77,10 @@ Homebrew/apt equivalents are printed by the scripts when a tool is missing.
 | **Web** | Folder the user grants (File System Access) or a one-shot directory input (read; write depends on API support) |
 | **Android / iOS (Capacitor)** | User-picked folder (Android SAF / iOS document picker + security-scoped bookmark) |
 
+### Preferences / client storage
+
+Theme and recent project roots use `localStorage`. Electron also keeps a small user `settings.yml` (e.g. single vs multi window). Details: [docs/storage.md](docs/storage.md). Layout, tabs, and window geometry are not persisted yet.
+
 ## Stack
 
 - [Parcel](https://parceljs.org/) — bundler
@@ -94,7 +97,7 @@ Homebrew/apt equivalents are printed by the scripts when a tool is missing.
 
 ## Versioning
 
-SemVer + [Keep a Changelog](CHANGELOG.md). Release order: **bump `package.json` → commit → tag `vX.Y.Z`** (see [docs/RELEASE.md](docs/RELEASE.md)). Artifact names come from `package.json`, so the tag must sit on the bump commit. Pushing a `v*` tag builds native artifacts for the GitHub Release.
+SemVer + [Keep a Changelog](CHANGELOG.md). Release order: **bump `package.json` → commit → tag `vX.Y.Z`** (see [docs/release.md](docs/release.md)). Artifact names come from `package.json`, so the tag must sit on the bump commit. Pushing a `v*` tag builds native artifacts for the GitHub Release.
 
 ## License
 

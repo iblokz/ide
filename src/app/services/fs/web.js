@@ -55,7 +55,6 @@ const downloadText = (filename, content) => {
 	a.download = filename || 'untitled.txt';
 	a.rel = 'noopener';
 	const mount = document.body
-		|| document.querySelector('#ui')
 		|| document.documentElement;
 	mount.appendChild(a);
 	a.click();
@@ -190,7 +189,6 @@ const pickWithInput = () => new Promise(resolve => {
 	input.style.display = 'none';
 
 	const mount = document.body
-		|| document.querySelector('#ui')
 		|| document.documentElement;
 	if (!mount) {
 		resolve(null);

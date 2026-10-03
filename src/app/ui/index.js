@@ -1,67 +1,15 @@
-import {body, main, section, p, button, i} from 'iblokz-snabbdom-helpers';
+import {body, main} from 'iblokz-snabbdom-helpers';
 import {fn} from 'iblokz-data';
 import {themeClass, hostStyleProps} from '../util/theme';
 import {isStartView} from '../util/project';
-import {canSave, saveHint} from '../util/save';
-import {triggerSave} from '../util/trigger-save';
 import {clamp} from '../util/split-drag';
 import header from './header';
 import sideBar from './side-bar';
-import codebin from './codebin';
-import imageViewer from './image-viewer';
+import workspace from './workspace';
 import startScreen from './start-screen';
 import splitGutter from './comp/split-gutter';
-import findBar from './comp/find-bar';
 
-const editorPane = ({state, actions}) => {
-	if (!(state.file && state.file.name)) {
-		return section('.empty-editor', [
-			p(['Select a file from the sidebar to open it.'])
-		]);
-	}
-	if (state.type === 'image') {
-		return imageViewer({file: state.file});
-	}
-	return codebin({
-		source: state.source || '',
-		pos: state.pos,
-		scroll: state.scroll || {top: 0, left: 0},
-		tabId: state.activeTabId || null,
-		type: state.type || 'js',
-		layout: state.layout ?? {},
-		setLayout: patch => actions.layout.set(patch),
-		change: (source, pos) => actions.editor.updateSource(source, pos),
-		updatePos: pos => actions.editor.updatePos(pos),
-		updateScroll: (scroll, tabId) => actions.editor.updateScroll(scroll, tabId),
-		undo: () => actions.editor.undo(),
-		redo: () => actions.editor.redo()
-	});
-};
-
-const editorFloat = ({state, actions}) => {
-	if (!(state.file && state.file.name) || state.type === 'image') {
-		return null;
-	}
-	return section('.editor-float', [
-		findBar({state, actions}),
-		button('.save-file', {
-			attrs: {
-				'aria-label': 'Save file',
-				title: state.saveError || saveHint(state),
-				type: 'button'
-			},
-			props: {
-				disabled: !canSave(state)
-			},
-			on: {
-				click: ev => {
-					ev.preventDefault();
-					triggerSave({state, actions});
-				}
-			}
-		}, [i('.fa.fa-save')])
-	]);
-};
+const gutter = splitGutter.default ?? splitGutter;
 
 export default ({state, actions}) => fn.pipe(
 	() => ({
@@ -70,7 +18,7 @@ export default ({state, actions}) => fn.pipe(
 		hostStyle: hostStyleProps(state.theme && state.theme.host)
 	}),
 	({toggles, dim, hostStyle}) => body(
-		`#ui.${themeClass((state.theme && state.theme.mode) || 'dark')}${isStartView(state) ? '.start' : ''}`,
+		`.app.${themeClass((state.theme && state.theme.mode) || 'dark')}${isStartView(state) ? '.start' : ''}`,
 		hostStyle ? {style: hostStyle} : {},
 		isStartView(state)
 			? [
@@ -82,11 +30,11 @@ export default ({state, actions}) => fn.pipe(
 					actions,
 					width: toggles.leftSideBar ? dim.leftSideBar : 0
 				}),
-				splitGutter({
+				gutter({
 					axis: 'x',
 					hidden: !toggles.leftSideBar,
 					onStart: () => {
-						const el = document.querySelector('.side-bar');
+						const el = document.querySelector('.left-pane');
 						return {
 							el,
 							start: el ? el.getBoundingClientRect().width : dim.leftSideBar
@@ -102,10 +50,9 @@ export default ({state, actions}) => fn.pipe(
 						actions.layout.set({leftSideBar: next});
 					}
 				}),
-				main('.main', [
+				main('.layout', [
 					header({state, actions}),
-					editorFloat({state, actions}),
-					editorPane({state, actions})
+					workspace({state, actions})
 				])
 			]
 	)

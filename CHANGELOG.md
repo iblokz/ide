@@ -7,7 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### (none)
+## [1.20.0] - 2026-10-03
+
+### Added
+
+- [docs/storage.md](docs/storage.md) — what we persist (`localStorage` keys) and where it lands per platform
+- Electron user settings YAML (`config/settings.yml` defaults → `userData/settings.yml`): `windows.singleInstance` (default `false`); File → Open Settings File…
+- Phase 2 workspace shell: `body.app` → `aside.left-pane` + `main.layout` (`header` + `.workspace` with `.editor` / `.preview`)
+- Codebin kit split: `editor` / `preview` / `console` / `vm` / `preview-pane` / `embed` under `ui/codebin/` (IDE picks pieces; `embed` for slides-style compose)
+- Workspace columns as folders: `ui/workspace/editor`, `ui/workspace/preview`
+- Preview state domain (`actions.preview.*`): File | URL toggle (chrome left); default `about:blank`, preview pane off; Markdown + SVG file previews under `workspace/preview/file` (themed via host `--app-*` tokens)
+- Preview open/close animation (flex-basis, same timing as left-pane)
+- Per-project workspace sessions (`iblokz-ide-project-sessions`): layout, preview URL/mode, open tab paths + active file — restored on folder open
+
+### Changed
+
+- README: correct layout persistence claim; link preferences docs
+- Docs under `docs/` use lowercase kebab filenames (`storage.md`, `release.md`); keep uppercase only for conventional roots (`README`, `CHANGELOG`, …)
+- Second Electron launch opens another window unless `windows.singleInstance: true` in user settings
+- Dropped `codebin.panes-*` layout modes; preview is a workspace sibling of the editor
+- Sidebar DOM/class: `.side-bar` → `aside.left-pane`; save/find float → `.editor-toolbox` under `.editor`
 
 ---
 
@@ -322,7 +341,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Empty editor placeholder when a project is open but no file is selected
-- Documented release order (bump → commit → tag) in `docs/RELEASE.md` and `.cursor/rules/releases.mdc`
+- Documented release order (bump → commit → tag) in `docs/release.md` and `.cursor/rules/releases.mdc`
 
 ### Fixed
 
@@ -366,7 +385,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Native CI (AppImage + Android APK; macOS/iOS stubs); tag releases attach artifacts
 - Dirty close confirm, drag-and-drop open, light Electron FS watch (`chokidar`)
 - `./bin/deploy.sh --electron` installs AppImage + `.desktop` / icon / `~/.local/bin` launcher
-- SemVer history, Keep a Changelog, and [docs/RELEASE.md](docs/RELEASE.md)
+- SemVer history, Keep a Changelog, and [docs/release.md](docs/release.md)
 
 ### Fixed
 
