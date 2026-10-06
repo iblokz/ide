@@ -47,12 +47,16 @@ const PREVIEW_THEME_VARS = [
 /**
  * Snapshot live `--app-*` tokens from the host document so srcdoc iframes
  * can use the same palette (CSS variables do not cross iframe boundaries).
+ *
+ * Prefer `documentElement`: `applyDocumentTheme` updates it before the UI
+ * patch, while `body.app` still has the previous theme class during vnode build.
+ * When called from iframe hooks (after body patch), either node is fine.
  */
 export const snapshotPreviewTheme = (mode = 'dark') => {
 	const resolved = mode === 'light' ? 'light' : 'dark';
 	let vars = '';
 	if (typeof document !== 'undefined') {
-		const el = document.querySelector('body.app') || document.documentElement;
+		const el = document.documentElement;
 		const cs = getComputedStyle(el);
 		vars = PREVIEW_THEME_VARS
 			.map(name => {

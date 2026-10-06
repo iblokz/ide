@@ -2,16 +2,18 @@
  * Markdown file preview — themed via host `--app-*` tokens.
  */
 import {section, h} from 'iblokz-snabbdom-helpers';
+import {snapshotPreviewTheme} from '../../../../util/preview-file.js';
 import {markdownToHtml} from './markdown.js';
 
 const wrapHtml = (body, theme) => {
 	const mode = (theme && theme.mode) || 'dark';
 	const vars = (theme && theme.vars) || '';
+	// No color-scheme meta: a mismatch with snapped vars makes Chromium invert the iframe.
 	return `<!doctype html><html data-theme="${mode}"><head><meta charset="utf-8">
-<meta name="color-scheme" content="${mode}">
 <style>
   :root {
 	${vars}
+	color-scheme: ${mode};
   }
   html, body {
 	margin: 0;
@@ -62,18 +64,23 @@ const applySrcdoc = (elm, html) => {
 	elm.srcdoc = html;
 };
 
-export default ({source, fileName = 'preview.md', theme}) => {
-	const html = wrapHtml(markdownToHtml(source), theme);
+export default ({source, fileName = 'preview.md', themeMode = 'dark'}) => {
+	const bodyHtml = markdownToHtml(source);
+	// Snapshot in hooks — body.app theme class is patched before child update hooks run.
+	const paint = elm => {
+		applySrcdoc(elm, wrapHtml(bodyHtml, snapshotPreviewTheme(themeMode)));
+	};
+
 	return section('.preview-file.preview-markdown', [
 		h('iframe.preview-file-frame', {
 			attrs: {
 				title: fileName,
 				sandbox: 'allow-same-origin'
 			},
+			dataset: {themeMode: String(themeMode || 'dark')},
 			hook: {
-				// Snabbdom often skips patching iframe `srcdoc` via props — set it explicitly.
-				insert: ({elm}) => applySrcdoc(elm, html),
-				update: (_old, {elm}) => applySrcdoc(elm, html)
+				insert: ({elm}) => paint(elm),
+				update: (_old, {elm}) => paint(elm)
 			}
 		})
 	]);

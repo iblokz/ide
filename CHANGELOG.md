@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-10-06
+
+### Added
+
+- Tab / Shift+Tab indent from the opened project’s `.editorconfig` (`indent_style`, `indent_size`, `tab_width`); search stays inside the project root
+- **Mod+[** / **Mod+]** outdent / indent (same as Shift+Tab / Tab)
+- `pnpm run build:check` writes to `.tmp/parcel-check` so compile checks don’t overwrite `dist/` or race Parcel HMR
+
+### Fixed
+
+- Shift+Tab on existing space indents strips a full `indent_size` (not one space when style is tab)
+- Markdown / SVG file preview no longer inverts when toggling light/dark (theme tokens snapshotted after the host class update)
+
+---
+
 ## [1.20.0] - 2026-10-03
 
 ### Added

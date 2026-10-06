@@ -67,11 +67,15 @@ export default ({
 	type,
 	scroll = {top: 0, left: 0},
 	tabId = null,
+	indent,
 	change = () => {},
 	updateScroll = () => {},
 	undo = () => {},
 	redo = () => {}
 }) => code(`.source[type="${type}"][contenteditable="true"][spellcheck="false"]`, {
+	style: {
+		tabSize: String((indent && indent.tabWidth) || 2)
+	},
 	attrs: {
 		spellcheck: 'false',
 		autocorrect: 'off',
@@ -140,11 +144,38 @@ export default ({
 	on: {
 		scroll: ev => scheduleScrollSave(ev.target, tabId, updateScroll),
 		keydown: ev => {
-			if (ev.key === 'Tab') {
+			if (ev.key === 'Tab' && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
 				ev.preventDefault();
 				inputSyncGen += 1;
-				caretApi.indent(ev.target, ev.shiftKey === true ? 'left' : 'right');
-				ev.target.dispatchEvent(new Event('input'));
+				try {
+					const el = ev.currentTarget || ev.target;
+					const curSource = unprettify(el.innerHTML) || source || '';
+					let cur;
+					try {
+						cur = caretApi.get(el);
+					} catch (err) {
+						const lines = curSource.split('\n');
+						const row = Math.max(0, lines.length - 1);
+						const col = (lines[row] || '').length;
+						cur = {
+							start: {row, col},
+							end: {row, col}
+						};
+					}
+					const next = caretApi.applyIndent(
+						curSource,
+						cur,
+						ev.shiftKey === true ? 'left' : 'right',
+						indent
+					);
+					const liveScroll = readScroll(el);
+					el.innerHTML = prettifySource(next.source, type);
+					applyScroll(el, liveScroll);
+					caretApi.set(el, next.pos);
+					change(next.source, next.pos);
+				} catch (err) {
+					console.warn('[codebin/editor] Tab failed', err);
+				}
 			} else if (ev.key === 'Enter' && !ev.shiftKey && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
 				ev.preventDefault();
 				inputSyncGen += 1;

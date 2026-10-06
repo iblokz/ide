@@ -2,6 +2,7 @@
  * SVG file preview — isolated document on the app theme background.
  */
 import {section, h} from 'iblokz-snabbdom-helpers';
+import {snapshotPreviewTheme} from '../../../../util/preview-file.js';
 
 const asSvgMarkup = source => {
 	const raw = String(source || '').trim();
@@ -16,10 +17,10 @@ const wrapHtml = (svg, theme) => {
 	const mode = (theme && theme.mode) || 'dark';
 	const vars = (theme && theme.vars) || '';
 	return `<!doctype html><html data-theme="${mode}"><head><meta charset="utf-8">
-<meta name="color-scheme" content="${mode}">
 <style>
   :root {
 	${vars}
+	color-scheme: ${mode};
   }
   html, body {
 	margin: 0;
@@ -51,17 +52,22 @@ const applySrcdoc = (elm, html) => {
 	elm.srcdoc = html;
 };
 
-export default ({source, fileName = 'preview.svg', theme}) => {
-	const html = wrapHtml(asSvgMarkup(source), theme);
+export default ({source, fileName = 'preview.svg', themeMode = 'dark'}) => {
+	const svg = asSvgMarkup(source);
+	const paint = elm => {
+		applySrcdoc(elm, wrapHtml(svg, snapshotPreviewTheme(themeMode)));
+	};
+
 	return section('.preview-file.preview-svg', [
 		h('iframe.preview-file-frame', {
 			attrs: {
 				title: fileName,
 				sandbox: 'allow-same-origin'
 			},
+			dataset: {themeMode: String(themeMode || 'dark')},
 			hook: {
-				insert: ({elm}) => applySrcdoc(elm, html),
-				update: (_old, {elm}) => applySrcdoc(elm, html)
+				insert: ({elm}) => paint(elm),
+				update: (_old, {elm}) => paint(elm)
 			}
 		})
 	]);

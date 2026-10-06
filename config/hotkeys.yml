@@ -3,6 +3,8 @@ Mod+O: project.openFolder
 Mod+F: openFind
 Mod+P: openFileSearch
 "Mod+/": editor.toggleComment
+"Mod+[": editor.outdent
+"Mod+]": editor.indent
 Mod+Tab: nextTab
 Mod+Shift+Tab: prevTab
 Mod+PageDown: nextTab

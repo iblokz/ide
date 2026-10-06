@@ -26,6 +26,9 @@ const keyMatches = (ev, b) => {
 	if (pressed === b.key) return true;
 	// Physical `/` key (some layouts need Shift for `/`; Mod+/ still uses Slash).
 	if (b.key === '/' && ev.code === 'Slash') return true;
+	// Ctrl+[ is ESC in terminals; Chromium may set key to Escape — use the physical key.
+	if (b.key === '[' && (ev.code === 'BracketLeft' || ev.keyCode === 219)) return true;
+	if (b.key === ']' && (ev.code === 'BracketRight' || ev.keyCode === 221)) return true;
 	return false;
 };
 
@@ -75,7 +78,7 @@ const run = (action, actions = {}) => {
 export let stop = () => {};
 
 export const start = (actions = {}) => {
-	const sub = fromEvent(document, 'keydown').subscribe(ev => {
+	const sub = fromEvent(document, 'keydown', {capture: true}).subscribe(ev => {
 		const hit = bindings.find(b => match(ev, b));
 		if (!hit) return;
 		ev.preventDefault();

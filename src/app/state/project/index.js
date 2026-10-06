@@ -17,6 +17,7 @@ import {
 	fileStubFromPath,
 	resolveFileInTree
 } from '../../util/session.js';
+import {clearEditorconfigCache, resolveIndent, DEFAULT_INDENT} from '../../util/editorconfig.js';
 import {getFs, probeCapabilities, resetFs} from '../../services/fs';
 import {
 	emptyTabFields,
@@ -83,6 +84,20 @@ const clearOpenFile = state => {
 
 const loadFile = file => state => clearFileSearchUi(upsertTab(state, createTextTab(file)));
 
+const loadFileWithIndent = (file, sourcePatch) => state => {
+	const base = Object.assign({}, file, sourcePatch || {});
+	const rootPath = state.project && state.project.path;
+	resolveIndent(getFs(), base.path, rootPath)
+		.catch(err => {
+			console.warn('[editorconfig] resolve failed', err);
+			return DEFAULT_INDENT;
+		})
+		.then(indent => {
+			dispatch(loadFile(Object.assign({}, base, {indent: indent || DEFAULT_INDENT})));
+		});
+	return state;
+};
+
 const loadImage = file => state => clearFileSearchUi(upsertTab(state, createImageTab(file)));
 
 const openImage = file => {
@@ -112,7 +127,7 @@ export const openFile = file => {
 	if (kind === 'binary' || file.readable === false) {
 		return state => state;
 	}
-	if (typeof file.source === 'string') return loadFile(file);
+	if (typeof file.source === 'string') return loadFileWithIndent(file);
 
 	const fs = getFs();
 	return fs.readFile(file)
@@ -120,7 +135,7 @@ export const openFile = file => {
 			if (typeof source !== 'string') {
 				throw new Error('File read did not return text');
 			}
-			return loadFile(Object.assign({}, file, {source, kind: 'text'}));
+			return loadFileWithIndent(file, {source, kind: 'text'});
 		})
 		.catch(err => {
 			console.error('openFile failed', file && file.path, err);
@@ -245,6 +260,7 @@ const applyProjectResult = (fs, result) => {
 	const key = sessionKey(result);
 	const session = loadSession(key);
 	const token = beginSessionRestore();
+	clearEditorconfigCache();
 	queueMicrotask(() => {
 		restoreSessionTabs(session, result.filesTree || [], token);
 	});

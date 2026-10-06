@@ -10,6 +10,8 @@ import {
 	toggleComment as toggleCommentInSource,
 	readLiveEditor
 } from '../../util/toggle-comment.js';
+import {applyIndent} from '../../util/caret.js';
+import {DEFAULT_INDENT} from '../../util/editorconfig.js';
 
 /** No dedicated slice yet — buffer fields live on the active tab / root mirrors. */
 export const initial = {};
@@ -100,6 +102,29 @@ export const toggleComment = () => state => {
 	return updateSource(next.source, next.pos)(state);
 };
 
+const indentBy = direction => state => {
+	if (!state.file || state.type === 'image') return state;
+	let source = state.source || '';
+	let pos = state.pos || emptyPos;
+	const live = readLiveEditor();
+	if (live) {
+		if (typeof live.source === 'string') source = live.source;
+		if (live.pos) pos = live.pos;
+	}
+	const next = applyIndent(source, pos, direction, state.indent || DEFAULT_INDENT);
+	if (next.source === source
+		&& next.pos.start.row === pos.start.row
+		&& next.pos.start.col === pos.start.col
+		&& next.pos.end.row === pos.end.row
+		&& next.pos.end.col === pos.end.col) {
+		return state;
+	}
+	return updateSource(next.source, next.pos)(state);
+};
+
+export const indent = () => indentBy('right');
+export const outdent = () => indentBy('left');
+
 export default {
 	initial,
 	updateSource,
@@ -107,5 +132,7 @@ export default {
 	updateScroll,
 	undo,
 	redo,
-	toggleComment
+	toggleComment,
+	indent,
+	outdent
 };

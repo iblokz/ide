@@ -1,3 +1,5 @@
+import {DEFAULT_INDENT, indentInsert} from './editorconfig.js';
+
 export const getParent = (el, tagName) => {
 	if (!el || !el.parentNode || el.parentNode.nodeType !== 1) return null;
 	return (el.parentNode.tagName === tagName)
@@ -121,36 +123,90 @@ export const set = (el, pos) => {
 	sel.addRange(range);
 };
 
-export const indent = (el, direction = 'right') => {
-	let range = window.getSelection().getRangeAt(0);
-	let startLi = (range.startContainer.tagName === 'LI')
-		? range.startContainer : getParent(range.startContainer, 'LI');
-	let startIndex = getElIndex(startLi);
-	let endLi = (range.endContainer.tagName === 'LI')
-		? range.endContainer : getParent(range.endContainer, 'LI');
-	let endIndex = getElIndex(endLi);
-	if (startIndex === endIndex && direction === 'right') {
-		document.execCommand('insertHTML', false, '&#009');
-	} else {
-		Array.from(startLi.parentNode.children)
-			.filter((li, i) => i >= startIndex && i <= endIndex)
-			.forEach(li => {
-				if (direction === 'right') {
-					let tabSpan = document.createElement('span');
-					tabSpan.innerHTML = '\t';
-					li.prepend(tabSpan);
-				} else {
-					console.log(`>${li.children[0].innerHTML}<`);
-					Array.from(li.children).forEach(spEl => spEl.innerHTML === '' && spEl.remove());
-					li.children[0].innerHTML = li.children[0].innerHTML.replace(/^\t/, '');
-				}
-			});
+const clampPos = (pos, lines) => {
+	const maxRow = Math.max(0, lines.length - 1);
+	const row = Math.max(0, Math.min(pos.row, maxRow));
+	const col = Math.max(0, Math.min(pos.col, (lines[row] || '').length));
+	return {row, col};
+};
+
+const indentSize = indent =>
+	Math.max(1, Math.min(16, (indent && (indent.size || indent.tabWidth)) || 2));
+
+/** Strip one indent unit: a leading tab, or up to `indent_size` spaces. */
+const outdentLine = (line, indent) => {
+	if (line.startsWith('\t')) {
+		return {line: line.slice(1), n: 1};
 	}
+	const size = indentSize(indent);
+	const m = line.match(new RegExp(`^ {1,${size}}`));
+	if (!m) return {line, n: 0};
+	return {line: line.slice(m[0].length), n: m[0].length};
+};
+
+/**
+ * Indent / outdent source for Tab / Shift+Tab.
+ * - Collapsed + right: insert one indent unit at caret
+ * - Otherwise: pad / strip one level on each line in the selection
+ * `indent` comes from project `.editorconfig` (`indent_style` / `indent_size`).
+ */
+export const applyIndent = (source, pos, direction = 'right', indent = DEFAULT_INDENT) => {
+	const insert = indentInsert(indent);
+	const lines = String(source || '').split('\n');
+	if (!pos || !pos.start) {
+		return {source: lines.join('\n'), pos};
+	}
+	const start = clampPos(pos.start, lines);
+	const end = clampPos(pos.end || pos.start, lines);
+	const top = Math.min(start.row, end.row);
+	const bottom = Math.max(start.row, end.row);
+	const collapsed = start.row === end.row && start.col === end.col;
+	const next = lines.slice();
+
+	if (direction === 'right' && collapsed) {
+		const line = next[start.row] || '';
+		next[start.row] = line.slice(0, start.col) + insert + line.slice(start.col);
+		const col = start.col + insert.length;
+		return {
+			source: next.join('\n'),
+			pos: {
+				start: {row: start.row, col},
+				end: {row: start.row, col}
+			}
+		};
+	}
+
+	const removed = {};
+	for (let r = top; r <= bottom; r++) {
+		const line = next[r] || '';
+		if (direction === 'right') {
+			next[r] = insert + line;
+			removed[r] = -insert.length;
+		} else {
+			const out = outdentLine(line, indent);
+			next[r] = out.line;
+			removed[r] = out.n;
+		}
+	}
+
+	const shiftCol = (p) => {
+		const n = removed[p.row] || 0;
+		if (n <= 0) return {row: p.row, col: p.col - n};
+		return {row: p.row, col: Math.max(0, p.col - n)};
+	};
+
+	return {
+		source: next.join('\n'),
+		pos: {
+			start: shiftCol(start),
+			end: shiftCol(end)
+		}
+	};
 };
 
 export default {
 	get,
 	rangeForPos,
 	set,
-	indent
+	applyIndent
 };

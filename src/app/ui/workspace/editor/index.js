@@ -48,6 +48,7 @@ const surface = ({state, actions}) => {
 		scroll: state.scroll || {top: 0, left: 0},
 		tabId: state.activeTabId || null,
 		type: state.type || 'js',
+		indent: state.indent,
 		change: (source, pos) => actions.editor.updateSource(source, pos),
 		updatePos: pos => actions.editor.updatePos(pos),
 		updateScroll: (scroll, tabId) => actions.editor.updateScroll(scroll, tabId),

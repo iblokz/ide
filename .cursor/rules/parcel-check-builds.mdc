@@ -1,0 +1,18 @@
+---
+description: Verify Parcel builds without stomping dist/ or the HMR cache
+alwaysApply: true
+---
+
+# Parcel check builds
+
+When verifying that the app still bundles (compile check), **do not** run plain `parcel build` into `dist/` or use the default `.parcel-cache` — that races `parcel serve` HMR and overwrites Electron/Cap static `dist/`.
+
+Use:
+
+```bash
+pnpm run build:check
+```
+
+(`--dist-dir .tmp/parcel-check` + `--cache-dir .tmp/parcel-check-cache`)
+
+Only write to `dist/` when the user explicitly asks for a real build/deploy (`build`, `build:electron`, `build:cap`, etc.).
