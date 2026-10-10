@@ -503,6 +503,11 @@ const registerIpc = () => {
 	ipcMain.handle('readFile', (_ev, filePath) => fileUtil.read(filePath));
 	ipcMain.handle('readFileDataUrl', (_ev, filePath) => fileUtil.readDataUrl(filePath));
 	ipcMain.handle('writeFile', (_ev, filePath, content) => fileUtil.write(filePath, content));
+	ipcMain.handle('mkdir', (_ev, dirPath, name) => fileUtil.mkdir(dirPath, name));
+	ipcMain.handle('createFile', (_ev, dirPath, name, content) =>
+		fileUtil.createFile(dirPath, name, content));
+	ipcMain.handle('renamePath', (_ev, oldPath, newName) => fileUtil.rename(oldPath, newName));
+	ipcMain.handle('removePath', (_ev, targetPath, opts) => fileUtil.remove(targetPath, opts));
 	ipcMain.handle('setDirty', (_ev, value) => {
 		dirty = !!value;
 		return dirty;

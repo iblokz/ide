@@ -135,6 +135,35 @@ public class ScopedFolderPlugin: CAPPlugin, UIDocumentPickerDelegate {
         }
     }
 
+    @objc func rename(_ call: CAPPluginCall) {
+        withFolderURL(call) { folderURL in
+            guard let path = call.getString("path"),
+                  let newName = call.getString("newName")?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !newName.isEmpty,
+                  !newName.contains("/"),
+                  !newName.contains("\\"),
+                  newName != ".",
+                  newName != ".." else {
+                throw ScopedFolderError.invalidArgument
+            }
+            let source = folderURL.appendingScopedPath(path)
+            let dest = source.deletingLastPathComponent().appendingPathComponent(newName)
+            try FileManager.default.moveItem(at: source, to: dest)
+            call.resolve()
+        }
+    }
+
+    @objc func remove(_ call: CAPPluginCall) {
+        withFolderURL(call) { folderURL in
+            guard let path = call.getString("path") else {
+                throw ScopedFolderError.invalidArgument
+            }
+            let target = folderURL.appendingScopedPath(path)
+            try FileManager.default.removeItem(at: target)
+            call.resolve()
+        }
+    }
+
     private func withFolderURL(_ call: CAPPluginCall, _ block: (URL) throws -> Void) {
         guard let folder = call.getObject("folder"),
               let id = folder["id"] as? String,

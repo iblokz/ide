@@ -1,5 +1,7 @@
 import {obj} from 'iblokz-data';
 
+const SIDE_BAR_SECTIONS = ['fileTree', 'search', 'git'];
+
 export const initial = {
 	toggles: {
 		leftSideBar: true,
@@ -14,7 +16,9 @@ export const initial = {
 		bottomPanel: 320,
 		preview: 0.5,
 		previewConsole: 240
-	}
+	},
+	/** Left sidebar body: `fileTree` | `search` | `git`. */
+	sideBarSection: 'fileTree'
 };
 
 /** Toggle a layout panel by key (`leftSideBar`, `preview`, …). */
@@ -30,8 +34,15 @@ export const set = patch => state => Object.assign({}, state, {
 	})
 });
 
+/** Switch left sidebar section (`fileTree` / `search` / `git`). */
+export const setSideBarSection = section => state => {
+	const next = SIDE_BAR_SECTIONS.indexOf(section) >= 0 ? section : 'fileTree';
+	return obj.patch(state, ['layout', 'sideBarSection'], next);
+};
+
 export default {
 	initial,
 	toggle,
-	set
+	set,
+	setSideBarSection
 };

@@ -3,7 +3,7 @@
 const {obj, arr} = require('iblokz-data');
 const {dispatch} = require('iblokz-state');
 const {loadRecent} = require('../util/recent');
-const {getFs} = require('../services/fs');
+const {getFs} = require('../adapters/fs');
 
 const revokeFileUrl = file => {
 	if (!file || !file.url) return;
@@ -29,6 +29,7 @@ const layout = require('./layout').default ?? require('./layout');
 const theme = require('./theme').default ?? require('./theme');
 const editor = require('./editor').default ?? require('./editor');
 const project = require('./project').default ?? require('./project');
+const fileTree = require('./file-tree').default ?? require('./file-tree');
 const preview = require('./preview').default ?? require('./preview');
 const find = require('./find').default ?? require('./find');
 const fileSearch = require('./file-search').default ?? require('./file-search');
@@ -62,7 +63,6 @@ const initial = Object.assign({
 	recentRoots: loadRecent(),
 	tabs: [],
 	activeTabId: null,
-	filesTree: [],
 	find: emptyFind,
 	fileSearch: emptyFileSearch
 }, emptyTabFields());
@@ -300,7 +300,10 @@ const openFileSearch = () => state => {
 		});
 	}
 	if (needsIndex && !cur.indexing) {
-		startFileSearchIndex(state.filesTree || [], projectPath);
+		startFileSearchIndex(
+			(state.fileTree && state.fileTree.nodes) || [],
+			projectPath
+		);
 	}
 	return next;
 };
@@ -313,6 +316,7 @@ module.exports = {
 	theme,
 	editor,
 	project,
+	fileTree,
 	preview,
 	find,
 	fileSearch,

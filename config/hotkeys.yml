@@ -1,5 +1,6 @@
 ---
 Mod+O: project.openFolder
+F2: fileTree.renameSelected
 Mod+F: openFind
 Mod+P: openFileSearch
 "Mod+/": editor.toggleComment

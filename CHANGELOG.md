@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### (none)
+
+## [1.22.0] - 2026-10-10
+
+### Added
+
+- File tree UI: new file / new folder on the root node; folders selectable; rename (edit) icon on the selected item; long-press toggles a delete icon
+- File tree: inline name field for rename / new file / new folder (Enter / ✓ commits, Esc / ✕ cancels) — no `window.prompt`
+- **F2** renames the selected file-tree item (skipped while typing in the editor)
+- Filesystem mutations wired across Electron, Capacitor, and web FSA (`createFile` / `mkdir` / `rename` / `remove`); gated by `canWrite`
+- Markdown preview: GFM tables, task-list checkboxes (`- [ ]` / `- [x]`), mermaid fenced diagrams (SVG via `mermaid@10`)
+- Left sidebar section switcher placeholder: Explorer / Search / Source Control (`layout.sideBarSection`)
+
+### Changed
+
+- Move FS backends `services/fs` → `adapters/fs`; `drop-files` → `util/drop-files` (app `services/` keeps `viewport` / `hotkeys`)
+- Electron: auto-reload open tabs when the file changes on disk if the tab is not dirty (dirty tabs still get `externalChange`)
+- File tree state/actions extracted to `state/file-tree` (`state.fileTree.nodes` / `selectedPath` / `treeEdit`; `actions.fileTree.*`)
+
+### Fixed
+
+- File tree: new file / new folder from the root actions create under the selected folder (or the selected file’s parent), not always the project root
+- File tree: action buttons do not activate/select the row (`preventDefault` / `stopPropagation`)
+- File tree: delete after long-press no longer uses `window.confirm` (unusable on mobile)
+- File tree: `resolveFileInTree` is files-only — create-parent resolution uses folder-capable lookup so selected folders work
+
 ## [1.21.0] - 2026-10-06
 
 ### Added
@@ -500,7 +526,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.17.1...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.22.0...HEAD
+[1.22.0]: https://github.com/iblokz/ide/compare/v1.21.0...v1.22.0
+[1.21.0]: https://github.com/iblokz/ide/compare/v1.20.0...v1.21.0
+[1.20.0]: https://github.com/iblokz/ide/compare/v1.19.0...v1.20.0
+[1.19.0]: https://github.com/iblokz/ide/compare/v1.18.0...v1.19.0
+[1.18.0]: https://github.com/iblokz/ide/compare/v1.17.1...v1.18.0
 [1.17.1]: https://github.com/iblokz/ide/compare/v1.17.0...v1.17.1
 [1.17.0]: https://github.com/iblokz/ide/compare/v1.16.0...v1.17.0
 [1.16.0]: https://github.com/iblokz/ide/compare/v1.15.1...v1.16.0

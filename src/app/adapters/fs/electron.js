@@ -101,6 +101,60 @@ const create = () => ({
 		}
 		await bridge.writeFile(node.path, content);
 		return {method: 'handle'};
+	},
+	async createFile(parentNode, name) {
+		const bridge = getBridge();
+		if (!bridge || typeof bridge.createFile !== 'function') {
+			throw new Error('Electron createFile not available');
+		}
+		const full = await bridge.createFile(parentNode.path, name, '');
+		const base = String(name || '').split(/[/\\]/).pop();
+		return {
+			path: full,
+			name: base,
+			isDir: false,
+			method: 'handle'
+		};
+	},
+	async mkdir(parentNode, name) {
+		const bridge = getBridge();
+		if (!bridge || typeof bridge.mkdir !== 'function') {
+			throw new Error('Electron mkdir not available');
+		}
+		const full = await bridge.mkdir(parentNode.path, name);
+		const base = String(name || '').split(/[/\\]/).pop();
+		return {
+			path: full,
+			name: base,
+			isDir: true,
+			method: 'handle'
+		};
+	},
+	async rename(node, newName) {
+		const bridge = getBridge();
+		if (!bridge || typeof bridge.renamePath !== 'function') {
+			throw new Error('Electron rename not available');
+		}
+		const full = await bridge.renamePath(node.path, newName);
+		return {
+			path: full,
+			name: String(newName || '').trim(),
+			isDir: !!node.isDir,
+			oldPath: node.path,
+			method: 'handle'
+		};
+	},
+	async remove(node) {
+		const bridge = getBridge();
+		if (!bridge || typeof bridge.removePath !== 'function') {
+			throw new Error('Electron remove not available');
+		}
+		await bridge.removePath(node.path, {recursive: !!node.isDir});
+		return {
+			path: node.path,
+			isDir: !!node.isDir,
+			method: 'handle'
+		};
 	}
 });
 

@@ -52,7 +52,7 @@ export default ({state, actions}) => {
 	const rootPath = state.project && state.project.path;
 	const indexed = fsState.indexPath === rootPath && Array.isArray(fsState.index)
 		? fsState.index
-		: flattenFiles(state.filesTree || []);
+		: flattenFiles((state.fileTree && state.fileTree.nodes) || []);
 	const results = filterFiles(indexed, query, rootPath);
 	const activeIndex = Math.max(
 		0,

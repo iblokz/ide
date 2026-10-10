@@ -77,6 +77,11 @@ contextBridge.exposeInMainWorld('app', {
 	readFile: filePath => ipcRenderer.invoke('readFile', filePath),
 	readFileDataUrl: filePath => ipcRenderer.invoke('readFileDataUrl', filePath),
 	writeFile: (filePath, content) => ipcRenderer.invoke('writeFile', filePath, content),
+	mkdir: (dirPath, name) => ipcRenderer.invoke('mkdir', dirPath, name),
+	createFile: (dirPath, name, content) =>
+		ipcRenderer.invoke('createFile', dirPath, name, content),
+	renamePath: (oldPath, newName) => ipcRenderer.invoke('renamePath', oldPath, newName),
+	removePath: (targetPath, opts) => ipcRenderer.invoke('removePath', targetPath, opts),
 	setDirty: value => ipcRenderer.invoke('setDirty', value),
 	onFsChange: callback => {
 		const handler = (_event, payload) => callback(payload);

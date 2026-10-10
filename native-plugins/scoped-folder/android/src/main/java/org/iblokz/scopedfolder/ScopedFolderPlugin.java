@@ -140,4 +140,14 @@ public class ScopedFolderPlugin extends Plugin {
     public void readdir(PluginCall call) {
         impl.readdir(call);
     }
+
+    @PluginMethod
+    public void rename(PluginCall call) {
+        impl.rename(call);
+    }
+
+    @PluginMethod
+    public void remove(PluginCall call) {
+        impl.remove(call);
+    }
 }

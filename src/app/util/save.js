@@ -1,6 +1,6 @@
 'use strict';
 
-const {getFs} = require('../services/fs');
+const {getFs} = require('../adapters/fs');
 const {isStartView} = require('./project');
 
 const hasWritableHandle = file => {

@@ -224,6 +224,37 @@ const writeToHandle = async (handle, content) => {
 	await writable.close();
 };
 
+const assertSafeName = name => {
+	const n = String(name || '').trim();
+	if (!n || n === '.' || n === '..' || /[/\\]/.test(n)) {
+		throw new Error('Invalid name');
+	}
+	return n;
+};
+
+const joinChildPath = (parentPath, name) =>
+	parentPath ? `${parentPath}/${name}` : name;
+
+const parentPathOf = filePath => {
+	const s = String(filePath || '');
+	const i = s.lastIndexOf('/');
+	return i > 0 ? s.slice(0, i) : '';
+};
+
+const requireDirHandle = node => {
+	const handle = getHandle(node && node.id);
+	if (!handle || handle.kind !== 'directory') {
+		throw new Error(`No directory handle for ${(node && node.path) || (node && node.name)}`);
+	}
+	return handle;
+};
+
+const forgetHandle = id => {
+	if (!id) return;
+	getSession().handles.delete(id);
+	getSession().fileBlobs.delete(id);
+};
+
 const pickWithFsa = async () => {
 	if (!hasDirectoryPicker()) return null;
 
@@ -410,6 +441,71 @@ const create = () => ({
 		// Last resort: download (always available)
 		downloadText((node && node.name) || 'untitled.txt', content);
 		return {method: 'download'};
+	},
+	async createFile(parentNode, name) {
+		const safe = assertSafeName(name);
+		const parent = requireDirHandle(parentNode);
+		const handle = await parent.getFileHandle(safe, {create: true});
+		await writeToHandle(handle, '');
+		const childPath = joinChildPath(parentNode.path || parent.name, safe);
+		const id = hashPath(childPath);
+		remember(id, handle);
+		return {path: childPath, name: safe, id, isDir: false, method: 'handle'};
+	},
+	async mkdir(parentNode, name) {
+		const safe = assertSafeName(name);
+		const parent = requireDirHandle(parentNode);
+		const handle = await parent.getDirectoryHandle(safe, {create: true});
+		const childPath = joinChildPath(parentNode.path || parent.name, safe);
+		const id = hashPath(childPath);
+		remember(id, handle);
+		return {path: childPath, name: safe, id, isDir: true, method: 'handle'};
+	},
+	async rename(node, newName) {
+		const safe = assertSafeName(newName);
+		const parentPath = parentPathOf(node.path);
+		const parentId = hashPath(parentPath);
+		const parent = getHandle(parentId);
+		if (!parent || parent.kind !== 'directory') {
+			throw new Error(`No parent directory handle for ${node.path}`);
+		}
+		const oldHandle = getHandle(node.id);
+		if (node.isDir) {
+			throw new Error('Renaming folders is not supported in the browser yet');
+		}
+		let content = '';
+		if (oldHandle && oldHandle.kind === 'file') {
+			const file = await oldHandle.getFile();
+			content = await file.text();
+		} else {
+			const blob = getBlob(node.id);
+			if (blob) content = await blob.text();
+		}
+		const nextHandle = await parent.getFileHandle(safe, {create: true});
+		await writeToHandle(nextHandle, content);
+		await parent.removeEntry(node.name);
+		const nextPath = joinChildPath(parentPath, safe);
+		const nextId = hashPath(nextPath);
+		remember(nextId, nextHandle);
+		forgetHandle(node.id);
+		return {
+			path: nextPath,
+			name: safe,
+			id: nextId,
+			isDir: false,
+			oldPath: node.path,
+			method: 'handle'
+		};
+	},
+	async remove(node) {
+		const parentPath = parentPathOf(node.path);
+		const parent = getHandle(hashPath(parentPath));
+		if (!parent || parent.kind !== 'directory') {
+			throw new Error(`No parent directory handle for ${node.path}`);
+		}
+		await parent.removeEntry(node.name, {recursive: !!node.isDir});
+		forgetHandle(node.id);
+		return {path: node.path, isDir: !!node.isDir, method: 'handle'};
 	}
 });
 

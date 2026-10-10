@@ -276,6 +276,73 @@ const create = () => {
 				mimeType: 'text/plain'
 			});
 			return {method: 'handle'};
+		},
+		async createFile(parentNode, name) {
+			const safe = String(name || '').trim();
+			if (!safe || /[/\\]/.test(safe) || safe === '.' || safe === '..') {
+				throw new Error('Invalid name');
+			}
+			const plugin = requirePlugin();
+			const folder = requireFolder();
+			const parentRel = relativePath(parentNode && parentNode.path);
+			const path = joinPath(parentRel, safe);
+			const dir = parentPath(path);
+			if (dir) {
+				await plugin.mkdir({folder, path: dir, recursive: true});
+			}
+			await plugin.writeFile({
+				folder,
+				path,
+				data: '',
+				encoding: 'utf8',
+				mimeType: 'text/plain'
+			});
+			return {path, name: safe, isDir: false, method: 'handle'};
+		},
+		async mkdir(parentNode, name) {
+			const safe = String(name || '').trim();
+			if (!safe || /[/\\]/.test(safe) || safe === '.' || safe === '..') {
+				throw new Error('Invalid name');
+			}
+			const plugin = requirePlugin();
+			const folder = requireFolder();
+			const parentRel = relativePath(parentNode && parentNode.path);
+			const path = joinPath(parentRel, safe);
+			await plugin.mkdir({folder, path, recursive: true});
+			return {path, name: safe, isDir: true, method: 'handle'};
+		},
+		async rename(node, newName) {
+			const safe = String(newName || '').trim();
+			if (!safe || /[/\\]/.test(safe) || safe === '.' || safe === '..') {
+				throw new Error('Invalid name');
+			}
+			const plugin = requirePlugin();
+			const folder = requireFolder();
+			const path = relativePath(node && node.path);
+			if (!path) throw new Error('Missing path');
+			if (typeof plugin.rename !== 'function') {
+				throw new Error('ScopedFolder rename not available');
+			}
+			await plugin.rename({folder, path, newName: safe});
+			const nextPath = joinPath(parentPath(path), safe);
+			return {
+				path: nextPath,
+				name: safe,
+				isDir: !!node.isDir,
+				oldPath: path,
+				method: 'handle'
+			};
+		},
+		async remove(node) {
+			const plugin = requirePlugin();
+			const folder = requireFolder();
+			const path = relativePath(node && node.path);
+			if (!path) throw new Error('Missing path');
+			if (typeof plugin.remove !== 'function') {
+				throw new Error('ScopedFolder remove not available');
+			}
+			await plugin.remove({folder, path});
+			return {path, isDir: !!node.isDir, method: 'handle'};
 		}
 	};
 };

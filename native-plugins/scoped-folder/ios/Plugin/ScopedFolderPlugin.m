@@ -7,4 +7,6 @@ CAP_PLUGIN(ScopedFolderPlugin, "ScopedFolder",
            CAP_PLUGIN_METHOD(readFile, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(mkdir, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(readdir, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(rename, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(remove, CAPPluginReturnPromise);
 )

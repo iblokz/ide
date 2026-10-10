@@ -8,6 +8,61 @@
 	flex-direction: column
 	transition: background-color .25s ease, border-color .25s ease
 
+	> nav.side-bar-sections
+		flex: 0 0 auto
+		display: flex
+		align-items: center
+		gap: 2px
+		padding: 6px 4px 2px
+		background: var(--app-bg-panel)
+
+		button.side-bar-section
+			+header-height($panel-row-height)
+			flex: 1 1 0
+			width: auto
+			margin: 0
+			padding: 0
+			border: 0
+			border-radius: 4px
+			background: transparent
+			color: var(--app-icon)
+			cursor: pointer
+			outline: none
+			font-size: 0.95em
+			line-height: $panel-row-height
+			transition: background-color .15s ease, color .15s ease
+
+			i
+				width: 100%
+				font-size: 1em
+				color: inherit
+
+			&:hover
+				background: var(--app-bg-hover)
+				color: var(--app-icon-hover)
+
+			&.active
+				background: color-mix(in srgb, var(--app-bg-hover) 50%, transparent)
+				color: var(--app-icon)
+
+	> .side-bar-placeholder
+		flex: 1 1 auto
+		display: flex
+		flex-direction: column
+		align-items: flex-start
+		justify-content: flex-start
+		gap: 6px
+		padding: 16px 14px
+		color: var(--app-text-muted)
+
+		.side-bar-placeholder-title
+			font-size: 0.85em
+			font-weight: 600
+			color: var(--app-text-strong)
+
+		.side-bar-placeholder-body
+			font-size: 0.8em
+
 	> header
 		+header-height($header-height)
 		flex: 0 0 auto
@@ -65,7 +120,7 @@
 		min-height: 0
 		height: auto
 		overflow-y: auto
-		margin-top: 12px
+		margin-top: 4px
 		line-height: $panel-row-height
 		list-style: none
 		display: block
@@ -85,36 +140,140 @@
 			text-overflow: ellipsis
 			overflow: hidden
 
-		span
+		span.name
+			margin-left: 8px
+			flex: 1 1 auto
+			min-width: 0
+			overflow: hidden
+			text-overflow: ellipsis
+			white-space: nowrap
+
+		.tree-row.tree-root > span.name
+			font-size: 1.15em
+			font-weight: 600
+
+		span.tree-name-edit
+			flex: 1 1 auto
+			min-width: 0
+			display: flex
+			align-items: center
 			margin-left: 8px
 
+			input.tree-name-input
+				flex: 1 1 auto
+				min-width: 0
+				margin: 0 4px 0 0
+				padding: 0 6px
+				height: calc(#{$panel-row-height} - 6px)
+				box-sizing: border-box
+				border: 1px solid var(--app-accent)
+				border-radius: 4px
+				background: var(--app-input-bg, var(--app-bg-panel))
+				color: var(--app-input-text, var(--app-text-strong))
+				font: inherit
+				font-size: 1em
+				outline: none
+
+			> .tree-edit-actions
+				margin-left: 0
+				margin-right: 0
+
+				button.tree-action.confirm
+					color: var(--app-accent)
+
+					&:hover
+						color: var(--app-accent)
+
+		.tree-create-row
+			+header-height($panel-row-height)
+			display: flex
+			align-items: center
+			box-sizing: border-box
+			padding-right: 4px
+			background: var(--app-accent-soft)
+
+			> i
+				flex: 0 0 auto
+				margin-left: 16px
+
+			> .tree-name-edit
+				flex: 1 1 auto
+
+
 		i
+			flex: 0 0 auto
 			width: 16px
 			line-height: $panel-row-height
 			text-align: center
 			font-size: 1.2em
 			color: var(--app-text-muted)
 
-		a
+		span.tree-actions
+			flex: 0 0 auto
+			display: flex
+			align-items: center
+			margin-left: 4px
+			margin-right: 4px
+
+			button.tree-action
+				+header-height($panel-row-height)
+				width: $panel-row-height
+				padding: 0
+				margin: 0
+				border: 0
+				border-radius: 4px
+				background: transparent
+				color: var(--app-icon)
+				cursor: pointer
+				outline: none
+				font-size: 0.95em
+				line-height: $panel-row-height
+				transition: background-color .15s ease, color .15s ease
+
+				i
+					width: 100%
+					font-size: 1em
+					color: inherit
+
+				&:hover
+					background: var(--app-bg-hover)
+					color: var(--app-icon-hover)
+
+				&.delete
+					color: var(--app-danger)
+
+					&:hover
+						background: var(--app-bg-hover)
+						color: var(--app-danger)
+
+		.tree-row
 			+header-height($panel-row-height)
-			display: block
+			display: flex
+			align-items: center
 			width: 100%
+			box-sizing: border-box
+			padding-right: 4px
 			cursor: pointer
 			color: var(--app-text)
-			text-decoration: none
 			transition: background-color .15s ease, color .15s ease
+			-webkit-touch-callout: none
+			touch-action: manipulation
 
 			&:hover
 				background: var(--app-bg-hover)
 				color: var(--app-text-strong)
-				i
+				> i
 					color: var(--app-accent)
 
 			&.active
 				background: var(--app-accent-soft)
 				color: var(--app-text-strong)
-				i
+				> i
 					color: var(--app-accent)
+
+			&.pending-delete
+				> .tree-actions > .delete
+					color: var(--app-danger)
 
 			&.disabled
 				opacity: 0.45
@@ -147,3 +306,18 @@
 			overflow: hidden
 			text-overflow: ellipsis
 			white-space: nowrap
+
+		a
+			display: block
+			width: 100%
+			cursor: pointer
+			color: var(--app-text)
+			text-decoration: none
+			transition: background-color .15s ease, color .15s ease
+
+			&:hover
+				background: var(--app-bg-hover)
+				color: var(--app-text-strong)
+
+			span
+				margin-left: 0

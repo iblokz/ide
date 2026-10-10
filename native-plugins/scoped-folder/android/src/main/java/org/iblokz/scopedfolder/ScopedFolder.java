@@ -125,6 +125,63 @@ public class ScopedFolder {
         }
     }
 
+    public void rename(PluginCall call) {
+        try {
+            DocumentFile target = resolveFile(call);
+            if (target == null) {
+                call.reject("Path not found");
+                return;
+            }
+            String newName = call.getString("newName");
+            if (newName == null || newName.trim().isEmpty()) {
+                call.reject("'newName' missing");
+                return;
+            }
+            newName = newName.trim();
+            if (newName.contains("/") || newName.contains("\\")
+                || ".".equals(newName) || "..".equals(newName)) {
+                call.reject("Invalid name");
+                return;
+            }
+            if (!target.renameTo(newName)) {
+                call.reject("rename failed");
+                return;
+            }
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("rename failed: " + e.getMessage());
+        }
+    }
+
+    public void remove(PluginCall call) {
+        try {
+            DocumentFile target = resolveFile(call);
+            if (target == null) {
+                call.reject("Path not found");
+                return;
+            }
+            if (!deleteRecursive(target)) {
+                call.reject("remove failed");
+                return;
+            }
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("remove failed: " + e.getMessage());
+        }
+    }
+
+    private static boolean deleteRecursive(DocumentFile file) {
+        if (file.isDirectory()) {
+            DocumentFile[] children = file.listFiles();
+            if (children != null) {
+                for (DocumentFile child : children) {
+                    if (!deleteRecursive(child)) return false;
+                }
+            }
+        }
+        return file.delete();
+    }
+
     private String getFolderId(PluginCall call) throws Exception {
         JSObject folder = call.getObject("folder");
         if (folder == null) throw new Exception("'folder' missing");

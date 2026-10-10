@@ -71,11 +71,14 @@ Homebrew/apt equivalents are printed by the scripts when a tool is missing.
 
 ### Filesystem limits
 
-| Platform | Workspace |
-|----------|-----------|
-| **Electron** | Full local filesystem via native dialogs / Node FS |
-| **Web** | Folder the user grants (File System Access) or a one-shot directory input (read; write depends on API support) |
-| **Android / iOS (Capacitor)** | User-picked folder (Android SAF / iOS document picker + security-scoped bookmark) |
+| Platform | Workspace | Create / rename / delete |
+|----------|-----------|--------------------------|
+| **Electron** | Full local filesystem via native dialogs / Node FS | Yes |
+| **Web (FSA readwrite)** | Folder the user grants via File System Access | Yes (folder rename not yet) |
+| **Web (directory input)** | One-shot `<input webkitdirectory>` | Read-only |
+| **Android / iOS (Capacitor)** | User-picked folder (SAF / document picker + bookmark) | Yes |
+
+FS backends live under `src/app/adapters/fs/` (not app `services/` — those are `hook`/`start` effect runners).
 
 ### Preferences / client storage
 

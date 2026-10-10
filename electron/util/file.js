@@ -97,12 +97,50 @@ const write = async (filePath, content, enc = 'utf-8') => {
 	await fsp.writeFile(filePath, content, enc);
 };
 
+const assertSafeName = name => {
+	const n = String(name || '').trim();
+	if (!n || n === '.' || n === '..' || /[/\\]/.test(n)) {
+		throw new Error('Invalid name');
+	}
+	return n;
+};
+
+const mkdir = async (dirPath, name) => {
+	const safe = assertSafeName(name);
+	const full = path.join(dirPath, safe);
+	await fsp.mkdir(full, {recursive: false});
+	return full;
+};
+
+const createFile = async (dirPath, name, content = '') => {
+	const safe = assertSafeName(name);
+	const full = path.join(dirPath, safe);
+	await fsp.mkdir(path.dirname(full), {recursive: true});
+	await fsp.writeFile(full, content, 'utf-8');
+	return full;
+};
+
+const rename = async (oldPath, newName) => {
+	const safe = assertSafeName(newName);
+	const next = path.join(path.dirname(oldPath), safe);
+	await fsp.rename(oldPath, next);
+	return next;
+};
+
+const remove = async (targetPath, {recursive = true} = {}) => {
+	await fsp.rm(targetPath, {recursive: !!recursive, force: false});
+};
+
 module.exports = {
 	openRoot,
 	listDir,
 	read,
 	readDataUrl,
 	write,
+	mkdir,
+	createFile,
+	rename,
+	remove,
 	listEntries,
 	buildNodeShallow
 };

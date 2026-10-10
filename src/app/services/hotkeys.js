@@ -77,10 +77,21 @@ const run = (action, actions = {}) => {
 
 export let stop = () => {};
 
+const isTypingTarget = ev => {
+	const t = ev && ev.target;
+	if (!t) return false;
+	const tag = String(t.tagName || '').toLowerCase();
+	if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+	if (t.isContentEditable) return true;
+	return false;
+};
+
 export const start = (actions = {}) => {
 	const sub = fromEvent(document, 'keydown', {capture: true}).subscribe(ev => {
 		const hit = bindings.find(b => match(ev, b));
 		if (!hit) return;
+		// Bare keys like F2 must not steal focus from the editor / inputs.
+		if (!hit.mod && isTypingTarget(ev)) return;
 		ev.preventDefault();
 		run(hit.action, actions);
 	});

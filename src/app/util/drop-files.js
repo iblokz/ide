@@ -1,7 +1,7 @@
 'use strict';
 
-const {extOf, fileKind, hashPath, isImageFile} = require('../util/file-tree');
-const {isElectronBridge} = require('../util/platform');
+const {extOf, fileKind, hashPath, isImageFile} = require('./file-tree');
+const {isElectronBridge} = require('./platform');
 
 const nodeFromPath = filePath => {
 	const name = filePath.split(/[/\\]/).pop() || filePath;

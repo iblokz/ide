@@ -9,7 +9,7 @@ const actionsTree = require('./state');
 let ui = require('./ui')?.default ?? require('./ui');
 const viewport = require('./services/viewport');
 const hotkeys = require('./services/hotkeys');
-const {filesFromDrop, isElectronBridge} = require('./services/drop-files');
+const {filesFromDrop, isElectronBridge} = require('./util/drop-files');
 const {
 	applyDocumentTheme,
 	applyHostAccent,
@@ -125,16 +125,23 @@ let stopHostTheme = null;
 if (isElectronBridge() && typeof window.app.onFsChange === 'function') {
 	stopFsChange = window.app.onFsChange(payload => {
 		const changedPath = payload && payload.path;
+		const event = payload && payload.event;
 		const state = state$.getValue();
 		if (state.view === 'workspace' && state.project && state.project.path) {
-			actions.project.refreshFilesTree(state.project, state.filesTree);
+			actions.project.refreshFilesTree(
+				state.project,
+				(state.fileTree && state.fileTree.nodes) || []
+			);
 		}
-		if (!changedPath || !state.file || state.file.path !== changedPath) return;
-		if (state.dirty) {
+		if (!changedPath || event === 'unlink' || event === 'unlinkDir') return;
+		const tab = (state.tabs || []).find(t => t && t.file && t.file.path === changedPath);
+		if (!tab) return;
+		if (tab.dirty) {
 			actions.project.markExternalChange(changedPath);
 			return;
 		}
-		actions.project.openFile(Object.assign({}, state.file, {source: undefined, url: undefined}));
+		// upsertTab would only activate — reloadFile patches source in place.
+		actions.project.reloadFile(Object.assign({}, tab.file, {source: undefined, url: undefined}));
 	});
 }
 if (isElectronBridge() && typeof window.app.onOpenFolderRequest === 'function') {

@@ -1,9 +1,9 @@
 import {obj} from 'iblokz-data';
 import {dispatch} from 'iblokz-state';
 import {
-	mergeAt,
 	isImageFile,
 	fileKind,
+	hashPath,
 	collectExpandedPaths,
 	reapplyExpandedPaths
 } from '../../util/file-tree';
@@ -18,9 +18,10 @@ import {
 	resolveFileInTree
 } from '../../util/session.js';
 import {clearEditorconfigCache, resolveIndent, DEFAULT_INDENT} from '../../util/editorconfig.js';
-import {getFs, probeCapabilities, resetFs} from '../../services/fs';
+import {getFs, probeCapabilities, resetFs} from '../../adapters/fs';
 import {
 	emptyTabFields,
+	emptyHistory,
 	createTextTab,
 	createImageTab,
 	projectActive,
@@ -31,6 +32,12 @@ import {
 } from '../../util/tabs';
 import {initial as layoutInitial} from '../layout/index.js';
 import {initial as previewInitial} from '../preview/index.js';
+import {
+	initial as fileTreeInitial,
+	slice as fileTreeSlice,
+	patch as patchFileTree,
+	safeSelectedPath
+} from '../file-tree/index.js';
 import find from '../find';
 import fileSearch from '../file-search';
 
@@ -77,12 +84,22 @@ const clearOpenFile = state => {
 	return Object.assign({}, emptyTabFields(), {
 		tabs: [],
 		activeTabId: null,
+		fileTree: Object.assign({}, fileTreeInitial),
 		find: emptyFind,
 		fileSearch: emptyFileSearch
 	});
 };
 
-const loadFile = file => state => clearFileSearchUi(upsertTab(state, createTextTab(file)));
+const loadFile = file => state => {
+	const base = clearFileSearchUi(upsertTab(state, createTextTab(file)));
+	const tree = fileTreeSlice(base);
+	return patchFileTree(base, {
+		selectedPath: safeSelectedPath(base, file.path),
+		pendingDeletePath: tree.pendingDeletePath === file.path
+			? tree.pendingDeletePath
+			: null
+	});
+};
 
 const loadFileWithIndent = (file, sourcePatch) => state => {
 	const base = Object.assign({}, file, sourcePatch || {});
@@ -98,7 +115,16 @@ const loadFileWithIndent = (file, sourcePatch) => state => {
 	return state;
 };
 
-const loadImage = file => state => clearFileSearchUi(upsertTab(state, createImageTab(file)));
+const loadImage = file => state => {
+	const base = clearFileSearchUi(upsertTab(state, createImageTab(file)));
+	const tree = fileTreeSlice(base);
+	return patchFileTree(base, {
+		selectedPath: safeSelectedPath(base, file.path),
+		pendingDeletePath: tree.pendingDeletePath === file.path
+			? tree.pendingDeletePath
+			: null
+	});
+};
 
 const openImage = file => {
 	if (typeof file.url === 'string' && file.url) {
@@ -143,57 +169,23 @@ export const openFile = file => {
 		});
 };
 
-export const toggleFolder = (path = [], item) => {
-	if (!item || !item.isDir) return state => state;
-
-	const patchTree = (state, patch) => obj.patch(
-		state,
-		'filesTree',
-		mergeAt({
-			list: obj.sub(state, 'filesTree') || [],
-			path,
-			nodesProp: 'files',
-			patch
-		})
-	);
-
-	if (item.expanded) {
-		return state => patchTree(state, {expanded: false});
-	}
-
-	if (item.childrenLoaded) {
-		return state => patchTree(state, {expanded: true});
-	}
-
-	const fs = getFs();
-	if (typeof fs.listDir !== 'function') {
-		return state => patchTree(state, {expanded: true, childrenLoaded: true});
-	}
-
-	return fs.listDir(item)
-		.then(files => state => patchTree(state, {
-			expanded: true,
-			childrenLoaded: true,
-			files: files || []
-		}))
-		.catch(err => {
-			console.error('listDir failed', item && item.path, err);
-			return state => state;
-		});
-};
-
 const layoutFromSession = (state, session) => {
+	const sideBarSection = (state.layout && state.layout.sideBarSection)
+		|| layoutInitial.sideBarSection
+		|| 'fileTree';
 	if (session && session.layout) {
 		return {
 			toggles: Object.assign({}, layoutInitial.toggles, session.layout.toggles || {}),
-			dim: Object.assign({}, layoutInitial.dim, (state.layout && state.layout.dim) || {}, session.layout.dim || {})
+			dim: Object.assign({}, layoutInitial.dim, (state.layout && state.layout.dim) || {}, session.layout.dim || {}),
+			sideBarSection
 		};
 	}
 	return {
 		toggles: Object.assign({}, layoutInitial.toggles, state.layout && state.layout.toggles, {
 			leftSideBar: true
 		}),
-		dim: Object.assign({}, layoutInitial.dim, state.layout && state.layout.dim)
+		dim: Object.assign({}, layoutInitial.dim, state.layout && state.layout.dim),
+		sideBarSection
 	};
 };
 
@@ -276,7 +268,9 @@ const applyProjectResult = (fs, result) => {
 			name: result.name,
 			path: result.path
 		},
-		filesTree: result.filesTree,
+		fileTree: Object.assign({}, fileTreeInitial, {
+			nodes: result.filesTree || []
+		}),
 		recentRoots,
 		layout: layoutFromSession(state, session),
 		preview: previewFromSession(session)
@@ -343,14 +337,21 @@ export const refreshFilesTree = (project, prevTree) => {
 				files: files || []
 			}];
 			return reapplyExpandedPaths(fs, baseTree, expandedPaths, project.path)
-				.then(filesTree => state => Object.assign({}, state, {
-					filesTree,
-					fileSearch: Object.assign({}, state.fileSearch || emptyFileSearch, {
-						index: null,
-						indexPath: null,
-						indexing: false
-					})
-				}));
+				.then(nodes => state => {
+					const tree = fileTreeSlice(state);
+					return Object.assign({}, state, {
+						fileTree: Object.assign({}, tree, {
+							nodes,
+							selectedPath: safeSelectedPath(state, tree.selectedPath),
+							treeEdit: null
+						}),
+						fileSearch: Object.assign({}, state.fileSearch || emptyFileSearch, {
+							index: null,
+							indexPath: null,
+							indexing: false
+						})
+					});
+				});
 		})
 		.catch(err => {
 			console.error('refreshFilesTree failed', project.path, err);
@@ -368,6 +369,91 @@ export const markExternalChange = filePath => state => {
 	const nextTabs = tabs.slice();
 	nextTabs[idx] = Object.assign({}, tab, {externalChange: filePath});
 	return projectActive(Object.assign({}, state, {tabs: nextTabs}));
+};
+
+/**
+ * Re-read an open file from disk into its tab.
+ * No-ops if the tab is missing or dirty (dirty → markExternalChange).
+ * Unlike openFile/upsertTab, this updates source in place instead of only activating.
+ */
+export const reloadFile = file => {
+	if (!file || !file.path || file.isDir) {
+		return Promise.resolve(state => state);
+	}
+
+	const path = file.path;
+	const kind = file.kind || fileKind(file.name, file.ext);
+	const fs = getFs();
+
+	const applyTextReload = source => state => {
+		const tabs = state.tabs || [];
+		const idx = findTabIndexByPath(tabs, path);
+		if (idx < 0) return state;
+		const tab = tabs[idx];
+		if (tab.dirty) return markExternalChange(path)(state);
+		const nextFile = Object.assign({}, tab.file, file, {source, kind: kind || tab.file.kind});
+		const nextTabs = tabs.slice();
+		nextTabs[idx] = Object.assign({}, tab, {
+			file: nextFile,
+			source,
+			dirty: false,
+			externalChange: null,
+			saveError: null,
+			history: emptyHistory(tab.type, source)
+		});
+		return projectActive(Object.assign({}, state, {tabs: nextTabs}));
+	};
+
+	const applyImageReload = url => state => {
+		const tabs = state.tabs || [];
+		const idx = findTabIndexByPath(tabs, path);
+		if (idx < 0) return state;
+		const tab = tabs[idx];
+		if (tab.dirty) return markExternalChange(path)(state);
+		revokeFileUrl(tab.file);
+		const nextFile = Object.assign({}, tab.file, file, {url, kind: 'image'});
+		const nextTabs = tabs.slice();
+		nextTabs[idx] = Object.assign({}, tab, {
+			file: nextFile,
+			source: '',
+			dirty: false,
+			externalChange: null,
+			saveError: null
+		});
+		return projectActive(Object.assign({}, state, {tabs: nextTabs}));
+	};
+
+	if (kind === 'image' || isImageFile(file.name, file.ext)) {
+		if (typeof fs.getObjectUrl !== 'function') {
+			return Promise.resolve(state => state);
+		}
+		return fs.getObjectUrl(file)
+			.then(applyImageReload)
+			.catch(err => {
+				console.error('reloadFile image failed', path, err);
+				return state => state;
+			});
+	}
+
+	if (kind === 'binary' || file.readable === false) {
+		return Promise.resolve(state => state);
+	}
+
+	if (typeof fs.readFile !== 'function') {
+		return Promise.resolve(state => state);
+	}
+
+	return fs.readFile(file)
+		.then(source => {
+			if (typeof source !== 'string') {
+				throw new Error('File read did not return text');
+			}
+			return applyTextReload(source);
+		})
+		.catch(err => {
+			console.error('reloadFile failed', path, err);
+			return state => state;
+		});
 };
 
 export const refreshFsCapabilities = () => state => {
@@ -416,14 +502,195 @@ export const saveFile = (file, source, pickedHandle) => {
 		});
 };
 
+const pathIsUnder = (filePath, rootPath) => {
+	if (!filePath || !rootPath) return false;
+	if (filePath === rootPath) return true;
+	const sep = rootPath.indexOf('\\') >= 0 ? '\\' : '/';
+	const prefix = rootPath.endsWith('/') || rootPath.endsWith('\\')
+		? rootPath
+		: rootPath + sep;
+	return String(filePath).indexOf(prefix) === 0;
+};
+
+const scheduleTreeRefresh = state => {
+	const result = refreshFilesTree(state.project, fileTreeSlice(state).nodes);
+	if (result && typeof result.then === 'function') {
+		result
+			.then(reducer => {
+				if (typeof reducer === 'function') dispatch(reducer);
+			})
+			.catch(err => console.error('refresh after mutation failed', err));
+	}
+};
+
+const closeTabsUnderPath = (state, rootPath) => {
+	const tabs = state.tabs || [];
+	const kept = [];
+	let closedActive = false;
+	tabs.forEach(tab => {
+		const p = tab && tab.file && tab.file.path;
+		if (pathIsUnder(p, rootPath)) {
+			if (tab.id === state.activeTabId) closedActive = true;
+			revokeFileUrl(tab.file);
+		} else {
+			kept.push(tab);
+		}
+	});
+	if (kept.length === tabs.length) return state;
+	const activeTabId = closedActive
+		? (kept[0] && kept[0].id) || null
+		: state.activeTabId;
+	return projectActive(Object.assign({}, state, {tabs: kept, activeTabId}));
+};
+
+const rewriteTabsAfterRename = (state, oldPath, newPath, newName) => {
+	if (!oldPath || !newPath || oldPath === newPath) return state;
+	const tabs = state.tabs || [];
+	let changed = false;
+	const nextTabs = tabs.map(tab => {
+		const file = tab && tab.file;
+		if (!file || !file.path) return tab;
+		let nextPath = null;
+		if (file.path === oldPath) nextPath = newPath;
+		else if (pathIsUnder(file.path, oldPath)) {
+			nextPath = newPath + file.path.slice(oldPath.length);
+		}
+		if (!nextPath) return tab;
+		changed = true;
+		const name = file.path === oldPath
+			? (newName || file.name)
+			: file.name;
+		return Object.assign({}, tab, {
+			file: Object.assign({}, file, {
+				path: nextPath,
+				name,
+				id: hashPath(nextPath)
+			})
+		});
+	});
+	if (!changed) return state;
+	const tree = fileTreeSlice(state);
+	const prevSel = tree.selectedPath;
+	const selectedPath = prevSel === oldPath
+		? newPath
+		: (pathIsUnder(prevSel, oldPath)
+			? newPath + prevSel.slice(oldPath.length)
+			: prevSel);
+	return projectActive(patchFileTree(
+		Object.assign({}, state, {tabs: nextTabs}),
+		{
+			selectedPath: safeSelectedPath(state, selectedPath),
+			pendingDeletePath: null,
+			treeEdit: null
+		}
+	));
+};
+
+const guardMutation = (methodName, run) => {
+	const fs = getFs();
+	if (typeof fs[methodName] !== 'function') {
+		return Promise.resolve(state => state);
+	}
+	return run(fs)
+		.catch(err => {
+			console.error(`${methodName} failed`, err);
+			return state => state;
+		});
+};
+
+export const createFile = (parent, name) => guardMutation('createFile', fs =>
+	fs.createFile(parent, name).then(created => state => {
+		if (!state.canWrite) return state;
+		scheduleTreeRefresh(state);
+		const tree = fileTreeSlice(state);
+		return patchFileTree(state, {
+			selectedPath: safeSelectedPath(
+				state,
+				(created && created.path) || tree.selectedPath
+			),
+			pendingDeletePath: null,
+			treeEdit: null
+		});
+	})
+);
+
+export const createFolder = (parent, name) => guardMutation('mkdir', fs =>
+	fs.mkdir(parent, name).then(created => state => {
+		if (!state.canWrite) return state;
+		scheduleTreeRefresh(state);
+		const tree = fileTreeSlice(state);
+		return patchFileTree(state, {
+			selectedPath: safeSelectedPath(
+				state,
+				(created && created.path) || tree.selectedPath
+			),
+			pendingDeletePath: null,
+			treeEdit: null
+		});
+	})
+);
+
+export const renameItem = (item, newName) => {
+	if (!item || !item.path) {
+		return Promise.resolve(state => state);
+	}
+	return guardMutation('rename', fs => {
+		// Web FSA: folder rename needs recursive copy; skip for now.
+		if (fs.id === 'web' && item.isDir) {
+			console.warn('[fs] folder rename is not supported in the browser yet');
+			return Promise.resolve(state => state);
+		}
+		return fs.rename(item, newName).then(result => state => {
+			if (!state.canWrite) return state;
+			const rootPath = state.project && state.project.path;
+			if (rootPath && item.path === rootPath) return state;
+			const next = rewriteTabsAfterRename(
+				state,
+				item.path,
+				result && result.path,
+				result && result.name
+			);
+			scheduleTreeRefresh(next);
+			return next;
+		});
+	});
+};
+
+export const deleteItem = item => {
+	if (!item || !item.path) {
+		return Promise.resolve(state => state);
+	}
+	return guardMutation('remove', fs =>
+		fs.remove(item).then(() => state => {
+			if (!state.canWrite) return state;
+			const rootPath = state.project && state.project.path;
+			if (rootPath && item.path === rootPath) return state;
+			const tree = fileTreeSlice(state);
+			const next = closeTabsUnderPath(patchFileTree(state, {
+				selectedPath: tree.selectedPath === item.path
+					? null
+					: tree.selectedPath,
+				pendingDeletePath: null,
+				treeEdit: null
+			}), item.path);
+			scheduleTreeRefresh(next);
+			return next;
+		})
+	);
+};
+
 export default {
 	initial,
 	openFile,
-	toggleFolder,
 	openFolder,
 	openRecent,
 	refreshFilesTree,
 	markExternalChange,
+	reloadFile,
 	refreshFsCapabilities,
-	saveFile
+	saveFile,
+	createFile,
+	createFolder,
+	renameItem,
+	deleteItem
 };

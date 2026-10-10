@@ -17,6 +17,8 @@ export interface ScopedFolderPlugin {
 		mimeType?: string;
 	}): Promise<void>;
 	mkdir(options: { folder: FolderRef; path: string; recursive?: boolean }): Promise<void>;
+	rename(options: { folder: FolderRef; path: string; newName: string }): Promise<void>;
+	remove(options: { folder: FolderRef; path: string }): Promise<void>;
 }
 
 export declare const ScopedFolder: ScopedFolderPlugin;
