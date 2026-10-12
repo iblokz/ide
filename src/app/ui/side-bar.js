@@ -3,6 +3,8 @@ import {
 } from 'iblokz-snabbdom-helpers';
 import {fn, obj} from 'iblokz-data';
 import {fileIcon} from '../util/file-tree';
+import {joinProjectPath} from '../util/git-status.js';
+import {fileStubFromPath} from '../util/session.js';
 
 export const fileSort = (a, b) => !a.isDir && b.isDir ? 1 : -1;
 
@@ -282,6 +284,114 @@ const fileLeafNode = (item, path = [], level = 0, opts) => {
 	));
 };
 
+const branchLabel = git => {
+	const branch = git.branch || 'HEAD';
+	const bits = [];
+	if (git.ahead) bits.push(`↑${git.ahead}`);
+	if (git.behind) bits.push(`↓${git.behind}`);
+	return bits.length ? `${branch} ${bits.join(' ')}` : branch;
+};
+
+const gitPanel = ({git, projectPath, actions}) => {
+	if (!projectPath) {
+		return div('.side-bar-placeholder', [
+			span('.side-bar-placeholder-title', 'Source Control'),
+			span('.side-bar-placeholder-body', 'Open a folder to see git status')
+		]);
+	}
+	if (git.available === false) {
+		return div('.side-bar-placeholder', [
+			span('.side-bar-placeholder-title', 'Source Control'),
+			span('.side-bar-placeholder-body', 'Git status requires the desktop app')
+		]);
+	}
+	if (git.error) {
+		return div('.git-status', [
+			div('.git-status-header', [
+				span('.git-status-branch', 'Source Control'),
+				button('.git-status-refresh', {
+					attrs: {type: 'button', title: 'Refresh', 'aria-label': 'Refresh'},
+					on: {
+						click: ev => {
+							ev.preventDefault();
+							actions.git.refresh();
+						}
+					}
+				}, [i('.fa.fa-refresh')])
+			]),
+			div('.side-bar-placeholder', [
+				span('.side-bar-placeholder-body', String(git.error))
+			])
+		]);
+	}
+	const files = git.files || [];
+	const commits = git.commits || [];
+	const loading = git.loading || git.available == null;
+	return div('.git-status', [
+		div('.git-status-header', [
+			span('.git-status-branch', {
+				attrs: {title: branchLabel(git)}
+			}, [
+				i('.fa.fa-code-fork'),
+				span(branchLabel(git))
+			]),
+			button('.git-status-refresh', {
+				attrs: {
+					type: 'button',
+					title: 'Refresh',
+					'aria-label': 'Refresh'
+				},
+				props: {disabled: !!git.loading},
+				class: {loading: !!git.loading},
+				on: {
+					click: ev => {
+						ev.preventDefault();
+						actions.git.refresh();
+					}
+				}
+			}, [i('.fa.fa-refresh')])
+		]),
+		div('.git-status-body', [
+			div('.git-status-section', [
+				span('.git-status-section-title', 'Changes'),
+				files.length
+					? ul('.git-status-list', files.map(entry => {
+						const abs = joinProjectPath(projectPath, entry.path);
+						const letter = entry.status || ' ';
+						return li('.git-status-item', {
+							attrs: {title: abs},
+							on: {
+								click: ev => {
+									ev.preventDefault();
+									actions.project.openFile(fileStubFromPath(abs));
+								}
+							}
+						}, [
+							span('.git-status-code', letter),
+							span('.git-status-path', entry.path)
+						]);
+					}))
+					: span('.git-status-empty',
+						loading ? 'Loading…' : 'No changes')
+			]),
+			div('.git-status-section', [
+				span('.git-status-section-title', 'Commits'),
+				commits.length
+					? ul('.git-log-list', commits.map(entry =>
+						li('.git-log-item', {
+							attrs: {title: `${entry.hash} ${entry.subject}`}
+						}, [
+							span('.git-log-hash', entry.hash),
+							span('.git-log-subject', entry.subject)
+						])
+					))
+					: span('.git-status-empty',
+						loading ? 'Loading…' : 'No commits')
+			])
+		])
+	]);
+};
+
 export default ({state, actions, width}) => fn.pipe(
 	// prep vars
 	() => {
@@ -337,8 +447,11 @@ export default ({state, actions, width}) => fn.pipe(
 			onDelete: item => actions.project.deleteItem(item)
 		};
 		const section = obj.sub(state, ['layout', 'sideBarSection']) || 'fileTree';
+		const git = state.git || {};
 		return {
 			section,
+			git,
+			projectPath: rootPath || null,
 			recent: (state.recentRoots || []).filter(root => root && root.name),
 			fileTree: [].concat(...sortedWithIndex(tree.nodes || [])
 				.map(({item, index}) => fileLeafNode(item, [index], 0, treeOpts))),
@@ -357,7 +470,7 @@ export default ({state, actions, width}) => fn.pipe(
 			: 0
 	}),
 	// render
-	({recent, fileTree, title, open, resolvedWidth, section}) => aside('.left-pane', {
+	({recent, fileTree, title, open, resolvedWidth, section, git, projectPath}) => aside('.left-pane', {
 		class: {
 			toggled: open
 		},
@@ -421,6 +534,7 @@ export default ({state, actions, width}) => fn.pipe(
 						ev.preventDefault();
 						ev.stopPropagation();
 						actions.layout.setSideBarSection(tab.id);
+						if (tab.id === 'git') actions.git.refresh();
 					}
 				}
 			}, [i(`.fa.${tab.icon}`)])
@@ -447,10 +561,11 @@ export default ({state, actions, width}) => fn.pipe(
 					])
 					: []
 			)
-			: div('.side-bar-placeholder', [
-				span('.side-bar-placeholder-title',
-					section === 'search' ? 'Search' : 'Source Control'),
-				span('.side-bar-placeholder-body', 'Coming soon')
-			])
+			: section === 'git'
+				? gitPanel({git, projectPath, actions})
+				: div('.side-bar-placeholder', [
+					span('.side-bar-placeholder-title', 'Search'),
+					span('.side-bar-placeholder-body', 'Coming soon')
+				])
 	))
 )();

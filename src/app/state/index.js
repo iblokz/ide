@@ -30,6 +30,7 @@ const theme = require('./theme').default ?? require('./theme');
 const editor = require('./editor').default ?? require('./editor');
 const project = require('./project').default ?? require('./project');
 const fileTree = require('./file-tree').default ?? require('./file-tree');
+const git = require('./git').default ?? require('./git');
 const preview = require('./preview').default ?? require('./preview');
 const find = require('./find').default ?? require('./find');
 const fileSearch = require('./file-search').default ?? require('./file-search');
@@ -317,6 +318,7 @@ module.exports = {
 	editor,
 	project,
 	fileTree,
+	git,
 	preview,
 	find,
 	fileSearch,

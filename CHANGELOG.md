@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.23.0] - 2026-10-12
+
+### Added
+
+- Source Control sidebar (Electron): read-only git status — branch, ahead/behind, changed files; open on click; recent commits (`git log`); refreshes on project open, section switch, and debounced fs-change
+
 ## [1.22.0] - 2026-10-10
 
 ### Added
@@ -526,7 +532,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.22.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.23.0...HEAD
+[1.23.0]: https://github.com/iblokz/ide/compare/v1.22.0...v1.23.0
 [1.22.0]: https://github.com/iblokz/ide/compare/v1.21.0...v1.22.0
 [1.21.0]: https://github.com/iblokz/ide/compare/v1.20.0...v1.21.0
 [1.20.0]: https://github.com/iblokz/ide/compare/v1.19.0...v1.20.0

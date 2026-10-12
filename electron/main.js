@@ -3,7 +3,9 @@
 const {app, dialog, BrowserWindow, ipcMain, nativeImage, Menu, nativeTheme, shell} = require('electron');
 const fs = require('fs');
 const path = require('path');
-const {spawn} = require('child_process');
+const {spawn, execFile} = require('child_process');
+const {promisify} = require('util');
+const execFileAsync = promisify(execFile);
 const {watch} = require('chokidar');
 const fileUtil = require('./util/file');
 const {detectWindowManager} = require('./util/wm');
@@ -58,6 +60,8 @@ let win = null;
 let dirty = false;
 let allowClose = false;
 let watcher = null;
+/** Absolute project root currently watched (also gates gitStatus cwd). */
+let watchRoot = null;
 /** Session load source: static dist (default) or Parcel HMR. Toggle: CmdOrCtrl+Shift+H. */
 let loadMode = 'static';
 /** ELECTRON_START_URL wins until the first manual mode toggle this session. */
@@ -236,14 +240,17 @@ const toggleLoadMode = () => {
 };
 
 const stopWatch = () => {
-	if (!watcher) return;
-	watcher.close().catch(() => {});
-	watcher = null;
+	if (watcher) {
+		watcher.close().catch(() => {});
+		watcher = null;
+	}
+	watchRoot = null;
 };
 
 const startWatch = rootPath => {
 	stopWatch();
 	if (!rootPath) return;
+	watchRoot = rootPath;
 	watcher = watch(rootPath, {
 		ignoreInitial: true,
 		ignored: WATCH_IGNORED,
@@ -534,6 +541,50 @@ const registerIpc = () => {
 		event.returnValue = getHostThemePayload();
 	});
 	ipcMain.handle('getHostTheme', () => getHostThemePayload());
+
+	const resolveGitCwd = cwd => {
+		if (!cwd || typeof cwd !== 'string') {
+			return {ok: false, error: 'Missing project path'};
+		}
+		if (!watchRoot) {
+			return {ok: false, error: 'No project open'};
+		}
+		const resolved = path.resolve(cwd);
+		const rootResolved = path.resolve(watchRoot);
+		const underRoot = resolved === rootResolved
+			|| resolved.startsWith(rootResolved + path.sep);
+		if (!underRoot) {
+			return {ok: false, error: 'Path outside project'};
+		}
+		return {ok: true, cwd: resolved};
+	};
+
+	const runGit = async (cwd, args, failLabel) => {
+		const gate = resolveGitCwd(cwd);
+		if (!gate.ok) return gate;
+		try {
+			const {stdout} = await execFileAsync(
+				'git',
+				args,
+				{cwd: gate.cwd, maxBuffer: 2 * 1024 * 1024, windowsHide: true}
+			);
+			return {ok: true, stdout: String(stdout || '')};
+		} catch (err) {
+			const stderr = err && err.stderr != null ? String(err.stderr).trim() : '';
+			const message = stderr
+				|| (err && err.message)
+				|| failLabel;
+			if (err && err.code === 'ENOENT') {
+				return {ok: false, error: 'git not found'};
+			}
+			return {ok: false, error: message};
+		}
+	};
+
+	ipcMain.handle('gitStatus', (_ev, cwd) =>
+		runGit(cwd, ['status', '--porcelain=v1', '-b'], 'git status failed'));
+	ipcMain.handle('gitLog', (_ev, cwd) =>
+		runGit(cwd, ['log', '-n', '30', '--format=%h%x09%s'], 'git log failed'));
 };
 
 const buildAppMenu = () => {

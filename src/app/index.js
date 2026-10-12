@@ -122,6 +122,27 @@ fromEvent(document, 'drop').subscribe(ev => {
 let stopFsChange = null;
 let stopOpenFolderRequest = null;
 let stopHostTheme = null;
+let gitRefreshTimer = null;
+const scheduleGitRefresh = () => {
+	if (gitRefreshTimer) clearTimeout(gitRefreshTimer);
+	gitRefreshTimer = setTimeout(() => {
+		gitRefreshTimer = null;
+		const state = state$.getValue();
+		if (state.project && state.project.path) {
+			actions.git.refresh();
+		}
+	}, 400);
+};
+
+state$
+	.pipe(
+		map(s => (s.project && s.project.path) || null),
+		distinctUntilChanged()
+	)
+	.subscribe(() => {
+		actions.git.refresh();
+	});
+
 if (isElectronBridge() && typeof window.app.onFsChange === 'function') {
 	stopFsChange = window.app.onFsChange(payload => {
 		const changedPath = payload && payload.path;
@@ -132,6 +153,7 @@ if (isElectronBridge() && typeof window.app.onFsChange === 'function') {
 				state.project,
 				(state.fileTree && state.fileTree.nodes) || []
 			);
+			scheduleGitRefresh();
 		}
 		if (!changedPath || event === 'unlink' || event === 'unlinkDir') return;
 		const tab = (state.tabs || []).find(t => t && t.file && t.file.path === changedPath);
