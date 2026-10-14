@@ -196,6 +196,31 @@ const fileKind = (name, ext) => {
 	return 'text';
 };
 
+/** Bytes to sniff before opening as text (git-style). */
+const BINARY_SAMPLE_BYTES = 8192;
+
+/**
+ * Content sniff: NUL in the first chunk ⇒ binary.
+ * Accepts Uint8Array / Buffer / ArrayBuffer / string (decoded text).
+ */
+const looksBinary = (input, max = BINARY_SAMPLE_BYTES) => {
+	if (input == null) return false;
+	if (typeof input === 'string') {
+		const n = Math.min(input.length, max);
+		for (let i = 0; i < n; i++) {
+			if (input.charCodeAt(i) === 0) return true;
+		}
+		return false;
+	}
+	const bytes = input instanceof ArrayBuffer ? new Uint8Array(input) : input;
+	if (!bytes || typeof bytes.length !== 'number') return false;
+	const n = Math.min(bytes.length, max);
+	for (let i = 0; i < n; i++) {
+		if (bytes[i] === 0) return true;
+	}
+	return false;
+};
+
 const MIME_BY_EXT = {
 	png: 'image/png',
 	jpg: 'image/jpeg',
@@ -243,6 +268,8 @@ module.exports = {
 	isBinaryFile,
 	isTextFile,
 	fileKind,
+	BINARY_SAMPLE_BYTES,
+	looksBinary,
 	mimeOf,
 	fileIcon
 };

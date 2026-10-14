@@ -5,7 +5,9 @@ import {
 	fileKind,
 	hashPath,
 	collectExpandedPaths,
-	reapplyExpandedPaths
+	reapplyExpandedPaths,
+	looksBinary,
+	BINARY_SAMPLE_BYTES
 } from '../../util/file-tree';
 import {pushRecent} from '../../util/recent';
 import {
@@ -143,6 +145,19 @@ const openImage = file => {
 		});
 };
 
+const skipBinary = (filePath) => {
+	console.warn('Skipping binary file', filePath);
+	return state => state;
+};
+
+const loadTextIfNotBinary = (file, source) => {
+	if (typeof source !== 'string') {
+		throw new Error('File read did not return text');
+	}
+	if (looksBinary(source)) return skipBinary(file && file.path);
+	return loadFileWithIndent(file, {source, kind: 'text'});
+};
+
 export const openFile = file => {
 	if (!file || file.isDir) return state => state;
 
@@ -153,16 +168,28 @@ export const openFile = file => {
 	if (kind === 'binary' || file.readable === false) {
 		return state => state;
 	}
-	if (typeof file.source === 'string') return loadFileWithIndent(file);
+	if (typeof file.source === 'string') {
+		if (looksBinary(file.source)) return skipBinary(file.path);
+		return loadFileWithIndent(file);
+	}
 
 	const fs = getFs();
-	return fs.readFile(file)
-		.then(source => {
-			if (typeof source !== 'string') {
-				throw new Error('File read did not return text');
-			}
-			return loadFileWithIndent(file, {source, kind: 'text'});
-		})
+	const readText = () => fs.readFile(file).then(source => loadTextIfNotBinary(file, source));
+
+	// Cheap prefix sniff when the backend supports it (Electron / web).
+	if (typeof fs.readFileSample === 'function') {
+		return fs.readFileSample(file, BINARY_SAMPLE_BYTES)
+			.then(sample => {
+				if (looksBinary(sample)) return skipBinary(file.path);
+				return readText();
+			})
+			.catch(err => {
+				console.error('openFile failed', file && file.path, err);
+				return state => state;
+			});
+	}
+
+	return readText()
 		.catch(err => {
 			console.error('openFile failed', file && file.path, err);
 			return state => state;
@@ -443,13 +470,34 @@ export const reloadFile = file => {
 		return Promise.resolve(state => state);
 	}
 
-	return fs.readFile(file)
+	const reloadText = () => fs.readFile(file)
 		.then(source => {
 			if (typeof source !== 'string') {
 				throw new Error('File read did not return text');
 			}
+			if (looksBinary(source)) {
+				console.warn('Skipping binary reload', path);
+				return state => state;
+			}
 			return applyTextReload(source);
-		})
+		});
+
+	if (typeof fs.readFileSample === 'function') {
+		return fs.readFileSample(file, BINARY_SAMPLE_BYTES)
+			.then(sample => {
+				if (looksBinary(sample)) {
+					console.warn('Skipping binary reload', path);
+					return state => state;
+				}
+				return reloadText();
+			})
+			.catch(err => {
+				console.error('reloadFile failed', path, err);
+				return state => state;
+			});
+	}
+
+	return reloadText()
 		.catch(err => {
 			console.error('reloadFile failed', path, err);
 			return state => state;

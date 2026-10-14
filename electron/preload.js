@@ -75,6 +75,8 @@ contextBridge.exposeInMainWorld('app', {
 	openRootFolder: dirPath => ipcRenderer.invoke('openRootFolder', dirPath),
 	listDir: dirPath => ipcRenderer.invoke('listDir', dirPath),
 	readFile: filePath => ipcRenderer.invoke('readFile', filePath),
+	readFileSample: (filePath, maxBytes) =>
+		ipcRenderer.invoke('readFileSample', filePath, maxBytes),
 	readFileDataUrl: filePath => ipcRenderer.invoke('readFileDataUrl', filePath),
 	writeFile: (filePath, content) => ipcRenderer.invoke('writeFile', filePath, content),
 	mkdir: (dirPath, name) => ipcRenderer.invoke('mkdir', dirPath, name),

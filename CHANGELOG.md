@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.24.0] - 2026-10-14
+
+### Added
+
+- Markdown preview: code-prettify syntax highlighting for fenced code blocks (same token colors as the editor)
+- Open/reload: sniff file content for NUL bytes before treating as text (Electron/web sample read; Cap after UTF-8 read)
+
 ## [1.23.0] - 2026-10-12
 
 ### Added
@@ -532,7 +539,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.23.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.24.0...HEAD
+[1.24.0]: https://github.com/iblokz/ide/compare/v1.23.0...v1.24.0
 [1.23.0]: https://github.com/iblokz/ide/compare/v1.22.0...v1.23.0
 [1.22.0]: https://github.com/iblokz/ide/compare/v1.21.0...v1.22.0
 [1.21.0]: https://github.com/iblokz/ide/compare/v1.20.0...v1.21.0

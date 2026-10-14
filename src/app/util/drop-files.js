@@ -1,6 +1,13 @@
 'use strict';
 
-const {extOf, fileKind, hashPath, isImageFile} = require('./file-tree');
+const {
+	extOf,
+	fileKind,
+	hashPath,
+	isImageFile,
+	looksBinary,
+	BINARY_SAMPLE_BYTES
+} = require('./file-tree');
 const {isElectronBridge} = require('./platform');
 
 const nodeFromPath = filePath => {
@@ -36,16 +43,23 @@ const readBrowserFile = file => {
 			readable: true
 		});
 	}
-	return file.text().then(source => ({
-		id: hashPath(name + ':' + file.size),
-		name,
-		path: name,
-		isDir: false,
-		ext,
-		kind: 'text',
-		source,
-		readable: true
-	}));
+	return file.slice(0, BINARY_SAMPLE_BYTES).arrayBuffer()
+		.then(buf => {
+			if (looksBinary(buf)) return null;
+			return file.text().then(source => {
+				if (looksBinary(source)) return null;
+				return {
+					id: hashPath(name + ':' + file.size),
+					name,
+					path: name,
+					isDir: false,
+					ext,
+					kind: 'text',
+					source,
+					readable: true
+				};
+			});
+		});
 };
 
 /**

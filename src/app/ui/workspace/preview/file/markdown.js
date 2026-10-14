@@ -2,11 +2,20 @@
  * Tiny markdown → HTML for file preview (no full md lib).
  * Headings, lists, GFM task checkboxes, code, tables, mermaid, links, emphasis.
  */
+import {prettify, prettifyLang, escapeHtml} from '../../../codebin/prettify.js';
 
-const escapeHtml = s => String(s)
-	.replace(/&/g, '&amp;')
-	.replace(/</g, '&lt;')
-	.replace(/>/g, '&gt;');
+const formatCodeBlock = (code, lang) => {
+	const escaped = escapeHtml(code);
+	if (!lang) {
+		return `<pre><code>${escaped}</code></pre>`;
+	}
+	try {
+		const highlighted = prettify.prettyPrintOne(escaped, prettifyLang(lang));
+		return `<pre class="prettyprint"><code class="prettyprint">${highlighted}</code></pre>`;
+	} catch (_err) {
+		return `<pre><code>${escaped}</code></pre>`;
+	}
+};
 
 const inline = s => escapeHtml(s)
 	.replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -52,6 +61,7 @@ export const parseMarkdown = source => {
 	let i = 0;
 	let inCode = false;
 	let codeBuf = [];
+	let codeLang = '';
 	let listType = null;
 
 	const flushList = () => {
@@ -74,8 +84,9 @@ export const parseMarkdown = source => {
 
 		if (line.startsWith('```')) {
 			if (inCode) {
-				out.push(`<pre><code>${escapeHtml(codeBuf.join('\n'))}</code></pre>`);
+				out.push(formatCodeBlock(codeBuf.join('\n'), codeLang));
 				codeBuf = [];
+				codeLang = '';
 				inCode = false;
 				i += 1;
 				continue;
@@ -97,6 +108,7 @@ export const parseMarkdown = source => {
 			}
 			flushList();
 			inCode = true;
+			codeLang = lang;
 			i += 1;
 			continue;
 		}
@@ -203,7 +215,7 @@ export const parseMarkdown = source => {
 	}
 
 	if (inCode) {
-		out.push(`<pre><code>${escapeHtml(codeBuf.join('\n'))}</code></pre>`);
+		out.push(formatCodeBlock(codeBuf.join('\n'), codeLang));
 	}
 	flushList();
 	return {html: out.join('\n'), diagrams};

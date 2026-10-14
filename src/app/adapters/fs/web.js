@@ -1,6 +1,12 @@
 'use strict';
 
-const {hashPath, extOf, SKIP_NAMES, fileKind} = require('../../util/file-tree');
+const {
+	hashPath,
+	extOf,
+	SKIP_NAMES,
+	fileKind,
+	BINARY_SAMPLE_BYTES
+} = require('../../util/file-tree');
 const {browser} = require('../../util/platform');
 
 const getSession = () => {
@@ -377,6 +383,20 @@ const create = () => ({
 		const blob = getBlob(node.id);
 		if (blob) return blob.text();
 		throw new Error(`No file handle for ${node.path || node.name} (${node.id})`);
+	},
+	async readFileSample(node, maxBytes = BINARY_SAMPLE_BYTES) {
+		const n = Math.max(0, maxBytes | 0) || BINARY_SAMPLE_BYTES;
+		const handle = getHandle(node.id);
+		let blob = null;
+		if (handle && handle.kind === 'file') {
+			blob = await handle.getFile();
+		} else {
+			blob = getBlob(node.id);
+		}
+		if (!blob) {
+			throw new Error(`No file handle for ${node.path || node.name} (${node.id})`);
+		}
+		return new Uint8Array(await blob.slice(0, n).arrayBuffer());
 	},
 	async getObjectUrl(node) {
 		const handle = getHandle(node.id);

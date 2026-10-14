@@ -508,6 +508,8 @@ const registerIpc = () => {
 	});
 	ipcMain.handle('listDir', (_ev, dirPath) => fileUtil.listDir(dirPath));
 	ipcMain.handle('readFile', (_ev, filePath) => fileUtil.read(filePath));
+	ipcMain.handle('readFileSample', (_ev, filePath, maxBytes) =>
+		fileUtil.readSample(filePath, maxBytes));
 	ipcMain.handle('readFileDataUrl', (_ev, filePath) => fileUtil.readDataUrl(filePath));
 	ipcMain.handle('writeFile', (_ev, filePath, content) => fileUtil.write(filePath, content));
 	ipcMain.handle('mkdir', (_ev, dirPath, name) => fileUtil.mkdir(dirPath, name));

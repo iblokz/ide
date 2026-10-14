@@ -87,6 +87,13 @@ const create = () => ({
 		}
 		return bridge.readFile(node.path);
 	},
+	async readFileSample(node, maxBytes) {
+		const bridge = getBridge();
+		if (!bridge || typeof bridge.readFileSample !== 'function') {
+			throw new Error('Electron readFileSample not available');
+		}
+		return bridge.readFileSample(node.path, maxBytes);
+	},
 	async getObjectUrl(node) {
 		const bridge = getBridge();
 		if (!bridge || typeof bridge.readFileDataUrl !== 'function') {

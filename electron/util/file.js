@@ -7,7 +7,8 @@ const {
 	extOf,
 	SKIP_NAMES,
 	fileKind,
-	mimeOf
+	mimeOf,
+	BINARY_SAMPLE_BYTES
 } = require('../../src/app/util/file-tree');
 
 const mapAsync = (list, fn) => Promise.all(list.map(fn));
@@ -86,6 +87,21 @@ const openRoot = async rootPath => {
 
 const read = (filePath, enc = 'utf-8') => fsp.readFile(filePath, enc);
 
+/** First N raw bytes for text/binary sniff (does not load the whole file). */
+const readSample = async (filePath, maxBytes = BINARY_SAMPLE_BYTES) => {
+	const fh = await fsp.open(filePath, 'r');
+	try {
+		const {size} = await fh.stat();
+		const n = Math.min(Math.max(0, maxBytes | 0) || BINARY_SAMPLE_BYTES, size);
+		if (n === 0) return Buffer.alloc(0);
+		const buf = Buffer.alloc(n);
+		const {bytesRead} = await fh.read(buf, 0, n, 0);
+		return bytesRead === n ? buf : buf.subarray(0, bytesRead);
+	} finally {
+		await fh.close();
+	}
+};
+
 const readDataUrl = async filePath => {
 	const buf = await fsp.readFile(filePath);
 	const mime = mimeOf(path.basename(filePath));
@@ -135,6 +151,7 @@ module.exports = {
 	openRoot,
 	listDir,
 	read,
+	readSample,
 	readDataUrl,
 	write,
 	mkdir,
