@@ -13,17 +13,23 @@ export default ({state, actions}) => {
 		attrs: {role: 'tablist', 'aria-label': 'Open files'}
 	}, tabs.map(tab => {
 		const active = tab.id === state.activeTabId;
+		const audition = tab.pinned === false;
 		const title = (tab.file && (tab.file.path || tab.file.name)) || tab.id;
-		return div(`.tab${active ? '.is-active' : ''}${tab.dirty ? '.is-dirty' : ''}`, {
+		return div(`.tab${active ? '.is-active' : ''}${tab.dirty ? '.is-dirty' : ''}${audition ? '.is-audition' : ''}`, {
 			attrs: {
 				role: 'tab',
 				'aria-selected': active ? 'true' : 'false',
-				title
+				title: audition ? `${title} (preview)` : title
 			},
 			on: {
 				click: ev => {
 					if (ev.target.closest && ev.target.closest('.tab-close')) return;
 					actions.setActiveTab(tab.id);
+				},
+				dblclick: ev => {
+					if (ev.target.closest && ev.target.closest('.tab-close')) return;
+					ev.preventDefault();
+					actions.pinTab(tab.id);
 				},
 				mousedown: ev => {
 					// Middle-click close

@@ -39,9 +39,14 @@ const newTabId = file => {
 	return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 };
 
-const createTextTab = file => {
+/**
+ * @param {object} file
+ * @param {{pinned?: boolean}} [opts] — default pinned (session / permanent opens)
+ */
+const createTextTab = (file, opts) => {
 	const type = (file && file.ext) || extOf(file && file.name) || 'js';
 	const source = typeof file.source === 'string' ? file.source : '';
+	const pinned = !(opts && opts.pinned === false);
 	return {
 		id: newTabId(file),
 		file,
@@ -55,24 +60,33 @@ const createTextTab = file => {
 		maxIndex: 0,
 		pos: emptyPos,
 		scroll: emptyScroll,
-		history: emptyHistory(type, source)
+		history: emptyHistory(type, source),
+		pinned
 	};
 };
 
-const createImageTab = file => ({
-	id: newTabId(file),
-	file,
-	source: '',
-	type: 'image',
-	dirty: false,
-	externalChange: null,
-	saveError: null,
-	index: 0,
-	maxIndex: 0,
-	pos: emptyPos,
-	scroll: emptyScroll,
-	history: emptyHistory('image', '')
-});
+/**
+ * @param {object} file
+ * @param {{pinned?: boolean}} [opts]
+ */
+const createImageTab = (file, opts) => {
+	const pinned = !(opts && opts.pinned === false);
+	return {
+		id: newTabId(file),
+		file,
+		source: '',
+		type: 'image',
+		dirty: false,
+		externalChange: null,
+		saveError: null,
+		index: 0,
+		maxIndex: 0,
+		pos: emptyPos,
+		scroll: emptyScroll,
+		history: emptyHistory('image', ''),
+		pinned
+	};
+};
 
 const activeTab = state => {
 	const tabs = (state && state.tabs) || [];
@@ -112,6 +126,9 @@ const findTabIndexByPath = (tabs, path) => {
 const findTabIndexById = (tabs, id) =>
 	(tabs || []).findIndex(t => t.id === id);
 
+const findAuditionIndex = tabs =>
+	(tabs || []).findIndex(t => t && t.pinned === false);
+
 /** Replace active tab via mapper; re-project root mirrors. */
 const mapActiveTab = (state, fn) => {
 	const tabs = state.tabs || [];
@@ -124,37 +141,28 @@ const mapActiveTab = (state, fn) => {
 	return projectActive(Object.assign({}, state, {tabs: nextTabs}));
 };
 
-const activateTabId = (state, id) => {
-	if (!id || state.activeTabId === id) {
-		return projectActive(state);
-	}
-	const tabs = state.tabs || [];
-	if (findTabIndexById(tabs, id) < 0) return state;
-	return projectActive(Object.assign({}, state, {activeTabId: id}));
-};
-
-/**
- * Activate existing tab for path, or append `tab` and activate it.
- * Does not revoke other tabs' URLs.
- */
-const upsertTab = (state, tab) => {
-	const tabs = state.tabs || [];
-	const path = tab.file && tab.file.path;
-	const existingIdx = findTabIndexByPath(tabs, path);
-	if (existingIdx >= 0) {
-		return activateTabId(state, tabs[existingIdx].id);
-	}
-	return projectActive(Object.assign({}, state, {
-		tabs: tabs.concat([tab]),
-		activeTabId: tab.id
-	}));
-};
-
 const neighborTabId = (tabs, closedIdx) => {
 	if (!tabs.length) return null;
 	if (closedIdx < tabs.length) return tabs[closedIdx].id;
 	if (closedIdx - 1 >= 0) return tabs[closedIdx - 1].id;
 	return tabs[0].id;
+};
+
+/**
+ * Index to insert a new tab for `openPositioning`.
+ * @param {object[]} tabs
+ * @param {string|null} activeTabId
+ * @param {string} openPositioning
+ */
+const insertIndexFor = (tabs, activeTabId, openPositioning) => {
+	const n = (tabs || []).length;
+	const pos = openPositioning || 'right';
+	if (pos === 'first') return 0;
+	if (pos === 'last' || !n) return n;
+	const activeIdx = findTabIndexById(tabs, activeTabId);
+	if (activeIdx < 0) return n;
+	if (pos === 'left') return activeIdx;
+	return activeIdx + 1;
 };
 
 module.exports = {
@@ -170,8 +178,8 @@ module.exports = {
 	anyDirty,
 	findTabIndexByPath,
 	findTabIndexById,
+	findAuditionIndex,
 	mapActiveTab,
-	activateTabId,
-	upsertTab,
-	neighborTabId
+	neighborTabId,
+	insertIndexFor
 };

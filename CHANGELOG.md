@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.25.0] - 2026-10-14
+
+### Added
+
+- Audition (preview) tabs: tree single-click / Mod+P reuse one italic tab to the right of the active editor; tree or tab double-click, or editing, pins the tab
+- Electron `settings.yml` `editor.enablePreview` / `enablePreviewFromQuickOpen` / `openPositioning` (VS Code defaults); exposed to the renderer via `getSettings`
+
+### Changed
+
+- Tab open/close/cycle/pin live in `state/tabs`; `util/tabs` keeps factories and lookups only
+
+### Fixed
+
+- Markdown/SVG file preview: strip embedded `<script>` from sandboxed `srcdoc` (silence Chromium allow-scripts warnings from mermaid SVG)
+
 ## [1.24.0] - 2026-10-14
 
 ### Added

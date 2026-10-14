@@ -543,6 +543,10 @@ const registerIpc = () => {
 		event.returnValue = getHostThemePayload();
 	});
 	ipcMain.handle('getHostTheme', () => getHostThemePayload());
+	ipcMain.on('getSettingsSync', event => {
+		event.returnValue = settings;
+	});
+	ipcMain.handle('getSettings', () => settings);
 
 	const resolveGitCwd = cwd => {
 		if (!cwd || typeof cwd !== 'string') {

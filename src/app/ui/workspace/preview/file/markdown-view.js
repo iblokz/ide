@@ -3,7 +3,7 @@
  * GFM tables + mermaid fences (rendered to SVG in the parent, then srcdoc).
  */
 import {section, h} from 'iblokz-snabbdom-helpers';
-import {snapshotPreviewTheme} from '../../../../util/preview-file.js';
+import {snapshotPreviewTheme, stripSrcdocScripts} from '../../../../util/preview-file.js';
 import {parseMarkdown} from './markdown.js';
 
 const wrapHtml = (body, theme) => {
@@ -166,8 +166,9 @@ const wrapHtml = (body, theme) => {
 
 const applySrcdoc = (elm, html) => {
 	if (!elm || html == null) return;
-	if (elm.srcdoc === html) return;
-	elm.srcdoc = html;
+	const next = stripSrcdocScripts(html);
+	if (elm.srcdoc === next) return;
+	elm.srcdoc = next;
 };
 
 let mermaidReady = null;

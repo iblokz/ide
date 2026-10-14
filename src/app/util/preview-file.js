@@ -69,4 +69,12 @@ export const snapshotPreviewTheme = (mode = 'dark') => {
 	return {mode: resolved, vars};
 };
 
-export default {filePreviewKind, snapshotPreviewTheme};
+/**
+ * Remove script tags before writing sandboxed srcdoc (no allow-scripts).
+ * Mermaid SVG output often embeds scripts that would only log a console block.
+ */
+export const stripSrcdocScripts = html => String(html || '')
+	.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+	.replace(/<script\b[^>]*\/?>/gi, '');
+
+export default {filePreviewKind, snapshotPreviewTheme, stripSrcdocScripts};

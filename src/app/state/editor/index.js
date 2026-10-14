@@ -21,6 +21,7 @@ export const updateSource = (source, pos) => state => mapActiveTab(state, tab =>
 	return Object.assign({}, tab, {
 		source,
 		dirty: true,
+		pinned: true,
 		externalChange: null,
 		saveError: null,
 		index: tab.index + 1,
@@ -65,7 +66,8 @@ export const undo = () => state => mapActiveTab(state, tab => {
 	if (!entry) return tab;
 	return Object.assign({}, tab, entry, {
 		index,
-		dirty: true
+		dirty: true,
+		pinned: true
 	});
 });
 
@@ -75,7 +77,8 @@ export const redo = () => state => mapActiveTab(state, tab => {
 	if (!entry) return tab;
 	return Object.assign({}, tab, entry, {
 		index,
-		dirty: true
+		dirty: true,
+		pinned: true
 	});
 });
 

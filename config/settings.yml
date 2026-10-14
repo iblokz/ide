@@ -11,3 +11,14 @@ windows:
   # true  — second launch focuses the existing window (requestSingleInstanceLock)
   # false — each launch may open another window (pre-1.14 behavior)
   singleInstance: false
+
+# Editor prefs (loaded into the renderer via getSettings; edit + restart).
+# Cap / web use the same hardcoded defaults when Electron settings are unavailable.
+editor:
+  # true  — single-click / Mod+P open a reusable audition (preview) tab
+  # false — every open is permanent (pinned)
+  enablePreview: true
+  # When enablePreview is true, Mod+P uses audition; set false to always pin from Quick Open
+  enablePreviewFromQuickOpen: true
+  # Where to insert a new audition when none exists: right | left | first | last
+  openPositioning: right

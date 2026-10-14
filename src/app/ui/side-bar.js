@@ -128,6 +128,7 @@ const fileLeafNode = (item, path = [], level = 0, opts) => {
 
 	const {
 		onActivate,
+		onPinActivate,
 		onLongPress,
 		selectedPath,
 		pendingDeletePath,
@@ -202,6 +203,14 @@ const fileLeafNode = (item, path = [], level = 0, opts) => {
 						return;
 					}
 					onActivate(item, path, level, ev);
+				},
+				dblclick: ev => {
+					if (isRenaming || item.isDir) return;
+					stop(ev);
+					clearLongPress();
+					if (typeof onPinActivate === 'function') {
+						onPinActivate(item, path, level, ev);
+					}
 				}
 			}
 		}, [].concat(
@@ -363,7 +372,10 @@ const gitPanel = ({git, projectPath, actions}) => {
 							on: {
 								click: ev => {
 									ev.preventDefault();
-									actions.project.openFile(fileStubFromPath(abs));
+									actions.project.openFile(
+										fileStubFromPath(abs),
+										{source: 'tree'}
+									);
 								}
 							}
 						}, [
@@ -417,7 +429,13 @@ export default ({state, actions, width}) => fn.pipe(
 			onActivate: (item, path) => {
 				actions.fileTree.select(item);
 				if (item.isDir) actions.fileTree.toggleFolder(path, item);
-				else actions.project.openFile(item);
+				else actions.project.openFile(item, {source: 'tree'});
+			},
+			onPinActivate: item => {
+				actions.fileTree.select(item);
+				if (!item.isDir) {
+					actions.project.openFile(item, {source: 'pin'});
+				}
 			},
 			onLongPress: item => {
 				if (!canWrite) return;

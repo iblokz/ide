@@ -6,7 +6,7 @@ How preferences and related data are persisted across the supported hosts.
 
 | Layer | Format | Who reads it | Purpose |
 |-------|--------|--------------|---------|
-| **Electron user settings** | YAML in `userData` | Main process (before window) | Prefs that affect shell boot (e.g. single vs multi window) |
+| **Electron user settings** | YAML in `userData` | Main process (before window) + renderer via IPC | Shell boot prefs and editor audition prefs |
 | **Renderer `localStorage`** | Browser API | Renderer | Theme, recent projects (works on web / Cap / Electron) |
 | **Bundled defaults** | [`config/settings.yml`](../config/settings.yml) | Merged into user settings on first run | Documented defaults shipped with the app |
 
@@ -27,10 +27,17 @@ Edit that file (File → **Open Settings File…**), then restart the app. User 
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `windows.singleInstance` | `false` | `true` → second launch focuses the existing window; `false` → another window may open (pre-1.14 behavior) |
+| `editor.enablePreview` | `true` | Single-click / audition opens use a reusable preview tab |
+| `editor.enablePreviewFromQuickOpen` | `true` | Mod+P uses audition when preview is enabled |
+| `editor.openPositioning` | `right` | Where to insert a new audition when none exists (`right` \| `left` \| `first` \| `last`) |
 
-**Not here (yet):** theme, recent roots, per-project sessions, window bounds — those live in renderer `localStorage` (see below).
+Renderer reads the merged object via `window.app.getSettingsSync()` ([`src/app/util/app-settings.js`](../src/app/util/app-settings.js)). Cap / web use the same hardcoded defaults. Edit + restart to apply.
 
-Implementation: [`electron/util/settings.js`](../electron/util/settings.js), wired from [`electron/main.js`](../electron/main.js).
+**Not here:** theme, recent roots, per-project sessions, window bounds — those live in renderer `localStorage` (see below).
+
+**Audition tabs:** tree single-click and Mod+P open an italic (unpinned) tab; tree/tab double-click or editing pins. Session restore opens paths as pinned. See [`planning/2026-10-14-01-audition-tabs.md`](../planning/2026-10-14-01-audition-tabs.md).
+
+Implementation: [`electron/util/settings.js`](../electron/util/settings.js), wired from [`electron/main.js`](../electron/main.js) / [`electron/preload.js`](../electron/preload.js).
 
 ## Renderer `localStorage`
 

@@ -8,6 +8,11 @@ const yaml = require('js-yaml');
 const DEFAULTS = {
 	windows: {
 		singleInstance: false
+	},
+	editor: {
+		enablePreview: true,
+		enablePreviewFromQuickOpen: true,
+		openPositioning: 'right'
 	}
 };
 
@@ -53,7 +58,7 @@ const dumpSettings = data => yaml.dump(data, {
 /**
  * Load bundled defaults, ensure a userData copy exists, merge user over defaults.
  * @param {string} userData Electron `app.getPath('userData')`
- * @returns {{windows: {singleInstance: boolean}}}
+ * @returns {{windows: {singleInstance: boolean}, editor: object}}
  */
 const loadSettings = userData => {
 	const bundled = readYamlObject(bundledPath()) || {};

@@ -113,7 +113,7 @@ fromEvent(document, 'drop').subscribe(ev => {
 	filesFromDrop(ev.dataTransfer).then(nodes => {
 		if (!nodes.length) return;
 		const file = nodes[0];
-		actions.project.openFile(file);
+		actions.project.openFile(file, {source: 'pin'});
 	}).catch(err => {
 		console.error('drop open failed', err);
 	});
@@ -162,7 +162,7 @@ if (isElectronBridge() && typeof window.app.onFsChange === 'function') {
 			actions.project.markExternalChange(changedPath);
 			return;
 		}
-		// upsertTab would only activate — reloadFile patches source in place.
+		// openTab would only activate — reloadFile patches source in place.
 		actions.project.reloadFile(Object.assign({}, tab.file, {source: undefined, url: undefined}));
 	});
 }

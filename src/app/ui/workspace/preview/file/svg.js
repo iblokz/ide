@@ -2,7 +2,7 @@
  * SVG file preview — isolated document on the app theme background.
  */
 import {section, h} from 'iblokz-snabbdom-helpers';
-import {snapshotPreviewTheme} from '../../../../util/preview-file.js';
+import {snapshotPreviewTheme, stripSrcdocScripts} from '../../../../util/preview-file.js';
 
 const asSvgMarkup = source => {
 	const raw = String(source || '').trim();
@@ -48,8 +48,9 @@ const wrapHtml = (svg, theme) => {
 
 const applySrcdoc = (elm, html) => {
 	if (!elm || html == null) return;
-	if (elm.srcdoc === html) return;
-	elm.srcdoc = html;
+	const next = stripSrcdocScripts(html);
+	if (elm.srcdoc === next) return;
+	elm.srcdoc = next;
 };
 
 export default ({source, fileName = 'preview.svg', themeMode = 'dark'}) => {

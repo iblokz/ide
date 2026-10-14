@@ -71,6 +71,8 @@ contextBridge.exposeInMainWorld('app', {
 		ipcRenderer.on('host-theme', handler);
 		return () => ipcRenderer.removeListener('host-theme', handler);
 	},
+	getSettingsSync: () => ipcRenderer.sendSync('getSettingsSync'),
+	getSettings: () => ipcRenderer.invoke('getSettings'),
 	selectRootFolder: () => ipcRenderer.invoke('selectRootFolder'),
 	openRootFolder: dirPath => ipcRenderer.invoke('openRootFolder', dirPath),
 	listDir: dirPath => ipcRenderer.invoke('listDir', dirPath),

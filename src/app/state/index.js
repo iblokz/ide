@@ -4,24 +4,12 @@ const {obj, arr} = require('iblokz-data');
 const {dispatch} = require('iblokz-state');
 const {loadRecent} = require('../util/recent');
 const {getFs} = require('../adapters/fs');
-
-const revokeFileUrl = file => {
-	if (!file || !file.url) return;
-	const fs = getFs();
-	if (typeof fs.revokeObjectUrl === 'function') {
-		fs.revokeObjectUrl(file.url);
-	}
-};
 const {indexFilesDeep} = require('../util/file-search');
 const {findMatch, findFirstMatch} = require('../util/find-in-source');
 const findHighlight = require('../util/find-highlight').default
 	?? require('../util/find-highlight');
 const {
 	emptyTabFields,
-	projectActive,
-	activateTabId,
-	findTabIndexById,
-	neighborTabId,
 	mapActiveTab
 } = require('../util/tabs');
 
@@ -34,6 +22,7 @@ const git = require('./git').default ?? require('./git');
 const preview = require('./preview').default ?? require('./preview');
 const find = require('./find').default ?? require('./find');
 const fileSearch = require('./file-search').default ?? require('./file-search');
+const tabs = require('./tabs').default ?? require('./tabs');
 
 const emptyFind = find.initial || {open: false, query: '', caseSensitive: false};
 const emptyFileSearch = fileSearch.initial || {
@@ -75,36 +64,15 @@ const arrToggle = (key, value) => state =>
 		arr.toggle(obj.sub(state, key), value)
 	);
 
-const setActiveTab = id => state => activateTabId(state, id);
-
-const cycleTab = delta => state => {
-	const tabs = state.tabs || [];
-	if (tabs.length < 2) return state;
-	const idx = findTabIndexById(tabs, state.activeTabId);
-	if (idx < 0) return activateTabId(state, tabs[0].id);
-	const next = (idx + delta + tabs.length) % tabs.length;
-	return activateTabId(state, tabs[next].id);
-};
-
-const nextTab = () => cycleTab(1);
-const prevTab = () => cycleTab(-1);
-
-const closeTab = id => state => {
-	const tabs = state.tabs || [];
-	const idx = findTabIndexById(tabs, id);
-	if (idx < 0) return state;
-	const closing = tabs[idx];
-	revokeFileUrl(closing && closing.file);
-	const nextTabs = tabs.slice(0, idx).concat(tabs.slice(idx + 1));
-	let activeTabId = state.activeTabId;
-	if (activeTabId === id) {
-		activeTabId = neighborTabId(nextTabs, idx);
-	}
-	return projectActive(Object.assign({}, state, {
-		tabs: nextTabs,
-		activeTabId
-	}));
-};
+const {
+	setActiveTab,
+	nextTab,
+	prevTab,
+	closeTab,
+	pinTab,
+	pinActiveTab,
+	openTab
+} = tabs;
 
 const applyFindCaret = pos => {
 	findHighlight.applyFindResult(pos);
@@ -322,6 +290,7 @@ module.exports = {
 	preview,
 	find,
 	fileSearch,
+	// Do not nest-export `tabs` — that key is the open-tab array on state.
 	set,
 	toggle,
 	arrToggle,
@@ -329,6 +298,9 @@ module.exports = {
 	nextTab,
 	prevTab,
 	closeTab,
+	pinTab,
+	pinActiveTab,
+	openTab,
 	setFind,
 	findQuery,
 	openFind,

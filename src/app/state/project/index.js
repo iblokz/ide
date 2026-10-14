@@ -28,10 +28,10 @@ import {
 	createImageTab,
 	projectActive,
 	mapActiveTab,
-	upsertTab,
-	findTabIndexByPath,
-	activateTabId
+	findTabIndexByPath
 } from '../../util/tabs';
+import {resolveOpenMode, getOpenPositioning} from '../../util/app-settings.js';
+import {openTab, activateTabId} from '../tabs/index.js';
 import {initial as layoutInitial} from '../layout/index.js';
 import {initial as previewInitial} from '../preview/index.js';
 import {
@@ -42,6 +42,15 @@ import {
 } from '../file-tree/index.js';
 import find from '../find';
 import fileSearch from '../file-search';
+
+const openOptsFrom = opts => {
+	const mode = (opts && opts.mode)
+		|| resolveOpenMode((opts && opts.source) || 'tree');
+	return {
+		mode,
+		openPositioning: (opts && opts.openPositioning) || getOpenPositioning()
+	};
+};
 
 const emptyFind = find.initial || {open: false, query: '', caseSensitive: false};
 const emptyFileSearch = fileSearch.initial || {
@@ -92,8 +101,11 @@ const clearOpenFile = state => {
 	});
 };
 
-const loadFile = file => state => {
-	const base = clearFileSearchUi(upsertTab(state, createTextTab(file)));
+const loadFile = (file, opts) => state => {
+	const openOpts = openOptsFrom(opts);
+	const base = clearFileSearchUi(
+		openTab(createTextTab(file, {pinned: openOpts.mode !== 'audition'}), openOpts)(state)
+	);
 	const tree = fileTreeSlice(base);
 	return patchFileTree(base, {
 		selectedPath: safeSelectedPath(base, file.path),
@@ -103,7 +115,7 @@ const loadFile = file => state => {
 	});
 };
 
-const loadFileWithIndent = (file, sourcePatch) => state => {
+const loadFileWithIndent = (file, sourcePatch, opts) => state => {
 	const base = Object.assign({}, file, sourcePatch || {});
 	const rootPath = state.project && state.project.path;
 	resolveIndent(getFs(), base.path, rootPath)
@@ -112,13 +124,19 @@ const loadFileWithIndent = (file, sourcePatch) => state => {
 			return DEFAULT_INDENT;
 		})
 		.then(indent => {
-			dispatch(loadFile(Object.assign({}, base, {indent: indent || DEFAULT_INDENT})));
+			dispatch(loadFile(
+				Object.assign({}, base, {indent: indent || DEFAULT_INDENT}),
+				opts
+			));
 		});
 	return state;
 };
 
-const loadImage = file => state => {
-	const base = clearFileSearchUi(upsertTab(state, createImageTab(file)));
+const loadImage = (file, opts) => state => {
+	const openOpts = openOptsFrom(opts);
+	const base = clearFileSearchUi(
+		openTab(createImageTab(file, {pinned: openOpts.mode !== 'audition'}), openOpts)(state)
+	);
 	const tree = fileTreeSlice(base);
 	return patchFileTree(base, {
 		selectedPath: safeSelectedPath(base, file.path),
@@ -128,9 +146,9 @@ const loadImage = file => state => {
 	});
 };
 
-const openImage = file => {
+const openImage = (file, opts) => {
 	if (typeof file.url === 'string' && file.url) {
-		return loadImage(file);
+		return loadImage(file, opts);
 	}
 	const fs = getFs();
 	if (typeof fs.getObjectUrl !== 'function') {
@@ -138,7 +156,7 @@ const openImage = file => {
 		return state => state;
 	}
 	return fs.getObjectUrl(file)
-		.then(url => loadImage(Object.assign({}, file, {url, kind: 'image'})))
+		.then(url => loadImage(Object.assign({}, file, {url, kind: 'image'}), opts))
 		.catch(err => {
 			console.error('openImage failed', file && file.path, err);
 			return state => state;
@@ -150,31 +168,36 @@ const skipBinary = (filePath) => {
 	return state => state;
 };
 
-const loadTextIfNotBinary = (file, source) => {
+const loadTextIfNotBinary = (file, source, opts) => {
 	if (typeof source !== 'string') {
 		throw new Error('File read did not return text');
 	}
 	if (looksBinary(source)) return skipBinary(file && file.path);
-	return loadFileWithIndent(file, {source, kind: 'text'});
+	return loadFileWithIndent(file, {source, kind: 'text'}, opts);
 };
 
-export const openFile = file => {
+/**
+ * @param {object} file
+ * @param {{mode?: 'audition'|'pinned', source?: 'tree'|'quickOpen'|'pin'|'session'}} [opts]
+ */
+export const openFile = (file, opts) => {
 	if (!file || file.isDir) return state => state;
 
 	const kind = file.kind || fileKind(file.name, file.ext);
 	if (kind === 'image' || isImageFile(file.name, file.ext)) {
-		return openImage(file);
+		return openImage(file, opts);
 	}
 	if (kind === 'binary' || file.readable === false) {
 		return state => state;
 	}
 	if (typeof file.source === 'string') {
 		if (looksBinary(file.source)) return skipBinary(file.path);
-		return loadFileWithIndent(file);
+		return loadFileWithIndent(file, null, opts);
 	}
 
 	const fs = getFs();
-	const readText = () => fs.readFile(file).then(source => loadTextIfNotBinary(file, source));
+	const readText = () => fs.readFile(file)
+		.then(source => loadTextIfNotBinary(file, source, opts));
 
 	// Cheap prefix sniff when the backend supports it (Electron / web).
 	if (typeof fs.readFileSample === 'function') {
@@ -247,7 +270,7 @@ const restoreSessionTabs = async (session, filesTree, token) => {
 			const node = resolveFileInTree(filesTree, path) || fileStubFromPath(path);
 			if (!node || node.isDir || node.readable === false) continue;
 			try {
-				const result = openFile(node);
+				const result = openFile(node, {source: 'session'});
 				const reducer = (result && typeof result.then === 'function')
 					? await result
 					: result;
@@ -401,7 +424,7 @@ export const markExternalChange = filePath => state => {
 /**
  * Re-read an open file from disk into its tab.
  * No-ops if the tab is missing or dirty (dirty → markExternalChange).
- * Unlike openFile/upsertTab, this updates source in place instead of only activating.
+ * Unlike openFile/openTab, this updates source in place instead of only activating.
  */
 export const reloadFile = file => {
 	if (!file || !file.path || file.isDir) {
