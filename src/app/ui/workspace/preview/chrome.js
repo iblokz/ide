@@ -1,8 +1,12 @@
 /**
- * Preview chrome: mode toggle (file | url) + address bar when URL.
+ * Preview chrome: mode toggle (file | url) + address / breadcrumbs + pane actions.
  */
-import {header, span, i, input, button} from 'iblokz-snabbdom-helpers';
+import {header, span, i, input, button, a} from 'iblokz-snabbdom-helpers';
 import {filePreviewKind} from '../../../util/preview-file.js';
+import {
+	buildPreviewBreadcrumbs,
+	openPreviewPath
+} from '../../../util/preview-nav.js';
 
 const modeButton = ({id, label, active, disabled, onClick}) => button(`.preview-mode-btn${active ? '.is-active' : ''}`, {
 	attrs: {
@@ -21,8 +25,75 @@ const modeButton = ({id, label, active, disabled, onClick}) => button(`.preview-
 	}
 }, [label]);
 
+const iconButton = ({className, title, icon, onClick}) => button(className, {
+	attrs: {
+		type: 'button',
+		title,
+		'aria-label': title
+	},
+	on: {
+		click: ev => {
+			ev.preventDefault();
+			onClick();
+		}
+	}
+}, [i(`.fa.${icon}`)]);
+
+const fileBreadcrumbs = ({state, actions}) => {
+	const filePath = state.file && state.file.path;
+	const projectPath = state.project && state.project.path;
+	const crumbs = buildPreviewBreadcrumbs(filePath, projectPath);
+	const treeNodes = (state.fileTree && state.fileTree.nodes) || [];
+
+	if (!crumbs.length) {
+		return span('.preview-file-label', [
+			i('.fa.fa-file-o'),
+			span([(state.file && state.file.name) || 'File preview'])
+		]);
+	}
+
+	return span('.preview-breadcrumbs', {
+		attrs: {
+			role: 'navigation',
+			'aria-label': 'Preview path'
+		}
+	}, crumbs.reduce((nodes, crumb, index) => {
+		const isLast = index === crumbs.length - 1;
+		if (index > 0) {
+			nodes.push(span('.preview-breadcrumb-sep', ['/']));
+		}
+		nodes.push(
+			isLast
+				? span('.preview-breadcrumb.is-current', {
+					attrs: {title: crumb.path}
+				}, [crumb.label])
+				: a('.preview-breadcrumb', {
+					attrs: {
+						href: '#',
+						title: crumb.path
+					},
+					on: {
+						click: ev => {
+							ev.preventDefault();
+							openPreviewPath({
+								path: crumb.path,
+								kind: crumb.kind,
+								treeNodes,
+								actions,
+								currentPath: filePath
+							});
+						}
+					}
+				}, [crumb.label])
+		);
+		return nodes;
+	}, []));
+};
+
 export default ({state, actions}) => {
 	const preview = state.preview || {};
+	const toggles = (state.layout && state.layout.toggles) || {};
+	const maximized = !!toggles.previewMaximized;
 	const canFile = !!filePreviewKind(state.type, state.file);
 	let mode = preview.mode === 'file' || preview.mode === 'sandbox'
 		? preview.mode
@@ -54,19 +125,12 @@ export default ({state, actions}) => {
 			})
 		]),
 		mode === 'url'
-			? button('.preview-reload', {
-				attrs: {
-					type: 'button',
-					title: 'Reload',
-					'aria-label': 'Reload preview'
-				},
-				on: {
-					click: ev => {
-						ev.preventDefault();
-						actions.preview.reload();
-					}
-				}
-			}, [i('.fa.fa-refresh')])
+			? iconButton({
+				className: '.preview-reload',
+				title: 'Reload',
+				icon: 'fa-refresh',
+				onClick: () => actions.preview.reload()
+			})
 			: null,
 		mode === 'url'
 			? span('.preview-address', [
@@ -91,24 +155,28 @@ export default ({state, actions}) => {
 					}
 				})
 			])
-			: span('.preview-file-label', [
-				i('.fa.fa-file-o'),
-				span([(state.file && state.file.name) || 'File preview'])
-			]),
+			: fileBreadcrumbs({state, actions}),
 		mode === 'url'
-			? button('.preview-go', {
-				attrs: {
-					type: 'button',
-					title: 'Go',
-					'aria-label': 'Navigate'
-				},
-				on: {
-					click: ev => {
-						ev.preventDefault();
-						actions.preview.navigate();
-					}
-				}
-			}, [i('.fa.fa-arrow-right')])
-			: null
+			? iconButton({
+				className: '.preview-go',
+				title: 'Go',
+				icon: 'fa-arrow-right',
+				onClick: () => actions.preview.navigate()
+			})
+			: null,
+		span('.preview-chrome-actions', [
+			iconButton({
+				className: '.preview-expand',
+				title: maximized ? 'Restore preview size' : 'Expand preview',
+				icon: maximized ? 'fa-compress' : 'fa-expand',
+				onClick: () => actions.layout.toggle('previewMaximized')
+			}),
+			iconButton({
+				className: '.preview-close',
+				title: 'Close preview',
+				icon: 'fa-times',
+				onClick: () => actions.layout.closePreview()
+			})
+		])
 	].filter(Boolean));
 };

@@ -88,6 +88,29 @@ const createImageTab = (file, opts) => {
 	};
 };
 
+/** PDF tab — content shown in the file preview pane only. */
+const createPdfTab = (file, opts) => {
+	const pinned = !(opts && opts.pinned === false);
+	return {
+		id: newTabId(file),
+		file,
+		source: '',
+		type: 'pdf',
+		dirty: false,
+		externalChange: null,
+		saveError: null,
+		index: 0,
+		maxIndex: 0,
+		pos: emptyPos,
+		scroll: emptyScroll,
+		history: emptyHistory('pdf', ''),
+		pinned
+	};
+};
+
+/** Tabs that are not text buffers (no editor / find / save). */
+const isMediaTabType = type => type === 'image' || type === 'pdf';
+
 const activeTab = state => {
 	const tabs = (state && state.tabs) || [];
 	const id = state && state.activeTabId;
@@ -173,6 +196,8 @@ module.exports = {
 	newTabId,
 	createTextTab,
 	createImageTab,
+	createPdfTab,
+	isMediaTabType,
 	activeTab,
 	projectActive,
 	anyDirty,

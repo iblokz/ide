@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.26.0] - 2026-10-18
+
+### Added
+
+- Markdown preview: relative links open in audition; directory links resolve `README.md` / `readme.md` / `index.md`
+- File preview chrome: clickable path breadcrumbs (parents open that folder’s index doc)
+- Preview chrome: expand / restore and close controls
+- PDF open as preview-only tabs (renders in the file-preview pane; editor stays a placeholder)
+
+### Changed
+
+- Shared `preview-nav` path for markdown links and breadcrumbs; tree lookup returns node + index path for folder expand
+- Preview maximize keeps the pane right-pinned while the editor share collapses
+
 ## [1.25.0] - 2026-10-14
 
 ### Added

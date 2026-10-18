@@ -14,7 +14,8 @@ export default ({
 	flex = '1 1 auto',
 	flexGrow,
 	flexShrink,
-	flexBasis
+	flexBasis,
+	maximized = false
 }) => {
 	const toggles = state.layout.toggles || {};
 	const dim = state.layout.dim || {};
@@ -34,7 +35,7 @@ export default ({
 
 	let body;
 	if (mode === 'file') {
-		body = filePreview({state});
+		body = filePreview({state, actions});
 	} else if (mode === 'sandbox') {
 		body = previewPane({
 			source: state.source || '',
@@ -61,7 +62,8 @@ export default ({
 				flexShrink: flexShrink != null ? flexShrink : 0,
 				flexBasis: flexBasis || '0%',
 				minWidth: '0px',
-				maxWidth: '80%'
+				// Split mode caps the pane; maximized must be able to fill the row.
+				maxWidth: maximized ? '100%' : '80%'
 			}
 			: {flex}
 	}, [

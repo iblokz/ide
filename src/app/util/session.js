@@ -155,11 +155,22 @@ export const fileStubFromPath = path => {
 	};
 };
 
-export const resolveFileInTree = (filesTree, path) => {
+/**
+ * Any tree node by path (files and folders), plus its index path for
+ * `fileTree.toggleFolder`.
+ * @returns {{node: object, indexPath: number[]}|null}
+ */
+export const resolveNodeInTree = (filesTree, path) => {
 	if (!path) return null;
 	const indexPath = findIndexPathByFilePath(filesTree || [], path);
 	if (!indexPath) return null;
 	const node = nodeAtIndexPath(filesTree || [], indexPath);
+	return node ? {node, indexPath} : null;
+};
+
+export const resolveFileInTree = (filesTree, path) => {
+	const hit = resolveNodeInTree(filesTree, path);
+	const node = hit && hit.node;
 	return node && !node.isDir ? node : null;
 };
 
@@ -177,5 +188,6 @@ export default {
 	saveSession,
 	serializeSession,
 	fileStubFromPath,
+	resolveNodeInTree,
 	resolveFileInTree
 };

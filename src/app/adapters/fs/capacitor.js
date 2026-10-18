@@ -251,7 +251,8 @@ const create = () => {
 				webp: 'image/webp',
 				bmp: 'image/bmp',
 				ico: 'image/x-icon',
-				svg: 'image/svg+xml'
+				svg: 'image/svg+xml',
+				pdf: 'application/pdf'
 			})[ext] || 'application/octet-stream';
 			return `data:${mime};base64,${result.data}`;
 		},

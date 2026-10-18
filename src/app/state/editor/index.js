@@ -84,7 +84,7 @@ export const redo = () => state => mapActiveTab(state, tab => {
 
 /** Toggle line comments on the selection (Mod+/). Flushes live DOM when ahead of state. */
 export const toggleComment = () => state => {
-	if (!state.file || state.type === 'image') return state;
+	if (!state.file || state.type === 'image' || state.type === 'pdf') return state;
 
 	let source = state.source || '';
 	let pos = state.pos || emptyPos;
@@ -106,7 +106,7 @@ export const toggleComment = () => state => {
 };
 
 const indentBy = direction => state => {
-	if (!state.file || state.type === 'image') return state;
+	if (!state.file || state.type === 'image' || state.type === 'pdf') return state;
 	let source = state.source || '';
 	let pos = state.pos || emptyPos;
 	const live = readLiveEditor();

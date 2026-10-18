@@ -8,7 +8,9 @@ export const initial = {
 		rightSideBar: false,
 		bottomPanel: false,
 		preview: false,
-		previewConsole: false
+		previewConsole: false,
+		/** Preview column fills the workspace (editor share collapsed). */
+		previewMaximized: false
 	},
 	dim: {
 		leftSideBar: 260,
@@ -24,7 +26,22 @@ export const initial = {
 /** Toggle a layout panel by key (`leftSideBar`, `preview`, …). */
 export const toggle = key => state => {
 	const path = ['layout', 'toggles', key];
-	return obj.patch(state, path, !obj.sub(state, path));
+	const next = !obj.sub(state, path);
+	let nextState = obj.patch(state, path, next);
+	// Closing preview also clears maximized so the next open restores the split.
+	if (key === 'preview' && !next) {
+		nextState = obj.patch(nextState, ['layout', 'toggles', 'previewMaximized'], false);
+	}
+	return nextState;
+};
+
+/** Hide the preview column and clear maximized. */
+export const closePreview = () => state => {
+	const toggles = Object.assign({}, (state.layout && state.layout.toggles) || {}, {
+		preview: false,
+		previewMaximized: false
+	});
+	return obj.patch(state, ['layout', 'toggles'], toggles);
 };
 
 /** Patch layout dimensions (`leftSideBar`, `preview`, …). */
@@ -43,6 +60,7 @@ export const setSideBarSection = section => state => {
 export default {
 	initial,
 	toggle,
+	closePreview,
 	set,
 	setSideBarSection
 };

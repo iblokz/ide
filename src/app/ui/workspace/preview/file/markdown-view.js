@@ -3,7 +3,12 @@
  * GFM tables + mermaid fences (rendered to SVG in the parent, then srcdoc).
  */
 import {section, h} from 'iblokz-snabbdom-helpers';
-import {snapshotPreviewTheme, stripSrcdocScripts} from '../../../../util/preview-file.js';
+import {
+	snapshotPreviewTheme,
+	stripSrcdocScripts,
+	classifyMarkdownHref,
+	resolveMarkdownPath
+} from '../../../../util/preview-file.js';
 import {parseMarkdown} from './markdown.js';
 
 const wrapHtml = (body, theme) => {
@@ -266,7 +271,36 @@ const fillMermaid = async (html, diagrams, theme) => {
 	return body;
 };
 
-export default ({source, fileName = 'preview.md', themeMode = 'dark'}) => {
+const bindPreviewLinks = elm => {
+	if (!elm || elm._mdLinksBound) return;
+	elm._mdLinksBound = true;
+	elm.addEventListener('load', () => {
+		const doc = elm.contentDocument;
+		if (!doc) return;
+		doc.addEventListener('click', e => {
+			const a = e.target && e.target.closest && e.target.closest('a[href]');
+			if (!a) return;
+			const href = a.getAttribute('href');
+			const classified = classifyMarkdownHref(href);
+			if (classified.kind !== 'path') return;
+			e.preventDefault();
+			e.stopPropagation();
+			const ctx = elm._mdLinkCtx || {};
+			if (!ctx.filePath || typeof ctx.onOpenFile !== 'function') return;
+			const path = resolveMarkdownPath(ctx.filePath, classified.path);
+			if (!path) return;
+			ctx.onOpenFile(path);
+		});
+	});
+};
+
+export default ({
+	source,
+	fileName = 'preview.md',
+	themeMode = 'dark',
+	filePath = null,
+	onOpenFile = null
+}) => {
 	const {html, diagrams} = parseMarkdown(source);
 	let paintGen = 0;
 
@@ -279,6 +313,11 @@ export default ({source, fileName = 'preview.md', themeMode = 'dark'}) => {
 		});
 	};
 
+	const syncCtx = elm => {
+		elm._mdLinkCtx = {filePath, onOpenFile};
+		bindPreviewLinks(elm);
+	};
+
 	return section('.preview-file.preview-markdown', [
 		h('iframe.preview-file-frame', {
 			attrs: {
@@ -287,8 +326,14 @@ export default ({source, fileName = 'preview.md', themeMode = 'dark'}) => {
 			},
 			dataset: {themeMode: String(themeMode || 'dark')},
 			hook: {
-				insert: ({elm}) => paint(elm),
-				update: (_old, {elm}) => paint(elm)
+				insert: ({elm}) => {
+					syncCtx(elm);
+					paint(elm);
+				},
+				update: (_old, {elm}) => {
+					syncCtx(elm);
+					paint(elm);
+				}
 			}
 		})
 	]);

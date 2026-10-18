@@ -2,6 +2,7 @@ import {obj} from 'iblokz-data';
 import {dispatch} from 'iblokz-state';
 import {
 	isImageFile,
+	isPdfFile,
 	fileKind,
 	hashPath,
 	collectExpandedPaths,
@@ -26,11 +27,13 @@ import {
 	emptyHistory,
 	createTextTab,
 	createImageTab,
+	createPdfTab,
 	projectActive,
 	mapActiveTab,
 	findTabIndexByPath
 } from '../../util/tabs';
 import {resolveOpenMode, getOpenPositioning} from '../../util/app-settings.js';
+import {asPdfDisplayUrl, revokeDisplayUrl} from '../../util/object-url.js';
 import {openTab, activateTabId} from '../tabs/index.js';
 import {initial as layoutInitial} from '../layout/index.js';
 import {initial as previewInitial} from '../preview/index.js';
@@ -75,6 +78,7 @@ const revokeFileUrl = file => {
 	if (typeof fs.revokeObjectUrl === 'function') {
 		fs.revokeObjectUrl(file.url);
 	}
+	revokeDisplayUrl(file.url);
 };
 
 const clearFileSearchUi = state => obj.patch(
@@ -163,6 +167,57 @@ const openImage = (file, opts) => {
 		});
 };
 
+/** Ensure the file-preview column is visible (PDFs only render there). */
+const ensureFilePreviewOpen = state => {
+	let next = state;
+	const toggles = (next.layout && next.layout.toggles) || {};
+	if (!toggles.preview) {
+		next = obj.patch(next, ['layout', 'toggles', 'preview'], true);
+	}
+	next = obj.patch(next, ['preview', 'mode'], 'file');
+	return next;
+};
+
+const loadPdf = (file, opts) => state => {
+	const openOpts = openOptsFrom(opts);
+	const base = ensureFilePreviewOpen(clearFileSearchUi(
+		openTab(createPdfTab(file, {pinned: openOpts.mode !== 'audition'}), openOpts)(state)
+	));
+	const tree = fileTreeSlice(base);
+	return patchFileTree(base, {
+		selectedPath: safeSelectedPath(base, file.path),
+		pendingDeletePath: tree.pendingDeletePath === file.path
+			? tree.pendingDeletePath
+			: null
+	});
+};
+
+const openPdf = (file, opts) => {
+	const fs = getFs();
+	const finish = url => asPdfDisplayUrl(url)
+		.then(displayUrl => loadPdf(
+			Object.assign({}, file, {url: displayUrl, kind: 'pdf'}),
+			opts
+		));
+
+	if (typeof file.url === 'string' && file.url) {
+		return finish(file.url).catch(err => {
+			console.error('openPdf failed', file && file.path, err);
+			return state => state;
+		});
+	}
+	if (typeof fs.getObjectUrl !== 'function') {
+		console.error('getObjectUrl not available on FS backend', fs.id);
+		return state => state;
+	}
+	return fs.getObjectUrl(file)
+		.then(finish)
+		.catch(err => {
+			console.error('openPdf failed', file && file.path, err);
+			return state => state;
+		});
+};
+
 const skipBinary = (filePath) => {
 	console.warn('Skipping binary file', filePath);
 	return state => state;
@@ -187,6 +242,9 @@ export const openFile = (file, opts) => {
 	if (kind === 'image' || isImageFile(file.name, file.ext)) {
 		return openImage(file, opts);
 	}
+	if (kind === 'pdf' || isPdfFile(file.name, file.ext)) {
+		return openPdf(file, opts);
+	}
 	if (kind === 'binary' || file.readable === false) {
 		return state => state;
 	}
@@ -196,6 +254,17 @@ export const openFile = (file, opts) => {
 	}
 
 	const fs = getFs();
+	const isDirErr = err => {
+		const code = err && err.code;
+		const msg = String((err && err.message) || err || '');
+		return code === 'EISDIR' || /EISDIR/i.test(msg);
+	};
+	const failOpen = err => {
+		if (!isDirErr(err)) {
+			console.error('openFile failed', file && file.path, err);
+		}
+		return state => state;
+	};
 	const readText = () => fs.readFile(file)
 		.then(source => loadTextIfNotBinary(file, source, opts));
 
@@ -206,17 +275,10 @@ export const openFile = (file, opts) => {
 				if (looksBinary(sample)) return skipBinary(file.path);
 				return readText();
 			})
-			.catch(err => {
-				console.error('openFile failed', file && file.path, err);
-				return state => state;
-			});
+			.catch(failOpen);
 	}
 
-	return readText()
-		.catch(err => {
-			console.error('openFile failed', file && file.path, err);
-			return state => state;
-		});
+	return readText().catch(failOpen);
 };
 
 const layoutFromSession = (state, session) => {
@@ -454,18 +516,19 @@ export const reloadFile = file => {
 		return projectActive(Object.assign({}, state, {tabs: nextTabs}));
 	};
 
-	const applyImageReload = url => state => {
+	const applyObjectUrlReload = (url, mediaKind) => state => {
 		const tabs = state.tabs || [];
 		const idx = findTabIndexByPath(tabs, path);
 		if (idx < 0) return state;
 		const tab = tabs[idx];
 		if (tab.dirty) return markExternalChange(path)(state);
 		revokeFileUrl(tab.file);
-		const nextFile = Object.assign({}, tab.file, file, {url, kind: 'image'});
+		const nextFile = Object.assign({}, tab.file, file, {url, kind: mediaKind});
 		const nextTabs = tabs.slice();
 		nextTabs[idx] = Object.assign({}, tab, {
 			file: nextFile,
 			source: '',
+			type: mediaKind,
 			dirty: false,
 			externalChange: null,
 			saveError: null
@@ -478,9 +541,22 @@ export const reloadFile = file => {
 			return Promise.resolve(state => state);
 		}
 		return fs.getObjectUrl(file)
-			.then(applyImageReload)
+			.then(url => applyObjectUrlReload(url, 'image'))
 			.catch(err => {
 				console.error('reloadFile image failed', path, err);
+				return state => state;
+			});
+	}
+
+	if (kind === 'pdf' || isPdfFile(file.name, file.ext)) {
+		if (typeof fs.getObjectUrl !== 'function') {
+			return Promise.resolve(state => state);
+		}
+		return fs.getObjectUrl(file)
+			.then(url => asPdfDisplayUrl(url))
+			.then(url => applyObjectUrlReload(url, 'pdf'))
+			.catch(err => {
+				console.error('reloadFile pdf failed', path, err);
 				return state => state;
 			});
 	}

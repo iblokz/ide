@@ -12,7 +12,7 @@ const syncFindInput = (field, query, force = false) => {
 
 export default ({state, actions}) => {
 	const find = state.find || {};
-	if (!state.file || !state.file.name || state.type === 'image') return null;
+	if (!state.file || !state.file.name || state.type === 'image' || state.type === 'pdf') return null;
 
 	const open = !!find.open;
 	const query = find.query || '';

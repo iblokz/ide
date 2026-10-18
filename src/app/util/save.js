@@ -22,7 +22,7 @@ const canSave = state => {
 	if (!state || isStartView(state) || !state.dirty || !state.file) {
 		return false;
 	}
-	if (state.type === 'image') return false;
+	if (state.type === 'image' || state.type === 'pdf') return false;
 	return true;
 };
 

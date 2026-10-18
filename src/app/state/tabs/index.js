@@ -8,6 +8,7 @@ import {
 	insertIndexFor
 } from '../../util/tabs';
 import {getOpenPositioning} from '../../util/app-settings.js';
+import {revokeDisplayUrl} from '../../util/object-url.js';
 
 const revokeFileUrl = file => {
 	if (!file || !file.url) return;
@@ -15,6 +16,7 @@ const revokeFileUrl = file => {
 	if (typeof fs.revokeObjectUrl === 'function') {
 		fs.revokeObjectUrl(file.url);
 	}
+	revokeDisplayUrl(file.url);
 };
 
 export const activateTabId = (state, id) => {

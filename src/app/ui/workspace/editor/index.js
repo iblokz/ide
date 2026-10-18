@@ -9,7 +9,7 @@ import {canSave, saveHint} from '../../../util/save.js';
 import {triggerSave} from '../../../util/trigger-save.js';
 
 const toolbox = ({state, actions}) => {
-	if (!(state.file && state.file.name) || state.type === 'image') {
+	if (!(state.file && state.file.name) || state.type === 'image' || state.type === 'pdf') {
 		return null;
 	}
 	return section('.editor-toolbox', [
@@ -41,6 +41,11 @@ const surface = ({state, actions}) => {
 	}
 	if (state.type === 'image') {
 		return imageViewer({file: state.file});
+	}
+	if (state.type === 'pdf') {
+		return section('.empty-editor', [
+			p(['PDF opens in the preview pane.'])
+		]);
 	}
 	return editor({
 		source: state.source || '',

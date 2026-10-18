@@ -109,7 +109,7 @@ const selectedEditorText = () => {
 
 /** Update find query and jump to the first match (live typing). */
 const findQuery = query => state => {
-	if (!state.file || state.type === 'image') {
+	if (!state.file || state.type === 'image' || state.type === 'pdf') {
 		return obj.patch(state, 'find', Object.assign({}, state.find || emptyFind, {query}));
 	}
 	const findState = Object.assign({}, state.find || emptyFind, {query});
@@ -134,7 +134,7 @@ const findQuery = query => state => {
 };
 
 const openFind = () => state => {
-	if (!state.file || state.type === 'image') return state;
+	if (!state.file || state.type === 'image' || state.type === 'pdf') return state;
 	const {text: selectedText, pos: selectedPos} = selectedEditorText();
 	const findPatch = {open: true};
 	if (selectedText) findPatch.query = selectedText;
@@ -177,7 +177,7 @@ const closeFind = () => state => {
 };
 
 const findStep = direction => state => {
-	if (!state.file || state.type === 'image') return state;
+	if (!state.file || state.type === 'image' || state.type === 'pdf') return state;
 	const findState = state.find || emptyFind;
 	if (!findState.query) return state;
 	const hit = findMatch(state.source, findState.query, state.pos, {

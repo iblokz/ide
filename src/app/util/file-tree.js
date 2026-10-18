@@ -180,6 +180,8 @@ const VIDEO_EXTS = new Set(['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v']);
 
 const isImageFile = (name, ext) => IMAGE_EXTS.has(ext || extOf(name));
 
+const isPdfFile = (name, ext) => (ext || extOf(name)) === 'pdf';
+
 const isBinaryFile = (name, ext) => {
 	const e = ext || extOf(name);
 	if (!e) return false;
@@ -192,6 +194,7 @@ const isTextFile = (name, ext) => !isBinaryFile(name, ext);
 const fileKind = (name, ext) => {
 	const e = ext || extOf(name);
 	if (IMAGE_EXTS.has(e)) return 'image';
+	if (e === 'pdf') return 'pdf';
 	if (BINARY_EXTS.has(e)) return 'binary';
 	return 'text';
 };
@@ -231,7 +234,8 @@ const MIME_BY_EXT = {
 	ico: 'image/x-icon',
 	avif: 'image/avif',
 	tif: 'image/tiff',
-	tiff: 'image/tiff'
+	tiff: 'image/tiff',
+	pdf: 'application/pdf'
 };
 
 const mimeOf = (name, ext) => MIME_BY_EXT[ext || extOf(name)] || 'application/octet-stream';
@@ -265,6 +269,7 @@ module.exports = {
 	IMAGE_EXTS,
 	BINARY_EXTS,
 	isImageFile,
+	isPdfFile,
 	isBinaryFile,
 	isTextFile,
 	fileKind,

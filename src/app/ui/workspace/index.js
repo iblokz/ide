@@ -17,11 +17,18 @@ export default ({state, actions}) => {
 	const showPreview = !!toggles.preview;
 	const showConsole = !!toggles.previewConsole;
 	const previewOpen = showPreview || showConsole;
+	const previewMaximized = previewOpen && !!toggles.previewMaximized;
 	const editorShare = dim.editor != null ? dim.editor : 0.5;
-	const editorBasis = previewOpen ? pct(editorShare) : '100%';
-	const previewBasis = previewOpen ? pct(1 - editorShare) : '0%';
+	const editorBasis = !previewOpen
+		? '100%'
+		: (previewMaximized ? '0%' : pct(editorShare));
+	const previewBasis = !previewOpen
+		? '0%'
+		: (previewMaximized ? '100%' : pct(1 - editorShare));
 
-	return section('.workspace', [
+	return section('.workspace', {
+		class: {'is-preview-maximized': previewMaximized}
+	}, [
 		editorColumn({
 			state,
 			actions,
@@ -31,7 +38,7 @@ export default ({state, actions}) => {
 		}),
 		gutter({
 			axis: 'x',
-			hidden: !previewOpen,
+			hidden: !previewOpen || previewMaximized,
 			onStart: () => {
 				const ws = document.querySelector('.workspace');
 				const ed = document.querySelector('.workspace > .editor');
@@ -66,6 +73,7 @@ export default ({state, actions}) => {
 			state,
 			actions,
 			open: previewOpen,
+			maximized: previewMaximized,
 			flexGrow: 0,
 			flexShrink: 0,
 			flexBasis: previewBasis

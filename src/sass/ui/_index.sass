@@ -126,6 +126,22 @@
 					min-height: 0
 					min-width: 0
 
+			// Maximize: pack to the end so freed space opens on the left and the
+			// preview’s right edge stays put. Avoid snapping editor with
+			// max-width:0 (that left a gap and made preview jump left, then grow right).
+			&.is-preview-maximized
+				justify-content: flex-end
+
+				> .editor
+					overflow: hidden
+					pointer-events: none
+					transition: flex-basis .18s ease-in-out
+
+				> .preview
+					border-left-color: transparent
+					max-width: 100% !important
+					transition: flex-basis .18s ease-in-out, border-color .18s ease-in-out, max-width .18s ease-in-out
+
 			> .preview
 				display: flex
 				flex-direction: column
@@ -197,7 +213,8 @@
 								cursor: default
 
 					> button.preview-reload,
-					> button.preview-go
+					> button.preview-go,
+					.preview-chrome-actions > button
 						flex: 0 0 auto
 						width: 24px
 						height: 24px
@@ -213,6 +230,13 @@
 						&:hover
 							background: var(--app-bg-hover)
 							color: var(--app-icon-hover)
+
+					.preview-chrome-actions
+						flex: 0 0 auto
+						margin-left: auto
+						display: inline-flex
+						align-items: center
+						gap: 2px
 
 					.preview-address
 						flex: 1 1 auto
@@ -242,7 +266,8 @@
 							font: inherit
 							padding: 0
 
-					.preview-file-label
+					.preview-file-label,
+					.preview-breadcrumbs
 						flex: 1 1 auto
 						min-width: 0
 						display: inline-flex
@@ -252,6 +277,44 @@
 						white-space: nowrap
 						text-overflow: ellipsis
 						color: var(--app-text)
+
+					.preview-breadcrumbs
+						gap: 0
+						// Prefer showing the leaf; overflow clips on the left.
+						justify-content: flex-end
+						padding-right: 8px
+						mask-image: linear-gradient(to right, transparent, #000 12px, #000 100%)
+						-webkit-mask-image: linear-gradient(to right, transparent, #000 12px, #000 100%)
+
+						.preview-breadcrumb-sep
+							flex: 0 0 auto
+							padding: 0 5px
+							color: var(--app-text-muted)
+							opacity: 0.7
+							user-select: none
+
+						.preview-breadcrumb
+							flex: 0 0 auto
+							max-width: 12em
+							overflow: hidden
+							text-overflow: ellipsis
+							color: var(--app-text-muted)
+							text-decoration: none
+							border-radius: 3px
+							padding: 1px 2px
+							cursor: pointer
+							&:hover
+								color: var(--app-accent)
+								background: var(--app-accent-soft)
+							&.is-current
+								max-width: 20em
+								padding: 1px 6px 1px 4px
+								color: var(--app-text)
+								cursor: default
+								font-weight: 600
+								&:hover
+									color: var(--app-text)
+									background: transparent
 
 				> .preview-body,
 				> iframe.sandbox,
@@ -272,6 +335,11 @@
 						width: 100%
 						border: none
 						background: var(--app-editor-bg, var(--app-bg-page))
+
+					&.preview-pdf > .preview-file-frame
+						// Native PDF viewer fills the pane
+						height: 100%
+						min-height: 200px
 
 				> .preview-file-empty
 					padding: 16px 20px
