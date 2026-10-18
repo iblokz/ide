@@ -22,6 +22,7 @@ export default ({state, actions}) => {
 			fileName,
 			themeMode,
 			filePath,
+			treeNodes,
 			onOpenFile: path => openPreviewPath({
 				path,
 				treeNodes,

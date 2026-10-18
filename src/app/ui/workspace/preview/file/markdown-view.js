@@ -1,14 +1,17 @@
 /**
  * Markdown file preview — themed via host `--app-*` tokens.
- * GFM tables + mermaid fences (rendered to SVG in the parent, then srcdoc).
+ * GFM tables + mermaid fences + images (resolved in the parent, then srcdoc).
  */
 import {section, h} from 'iblokz-snabbdom-helpers';
+import {getFs} from '../../../../adapters/fs';
 import {
 	snapshotPreviewTheme,
 	stripSrcdocScripts,
 	classifyMarkdownHref,
 	resolveMarkdownPath
 } from '../../../../util/preview-file.js';
+import {revokeDisplayUrl} from '../../../../util/object-url.js';
+import {resolveNodeInTree, fileStubFromPath} from '../../../../util/session.js';
 import {parseMarkdown} from './markdown.js';
 
 const wrapHtml = (body, theme) => {
@@ -166,6 +169,25 @@ const wrapHtml = (body, theme) => {
 	font-size: 0.85em;
 	text-align: left;
   }
+  img.md-img {
+	max-width: 100%;
+	max-height: min(70vh, 28rem);
+	width: auto;
+	height: auto;
+	object-fit: contain;
+	display: block;
+	margin: 0.9em 0;
+	border-radius: 4px;
+  }
+  .md-img-missing {
+	display: inline-block;
+	margin: 0.4em 0;
+	padding: 4px 8px;
+	border: 1px dashed var(--app-border);
+	border-radius: 4px;
+	color: var(--app-text-muted);
+	font-size: 0.85em;
+  }
 </style></head><body>${body}</body></html>`;
 };
 
@@ -188,6 +210,116 @@ const escapeHtml = s => String(s)
 	.replace(/&/g, '&amp;')
 	.replace(/</g, '&lt;')
 	.replace(/>/g, '&gt;');
+
+const escapeAttr = s => String(s)
+	.replace(/&/g, '&amp;')
+	.replace(/"/g, '&quot;')
+	.replace(/</g, '&lt;');
+
+/** Skip embedding local images larger than this (display still CSS-capped). */
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+const formatBytes = n => {
+	if (n >= 1024 * 1024) return `${Math.round(n / (1024 * 1024))}MB`;
+	if (n >= 1024) return `${Math.round(n / 1024)}KB`;
+	return `${n}B`;
+};
+
+const revokeImageUrls = urls => {
+	(urls || []).forEach(url => {
+		revokeDisplayUrl(url);
+		const fs = getFs();
+		if (typeof fs.revokeObjectUrl === 'function') {
+			fs.revokeObjectUrl(url);
+		}
+	});
+};
+
+const revokeOneUrl = url => {
+	if (!url) return;
+	revokeDisplayUrl(url);
+	const fs = getFs();
+	if (typeof fs.revokeObjectUrl === 'function') {
+		fs.revokeObjectUrl(url);
+	}
+};
+
+/**
+ * Ensure a blob:/data: URL is within MAX_IMAGE_BYTES.
+ * @returns {Promise<'ok'|'oversized'|'error'>}
+ */
+const checkDisplayUrlSize = async url => {
+	const raw = String(url || '');
+	if (raw.indexOf('blob:') !== 0 && raw.indexOf('data:') !== 0) return 'ok';
+	try {
+		const res = await fetch(raw);
+		const blob = await res.blob();
+		if (blob.size > MAX_IMAGE_BYTES) return 'oversized';
+		return 'ok';
+	} catch (_err) {
+		return 'error';
+	}
+};
+
+/**
+ * Resolve markdown image src to a URL usable inside srcdoc.
+ * @returns {Promise<{url?: string, reason?: 'missing'|'oversized'}>}
+ */
+const resolveImageDisplayUrl = async (src, filePath, treeNodes) => {
+	const raw = String(src || '').trim();
+	if (!raw) return {reason: 'missing'};
+	const classified = classifyMarkdownHref(raw);
+	if (classified.kind === 'external') return {url: raw};
+	if (classified.kind !== 'path') return {reason: 'missing'};
+	const path = resolveMarkdownPath(filePath, classified.path);
+	if (!path) return {reason: 'missing'};
+	const fs = getFs();
+	if (typeof fs.getObjectUrl !== 'function') return {reason: 'missing'};
+	const hit = resolveNodeInTree(treeNodes || [], path);
+	const node = (hit && hit.node) || fileStubFromPath(path);
+	try {
+		const url = await fs.getObjectUrl(node);
+		const sizeCheck = await checkDisplayUrlSize(url);
+		if (sizeCheck === 'oversized') {
+			revokeOneUrl(url);
+			return {reason: 'oversized'};
+		}
+		if (sizeCheck === 'error') {
+			revokeOneUrl(url);
+			return {reason: 'missing'};
+		}
+		return {url};
+	} catch (err) {
+		console.error('[markdown preview] image load failed', path, err);
+		return {reason: 'missing'};
+	}
+};
+
+const fillImages = async (html, images, filePath, treeNodes) => {
+	if (!images || !images.length) return {html, urls: []};
+	let body = html;
+	const urls = [];
+	const maxLabel = formatBytes(MAX_IMAGE_BYTES);
+	for (let i = 0; i < images.length; i++) {
+		const token = `%%IMG_${i}%%`;
+		const img = images[i] || {};
+		const alt = img.alt || '';
+		const resolved = await resolveImageDisplayUrl(img.src, filePath, treeNodes);
+		let replacement;
+		if (resolved.url) {
+			if (String(resolved.url).indexOf('blob:') === 0) urls.push(resolved.url);
+			replacement = `<img class="md-img" alt="${escapeAttr(alt)}" src="${escapeAttr(resolved.url)}">`;
+		} else if (resolved.reason === 'oversized') {
+			const label = alt || img.src || 'image';
+			replacement = `<span class="md-img-missing" title="${escapeAttr(`Image exceeds ${maxLabel}`)}">${escapeHtml(label)} (too large, max ${maxLabel})</span>`;
+		} else {
+			const label = alt || img.src || 'image';
+			replacement = `<span class="md-img-missing" title="${escapeAttr(img.src || '')}">${escapeHtml(label)}</span>`;
+		}
+		body = body.split(token).join(replacement);
+	}
+	return {html: body, urls};
+};
 
 /** Map host `--app-*` tokens into mermaid so labels stay readable on our bg. */
 const mermaidThemeVariables = (theme) => {
@@ -299,18 +431,26 @@ export default ({
 	fileName = 'preview.md',
 	themeMode = 'dark',
 	filePath = null,
+	treeNodes = [],
 	onOpenFile = null
 }) => {
-	const {html, diagrams} = parseMarkdown(source);
+	const {html, diagrams, images} = parseMarkdown(source);
 	let paintGen = 0;
 
 	const paint = elm => {
 		const gen = ++paintGen;
 		const theme = snapshotPreviewTheme(themeMode);
-		fillMermaid(html, diagrams, theme).then(body => {
-			if (gen !== paintGen) return;
-			applySrcdoc(elm, wrapHtml(body, theme));
-		});
+		fillMermaid(html, diagrams, theme)
+			.then(body => fillImages(body, images, filePath, treeNodes))
+			.then(({html: body, urls}) => {
+				if (gen !== paintGen) {
+					revokeImageUrls(urls);
+					return;
+				}
+				revokeImageUrls(elm._mdImageUrls);
+				elm._mdImageUrls = urls;
+				applySrcdoc(elm, wrapHtml(body, theme));
+			});
 	};
 
 	const syncCtx = elm => {
@@ -333,6 +473,9 @@ export default ({
 				update: (_old, {elm}) => {
 					syncCtx(elm);
 					paint(elm);
+				},
+				destroy: ({elm}) => {
+					revokeImageUrls(elm && elm._mdImageUrls);
 				}
 			}
 		})

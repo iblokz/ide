@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.27.0] - 2026-10-18
+
+### Added
+
+- Markdown preview: `![alt](src)` images (http(s) as-is; relative paths via object URL; max 8MB / CSS max-height)
+
 ## [1.26.0] - 2026-10-18
 
 ### Added

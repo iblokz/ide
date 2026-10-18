@@ -1,6 +1,6 @@
 /**
  * Tiny markdown → HTML for file preview (no full md lib).
- * Headings, lists, GFM task checkboxes, code, tables, mermaid, links, emphasis.
+ * Headings, lists, GFM task checkboxes, code, tables, mermaid, links, images, emphasis.
  */
 import {prettify, prettifyLang, escapeHtml} from '../../../codebin/prettify.js';
 
@@ -17,11 +17,22 @@ const formatCodeBlock = (code, lang) => {
 	}
 };
 
-const inline = s => escapeHtml(s)
-	.replace(/`([^`]+)`/g, '<code>$1</code>')
-	.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-	.replace(/\*([^*]+)\*/g, '<em>$1</em>')
-	.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" rel="noopener noreferrer">$1</a>');
+/**
+ * Images first (raw capture), then escape + other inline.
+ * Tokens `%%IMG_n%%` survive escapeHtml so the parent can inject URLs.
+ */
+const makeInline = images => s => {
+	const withTokens = String(s).replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, src) => {
+		const idx = images.length;
+		images.push({alt, src});
+		return `%%IMG_${idx}%%`;
+	});
+	return escapeHtml(withTokens)
+		.replace(/`([^`]+)`/g, '<code>$1</code>')
+		.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+		.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+		.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" rel="noopener noreferrer">$1</a>');
+};
 
 const splitTableRow = line => {
 	let s = String(line || '').trim();
@@ -52,12 +63,14 @@ const alignFromSep = cell => {
 };
 
 /**
- * @returns {{html: string, diagrams: string[]}}
+ * @returns {{html: string, diagrams: string[], images: {alt: string, src: string}[]}}
  */
 export const parseMarkdown = source => {
 	const lines = String(source || '').replace(/\r\n/g, '\n').split('\n');
 	const out = [];
 	const diagrams = [];
+	const images = [];
+	const inline = makeInline(images);
 	let i = 0;
 	let inCode = false;
 	let codeBuf = [];
@@ -218,7 +231,7 @@ export const parseMarkdown = source => {
 		out.push(formatCodeBlock(codeBuf.join('\n'), codeLang));
 	}
 	flushList();
-	return {html: out.join('\n'), diagrams};
+	return {html: out.join('\n'), diagrams, images};
 };
 
 export const markdownToHtml = source => parseMarkdown(source).html;
