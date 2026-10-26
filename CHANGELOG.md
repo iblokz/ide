@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.28.0] - 2026-10-27
+
+### Added
+
+- Explorer: muted git status letters on dirty files (placeholder slot always reserved); ancestor folders tinted when they contain changes
+- Editor dirty-diff (Electron): dim added/modified washes vs `HEAD`; faint hairline where lines were deleted (`git show` bridge)
+
+### Changed
+
+- Denser chrome: header 36px / panel row 24px
+
 ## [1.27.0] - 2026-10-18
 
 ### Added

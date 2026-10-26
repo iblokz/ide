@@ -103,6 +103,50 @@ export const joinProjectPath = (root, rel) => {
 	return base + sep + normalized;
 };
 
+/** Canonical path key for Set/Map lookup (posix, no trailing slash). */
+export const normalizePathKey = p => String(p || '')
+	.replace(/\\/g, '/')
+	.replace(/\/+$/, '');
+
+/**
+ * Map porcelain file entries → lookup for Explorer decorations.
+ * Files get a status letter; ancestor dirs are marked changed (no letter).
+ *
+ * @param {Array<{path: string, status?: string}>} files
+ * @param {string|null} projectPath
+ * @returns {{
+ *   fileStatus: (absOrRel: string) => string|null,
+ *   dirChanged: (absOrRel: string) => boolean
+ * }}
+ */
+export const buildGitChangeIndex = (files, projectPath) => {
+	const fileStatus = new Map();
+	const dirs = new Set();
+	const list = Array.isArray(files) ? files : [];
+	for (let i = 0; i < list.length; i++) {
+		const entry = list[i];
+		if (!entry || !entry.path) continue;
+		const letter = (entry.status && entry.status !== ' ') ? entry.status : 'M';
+		const abs = joinProjectPath(projectPath, entry.path);
+		const absKey = normalizePathKey(abs);
+		const relKey = normalizePathKey(entry.path);
+		fileStatus.set(absKey, letter);
+		if (relKey) fileStatus.set(relKey, letter);
+
+		const parts = relKey.split('/').filter(Boolean);
+		let acc = '';
+		for (let j = 0; j < parts.length - 1; j++) {
+			acc = acc ? `${acc}/${parts[j]}` : parts[j];
+			dirs.add(acc);
+			dirs.add(normalizePathKey(joinProjectPath(projectPath, acc)));
+		}
+	}
+	return {
+		fileStatus: path => fileStatus.get(normalizePathKey(path)) || null,
+		dirChanged: path => dirs.has(normalizePathKey(path))
+	};
+};
+
 /** Parse `git log --format=%h%x09%s` lines into `{hash, subject}`. */
 export const parseLog = stdout => {
 	const lines = String(stdout || '').split(/\r?\n/).filter(Boolean);
@@ -184,5 +228,7 @@ export default {
 	parsePorcelain,
 	parseLog,
 	joinProjectPath,
+	normalizePathKey,
+	buildGitChangeIndex,
 	fetchGitStatus
 };

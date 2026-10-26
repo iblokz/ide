@@ -47,6 +47,10 @@ const surface = ({state, actions}) => {
 			p(['PDF opens in the preview pane.'])
 		]);
 	}
+	const projectPath = state.project && state.project.path;
+	const filePath = state.file && state.file.path;
+	// Prefer git when the Electron bridge is present; available===false means no git at all.
+	const gitOff = state.git && state.git.available === false;
 	return editor({
 		source: state.source || '',
 		pos: state.pos,
@@ -54,6 +58,13 @@ const surface = ({state, actions}) => {
 		tabId: state.activeTabId || null,
 		type: state.type || 'js',
 		indent: state.indent,
+		gitContext: !gitOff && projectPath && filePath
+			? {
+				projectPath,
+				filePath,
+				stamp: (state.git && state.git.stamp) || 0
+			}
+			: null,
 		change: (source, pos) => actions.editor.updateSource(source, pos),
 		updatePos: pos => actions.editor.updatePos(pos),
 		updateScroll: (scroll, tabId) => actions.editor.updateScroll(scroll, tabId),

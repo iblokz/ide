@@ -591,6 +591,16 @@ const registerIpc = () => {
 		runGit(cwd, ['status', '--porcelain=v1', '-b'], 'git status failed'));
 	ipcMain.handle('gitLog', (_ev, cwd) =>
 		runGit(cwd, ['log', '-n', '30', '--format=%h%x09%s'], 'git log failed'));
+	ipcMain.handle('gitShow', (_ev, cwd, relPath) => {
+		if (!relPath || typeof relPath !== 'string') {
+			return Promise.resolve({ok: false, error: 'Missing path'});
+		}
+		const normalized = relPath.replace(/\\/g, '/').replace(/^\/+/, '');
+		if (!normalized || normalized.includes('..')) {
+			return Promise.resolve({ok: false, error: 'Invalid path'});
+		}
+		return runGit(cwd, ['show', `HEAD:${normalized}`], 'git show failed');
+	});
 };
 
 const buildAppMenu = () => {

@@ -1,5 +1,27 @@
 import {DEFAULT_INDENT, indentInsert} from './editorconfig.js';
 
+/** Injected dirty-diff rows — not part of the buffer. */
+export const GHOST_LINE_CLASS = 'git-removed-line';
+
+export const isGhostLine = li => !!(
+	li && li.classList && li.classList.contains(GHOST_LINE_CLASS)
+);
+
+/** Real source lines only (skips git removed-line ghosts). */
+export const lineElements = el => Array.from(
+	(el && el.querySelectorAll('li')) || []
+).filter(li => !isGhostLine(li));
+
+const snapToRealLine = li => {
+	if (!li || !isGhostLine(li)) return li;
+	let n = li.nextElementSibling;
+	while (n && isGhostLine(n)) n = n.nextElementSibling;
+	if (n && n.tagName === 'LI') return n;
+	let p = li.previousElementSibling;
+	while (p && isGhostLine(p)) p = p.previousElementSibling;
+	return (p && p.tagName === 'LI') ? p : null;
+};
+
 export const getParent = (el, tagName) => {
 	if (!el || !el.parentNode || el.parentNode.nodeType !== 1) return null;
 	return (el.parentNode.tagName === tagName)
@@ -25,7 +47,7 @@ export const lineLen = li =>
 	((li && li.textContent) || '').replace(/\u00a0/g, '').length;
 
 export const endOfLastLine = el => {
-	const lis = el.querySelectorAll('li');
+	const lis = lineElements(el);
 	if (!lis.length) {
 		return {
 			start: {row: 0, col: 0},
@@ -51,6 +73,8 @@ export const get = el => {
 		? range.startContainer : getParent(range.startContainer, 'LI');
 	let endLi = (range.endContainer.tagName === 'LI')
 		? range.endContainer : getParent(range.endContainer, 'LI');
+	startLi = snapToRealLine(startLi);
+	endLi = snapToRealLine(endLi);
 
 	// At EOF / after last character, browsers often park the caret on the
 	// OL/CODE instead of the last LI — treat that as end of the last line.
@@ -76,13 +100,17 @@ export const get = el => {
 	startCol = Math.min(startCol, lineLen(startLi));
 	endCol = Math.min(endCol, lineLen(endLi));
 
+	const lis = lineElements(el);
+	const startRow = Math.max(0, lis.indexOf(startLi));
+	const endRow = Math.max(0, lis.indexOf(endLi));
+
 	return {
 		start: {
-			row: getElIndex(startLi),
+			row: startRow,
 			col: startCol
 		},
 		end: {
-			row: getElIndex(endLi),
+			row: endRow,
 			col: endCol
 		}
 	};
@@ -90,7 +118,7 @@ export const get = el => {
 
 export const rangeForPos = (el, pos) => {
 	if (!pos || !pos.start || !el) return null;
-	const lis = Array.from(el.querySelectorAll('li'));
+	const lis = lineElements(el);
 	const startLi = lis[pos.start.row];
 	const endLi = lis[pos.end.row] || startLi;
 	if (!startLi) return null;

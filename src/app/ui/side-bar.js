@@ -3,8 +3,18 @@ import {
 } from 'iblokz-snabbdom-helpers';
 import {fn, obj} from 'iblokz-data';
 import {fileIcon} from '../util/file-tree';
-import {joinProjectPath} from '../util/git-status.js';
+import {joinProjectPath, buildGitChangeIndex} from '../util/git-status.js';
 import {fileStubFromPath} from '../util/session.js';
+
+/** Map porcelain letter → CSS modifier (file rows). */
+const gitStatusClass = letter => {
+	if (!letter || letter === ' ') return null;
+	if (letter === '?') return 'untracked';
+	if (letter === 'A') return 'added';
+	if (letter === 'D') return 'deleted';
+	if (letter === 'U') return 'conflict';
+	return 'modified';
+};
 
 export const fileSort = (a, b) => !a.isDir && b.isDir ? 1 : -1;
 
@@ -141,7 +151,8 @@ const fileLeafNode = (item, path = [], level = 0, opts) => {
 		onCommitCreate,
 		onCancelEdit,
 		onDelete,
-		isRootItem
+		isRootItem,
+		gitIndex
 	} = opts;
 
 	const isRoot = level === 0 || !!(isRootItem && isRootItem(item));
@@ -154,6 +165,11 @@ const fileLeafNode = (item, path = [], level = 0, opts) => {
 		&& (treeEdit.mode === 'create-file' || treeEdit.mode === 'create-folder')
 		&& treeEdit.path === item.path);
 	const showActions = canWrite && !isRenaming && (isRoot || selected || showDelete);
+	const fileGitLetter = (!item.isDir && gitIndex)
+		? gitIndex.fileStatus(item.path)
+		: null;
+	const dirGitChanged = !!(item.isDir && gitIndex && gitIndex.dirChanged(item.path));
+	const gitMod = gitStatusClass(fileGitLetter);
 
 	return li([].concat(
 		div('.tree-row', {
@@ -166,7 +182,9 @@ const fileLeafNode = (item, path = [], level = 0, opts) => {
 				active: selected,
 				'pending-delete': showDelete,
 				editing: isRenaming,
-				'tree-root': isRoot
+				'tree-root': isRoot,
+				'git-changed': !!fileGitLetter || dirGitChanged,
+				[`git-${gitMod}`]: !!gitMod
 			},
 			attrs: {
 				title: item.path || item.name,
@@ -263,7 +281,14 @@ const fileLeafNode = (item, path = [], level = 0, opts) => {
 						})
 						: []
 				))
-				: []
+				: [],
+			// Rightmost: always reserve badge width (letter or empty placeholder).
+			span('.tree-git-badge', {
+				class: {empty: !fileGitLetter},
+				attrs: fileGitLetter
+					? {title: `Git: ${fileGitLetter}`}
+					: {'aria-hidden': 'true'}
+			}, [fileGitLetter || '\u00a0'])
 		)),
 		isCreatingHere
 			? div('.tree-create-row', {
@@ -420,12 +445,15 @@ export default ({state, actions, width}) => fn.pipe(
 			: (tree.pendingDeletePath || null);
 		const treeEdit = tree.treeEdit || null;
 		const canWrite = !!state.canWrite;
+		const git = state.git || {};
+		const gitIndex = buildGitChangeIndex(git.files || [], rootPath || null);
 		const treeOpts = {
 			selectedPath,
 			pendingDeletePath,
 			treeEdit,
 			canWrite,
 			isRootItem,
+			gitIndex,
 			onActivate: (item, path) => {
 				actions.fileTree.select(item);
 				if (item.isDir) actions.fileTree.toggleFolder(path, item);
@@ -465,7 +493,6 @@ export default ({state, actions, width}) => fn.pipe(
 			onDelete: item => actions.project.deleteItem(item)
 		};
 		const section = obj.sub(state, ['layout', 'sideBarSection']) || 'fileTree';
-		const git = state.git || {};
 		return {
 			section,
 			git,

@@ -193,7 +193,7 @@ export const readLiveEditor = () => {
 	if (typeof document === 'undefined') return null;
 	const el = document.querySelector('code.source');
 	if (!el) return null;
-	const lis = el.querySelectorAll('li');
+	const lis = el.querySelectorAll('li:not(.git-removed-line)');
 	let source = '';
 	if (lis.length) {
 		source = Array.from(lis)

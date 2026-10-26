@@ -1,6 +1,7 @@
 import {obj} from 'iblokz-data';
 import {dispatch} from 'iblokz-state';
 import {fetchGitStatus} from '../../util/git-status.js';
+import {clearGitBaselineCache} from '../../util/git-line-diff.js';
 
 export const initial = {
 	available: null,
@@ -11,7 +12,9 @@ export const initial = {
 	behind: 0,
 	files: [],
 	commits: [],
-	projectPath: null
+	projectPath: null,
+	/** Bumps on each successful refresh so editor gutters refetch HEAD. */
+	stamp: 0
 };
 
 export const slice = state => (state && state.git) || initial;
@@ -35,6 +38,7 @@ export const refresh = () => state => {
 
 	const seq = ++refreshSeq;
 	fetchGitStatus(projectPath).then(result => {
+		clearGitBaselineCache();
 		dispatch(next => {
 			if (seq !== refreshSeq) return next;
 			const curPath = next.project && next.project.path;
@@ -48,7 +52,8 @@ export const refresh = () => state => {
 				behind: result.behind || 0,
 				files: result.files || [],
 				commits: result.commits || [],
-				projectPath
+				projectPath,
+				stamp: Date.now()
 			});
 		});
 	});

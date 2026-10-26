@@ -288,6 +288,23 @@
 			text-overflow: ellipsis
 			white-space: nowrap
 
+		span.tree-git-badge
+			flex: 0 0 1.1em
+			width: 1.1em
+			margin-left: 2px
+			margin-right: 2px
+			text-align: center
+			font-size: 0.65em
+			font-weight: 500
+			line-height: $panel-row-height
+			letter-spacing: 0.02em
+			opacity: 0.7
+			color: var(--app-text-muted)
+
+			&.empty
+				opacity: 0
+				pointer-events: none
+
 		.tree-row.tree-root > span.name
 			font-size: 1.15em
 			font-weight: 600
@@ -418,6 +435,40 @@
 			&.disabled
 				opacity: 0.45
 				cursor: default
+
+			// Folders with dirty children: soft name tint (no badge).
+			&.git-changed:not(.git-modified):not(.git-added):not(.git-untracked):not(.git-deleted):not(.git-conflict)
+				> span.name
+					color: color-mix(in srgb, var(--app-accent) 55%, var(--app-text))
+
+			// Files: soft name tint + quieter badge.
+			&.git-modified
+				> span.name
+					color: color-mix(in srgb, #c9a227 35%, var(--app-text))
+				> span.tree-git-badge
+					color: color-mix(in srgb, #c9a227 55%, var(--app-text-muted))
+
+			&.git-added,
+			&.git-untracked
+				> span.name
+					color: color-mix(in srgb, #3d9a5f 35%, var(--app-text))
+				> span.tree-git-badge
+					color: color-mix(in srgb, #3d9a5f 55%, var(--app-text-muted))
+
+			&.git-deleted,
+			&.git-conflict
+				> span.name
+					color: color-mix(in srgb, var(--app-danger) 35%, var(--app-text))
+				> span.tree-git-badge
+					color: color-mix(in srgb, var(--app-danger) 55%, var(--app-text-muted))
+
+			&.active.git-changed > span.name,
+			&.active.git-modified > span.name,
+			&.active.git-added > span.name,
+			&.active.git-untracked > span.name,
+			&.active.git-deleted > span.name,
+			&.active.git-conflict > span.name
+				color: inherit
 
 	.recent-roots
 		flex: 0 0 auto

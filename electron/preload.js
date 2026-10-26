@@ -94,6 +94,7 @@ contextBridge.exposeInMainWorld('app', {
 	},
 	gitStatus: cwd => ipcRenderer.invoke('gitStatus', cwd),
 	gitLog: cwd => ipcRenderer.invoke('gitLog', cwd),
+	gitShow: (cwd, relPath) => ipcRenderer.invoke('gitShow', cwd, relPath),
 	minimize: () => ipcRenderer.invoke('minimize'),
 	toggleMaximize: () => ipcRenderer.invoke('toggleMaximize'),
 	close: () => ipcRenderer.invoke('close'),

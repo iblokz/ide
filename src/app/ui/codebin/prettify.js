@@ -27,7 +27,7 @@ const PRETTIFY_LANG = {
 export const unprettify = html => {
 	const tDiv = document.createElement('div');
 	tDiv.innerHTML = html;
-	const lis = tDiv.querySelectorAll('li');
+	const lis = tDiv.querySelectorAll('li:not(.git-removed-line)');
 	if (lis.length) {
 		return Array.from(lis)
 			.map(li => {

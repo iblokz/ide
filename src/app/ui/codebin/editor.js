@@ -7,9 +7,20 @@ import {code} from 'iblokz-snabbdom-helpers';
 import * as caret from '../../util/caret.js';
 import findHighlightMod from '../../util/find-highlight.js';
 import {prettifySource, unprettify} from './prettify.js';
+import {refreshGitLineGutter} from '../../util/git-line-diff.js';
 
 const findHighlight = findHighlightMod.default ?? findHighlightMod;
 const caretApi = caret.default ?? caret;
+
+const paintSource = (el, source, type, gitContext) => {
+	el.innerHTML = prettifySource(source || '', type);
+	findHighlight.clearFindMarkup(el);
+	refreshGitLineGutter(el, source || '', gitContext);
+};
+
+const gitContextKey = gitContext => (gitContext
+	? `${gitContext.projectPath || ''}\0${gitContext.filePath || ''}\0${gitContext.stamp || 0}`
+	: '');
 
 const insertNewlineAtPos = (source, pos) => {
 	const lines = String(source || '').split('\n');
@@ -68,6 +79,7 @@ export default ({
 	scroll = {top: 0, left: 0},
 	tabId = null,
 	indent,
+	gitContext = null,
 	change = () => {},
 	updateScroll = () => {},
 	undo = () => {},
@@ -88,7 +100,7 @@ export default ({
 	hook: {
 		insert: ({elm}) => {
 			elm.spellcheck = false;
-			elm.innerHTML = prettifySource(source || '', type);
+			paintSource(elm, source || '', type, gitContext);
 			caretApi.set(elm, pos);
 			applyScroll(elm, scroll);
 		},
@@ -107,9 +119,14 @@ export default ({
 				? oldVnode.data.dataset.tabKey
 				: '';
 			const nextTab = tabId || '';
+			const prevGit = oldVnode.data && oldVnode.data.dataset
+				? oldVnode.data.dataset.gitKey
+				: '';
+			const nextGit = gitContextKey(gitContext);
 			const tabChanged = prevTab !== nextTab;
+			const gitChanged = prevGit !== nextGit;
 			const liveScroll = readScroll(elm);
-			if (prev === next && prevPos === nextPos && !tabChanged) return;
+			if (prev === next && prevPos === nextPos && !tabChanged && !gitChanged) return;
 			if (tabChanged && prevTab) {
 				const outgoing = liveScroll;
 				const outgoingId = prevTab;
@@ -118,8 +135,9 @@ export default ({
 				setTimeout(() => updateScroll(outgoing, outgoingId), 0);
 			}
 			if (prev !== next) {
-				elm.innerHTML = prettifySource(next, type);
-				findHighlight.clearFindMarkup(elm);
+				paintSource(elm, next, type, gitContext);
+			} else if (gitChanged) {
+				refreshGitLineGutter(elm, next, gitContext);
 			}
 			if (tabChanged) {
 				applyScroll(elm, scroll);
@@ -139,7 +157,8 @@ export default ({
 	dataset: {
 		source: source || '',
 		posKey: JSON.stringify(pos || null),
-		tabKey: tabId || ''
+		tabKey: tabId || '',
+		gitKey: gitContextKey(gitContext)
 	},
 	on: {
 		scroll: ev => scheduleScrollSave(ev.target, tabId, updateScroll),
@@ -169,7 +188,7 @@ export default ({
 						indent
 					);
 					const liveScroll = readScroll(el);
-					el.innerHTML = prettifySource(next.source, type);
+					paintSource(el, next.source, type, gitContext);
 					applyScroll(el, liveScroll);
 					caretApi.set(el, next.pos);
 					change(next.source, next.pos);
@@ -196,7 +215,7 @@ export default ({
 					}
 					const next = insertNewlineAtPos(curSource, cur);
 					const liveScroll = readScroll(el);
-					el.innerHTML = prettifySource(next.source, type);
+					paintSource(el, next.source, type, gitContext);
 					applyScroll(el, liveScroll);
 					caretApi.set(el, next.pos);
 					change(next.source, next.pos);
@@ -230,7 +249,7 @@ export default ({
 					if (gen !== inputSyncGen) return 0;
 					const liveScroll = readScroll(el);
 					const sourceCode = unprettify(el.innerHTML);
-					el.innerHTML = prettifySource(sourceCode, type);
+					paintSource(el, sourceCode, type, gitContext);
 					if (gen !== inputSyncGen) return 0;
 					applyScroll(el, liveScroll);
 					caretApi.set(el, nextPos);

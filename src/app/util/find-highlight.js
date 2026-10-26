@@ -1,4 +1,4 @@
-import {rangeForPos, set as setCaret} from './caret.js';
+import {rangeForPos, set as setCaret, lineElements} from './caret.js';
 
 const FIND_HIGHLIGHT_NAME = 'find-match';
 
@@ -64,7 +64,7 @@ export const applyFindMarkup = (el, pos) => {
 	el.querySelectorAll('li.find-match-line').forEach(li => {
 		li.classList.remove('find-match-line');
 	});
-	const lis = el.querySelectorAll('li');
+	const lis = lineElements(el);
 	const li = lis[pos.start.row];
 	if (li) {
 		li.classList.add('find-match-line');
