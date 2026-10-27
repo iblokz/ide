@@ -10,14 +10,20 @@ export const initial = {
 		preview: false,
 		previewConsole: false,
 		/** Preview column fills the workspace (editor share collapsed). */
-		previewMaximized: false
+		previewMaximized: false,
+		/** Explorer “Recent” bottom panel. */
+		recentRoots: true,
+		/** Source Control “Commits” bottom panel. */
+		gitCommits: true
 	},
 	dim: {
 		leftSideBar: 260,
 		rightSideBar: 320,
 		bottomPanel: 320,
 		preview: 0.5,
-		previewConsole: 240
+		previewConsole: 240,
+		recentRoots: 120,
+		gitCommits: 140
 	},
 	/** Left sidebar body: `fileTree` | `search` | `git`. */
 	sideBarSection: 'fileTree'

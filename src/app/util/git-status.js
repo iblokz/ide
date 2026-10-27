@@ -127,11 +127,19 @@ export const buildGitChangeIndex = (files, projectPath) => {
 		const entry = list[i];
 		if (!entry || !entry.path) continue;
 		const letter = (entry.status && entry.status !== ' ') ? entry.status : 'M';
-		const abs = joinProjectPath(projectPath, entry.path);
+		const rawPath = String(entry.path);
+		// Porcelain marks untracked dirs as `path/` — treat as a directory entry.
+		const isDirEntry = /[/\\]$/.test(rawPath);
+		const abs = joinProjectPath(projectPath, rawPath);
 		const absKey = normalizePathKey(abs);
-		const relKey = normalizePathKey(entry.path);
+		const relKey = normalizePathKey(rawPath);
 		fileStatus.set(absKey, letter);
 		if (relKey) fileStatus.set(relKey, letter);
+
+		if (isDirEntry && relKey) {
+			dirs.add(relKey);
+			dirs.add(absKey);
+		}
 
 		const parts = relKey.split('/').filter(Boolean);
 		let acc = '';

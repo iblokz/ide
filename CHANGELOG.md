@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.29.0] - 2026-10-27
+
+### Added
+
+- Explorer Recent and Source Control Commits: collapsible / vertically resizable bottom panels (chevron + gutter)
+- Explorer: untracked files listed with `-uall`; `?` on new files and untracked dirs
+
+### Changed
+
+- Left sidebar UI split into `ui/side-bar/` sections (`file-tree`, `search`, `git`)
+- Editor dirty-diff skipped for untracked files (Explorer `?` only)
+
 ## [1.28.0] - 2026-10-27
 
 ### Added

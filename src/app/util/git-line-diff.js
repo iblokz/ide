@@ -31,8 +31,12 @@ export const projectRelativePath = (projectPath, filePath) => {
 
 let warnedNoGitShow = false;
 
+/** Cached miss: file not in HEAD — skip in-editor gutter (Explorer `?` is enough). */
+const UNTRACKED = Object.freeze({untracked: true});
+
 /**
- * @returns {Promise<string|null>} HEAD blob text, `''` if untracked/missing, null if unavailable
+ * @returns {Promise<string|null|{untracked: true}>}
+ *   HEAD blob text, `UNTRACKED` if not in HEAD, null if bridge unavailable
  */
 export const fetchGitBaseline = async (projectPath, filePath) => {
 	const bridge = typeof window !== 'undefined' ? window.app : null;
@@ -62,8 +66,8 @@ export const fetchGitBaseline = async (projectPath, filePath) => {
 		if (result && result.ok) {
 			content = String(result.stdout || '');
 		} else {
-			// Untracked / not in HEAD → empty baseline (all lines "added").
-			content = '';
+			// Untracked / not in HEAD — no full-file green wash.
+			content = UNTRACKED;
 		}
 		baselineCache.set(key, content);
 		return content;
@@ -204,7 +208,7 @@ export const refreshGitLineGutter = async (el, source, gitContext) => {
 	}
 	const baseline = await fetchGitBaseline(gitContext.projectPath, gitContext.filePath);
 	if (seq !== gutterSeq) return;
-	if (baseline == null) {
+	if (baseline == null || (baseline && baseline.untracked)) {
 		clearGitLineMarkup(el);
 		return;
 	}

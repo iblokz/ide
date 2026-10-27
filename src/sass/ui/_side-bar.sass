@@ -123,7 +123,7 @@
 		.git-status-body
 			flex: 1 1 auto
 			min-height: 0
-			overflow-y: auto
+			overflow: hidden
 			display: flex
 			flex-direction: column
 
@@ -132,6 +132,12 @@
 			display: flex
 			flex-direction: column
 			padding-bottom: 8px
+
+		.git-status-section.git-status-changes
+			flex: 1 1 auto
+			min-height: 0
+			overflow-y: auto
+			padding-bottom: 0
 
 		.git-status-section-title
 			flex: 0 0 auto
@@ -470,45 +476,99 @@
 			&.active.git-conflict > span.name
 				color: inherit
 
-	.recent-roots
+	// Collapsible / resizable bottom views (Recent, Commits, …).
+	.side-bar-panel
 		flex: 0 0 auto
+		display: flex
+		flex-direction: column
+		min-height: 0
 		border-top: 1px solid var(--app-border)
-		padding: 8px 12px
-		font-size: 0.75em
-		color: var(--app-text-muted)
+		background: var(--app-bg-panel)
 
-		.label
-			display: block
-			margin-bottom: 4px
-			font-weight: 600
-			text-transform: uppercase
-			letter-spacing: 0.04em
-
-		ul
-			+reset
-			list-style: none
-			display: block
-			width: 100%
-
-		li
-			+reset
-			display: block
-			line-height: 24px
-			overflow: hidden
-			text-overflow: ellipsis
-			white-space: nowrap
-
-		a
-			display: block
-			width: 100%
+		.side-bar-panel-header
+			+header-height($panel-row-height)
+			flex: 0 0 auto
+			display: flex
+			align-items: center
+			gap: 4px
+			padding: 0 6px 0 2px
 			cursor: pointer
-			color: var(--app-text)
-			text-decoration: none
-			transition: background-color .15s ease, color .15s ease
+			user-select: none
+			color: var(--app-text-muted)
 
 			&:hover
 				background: var(--app-bg-hover)
 				color: var(--app-text-strong)
 
-			span
-				margin-left: 0
+		button.side-bar-panel-toggle
+			+header-height($panel-row-height)
+			flex: 0 0 auto
+			width: $panel-row-height
+			padding: 0
+			margin: 0
+			border: 0
+			border-radius: 4px
+			background: transparent
+			color: inherit
+			cursor: pointer
+			outline: none
+			font-size: 0.75em
+			line-height: $panel-row-height
+
+			i
+				width: 100%
+				text-align: center
+				color: inherit
+
+			&:hover
+				background: var(--app-bg-hover)
+
+		.side-bar-panel-title
+			flex: 1 1 auto
+			min-width: 0
+			font-size: 0.7em
+			font-weight: 600
+			text-transform: uppercase
+			letter-spacing: 0.04em
+			overflow: hidden
+			text-overflow: ellipsis
+			white-space: nowrap
+
+		.side-bar-panel-body
+			flex: 0 0 auto
+			min-height: 0
+			overflow-x: hidden
+			overflow-y: auto
+			box-sizing: border-box
+			font-size: 0.75em
+			color: var(--app-text-muted)
+
+		ul.recent-roots-list
+			+reset
+			list-style: none
+			display: block
+			width: 100%
+			padding: 2px 8px 8px
+
+			li
+				+reset
+				display: block
+				line-height: $panel-row-height
+				overflow: hidden
+				text-overflow: ellipsis
+				white-space: nowrap
+
+			a
+				display: block
+				width: 100%
+				cursor: pointer
+				color: var(--app-text)
+				text-decoration: none
+				transition: background-color .15s ease, color .15s ease
+
+				&:hover
+					background: var(--app-bg-hover)
+					color: var(--app-text-strong)
+
+		ul.git-log-list
+			padding-bottom: 4px

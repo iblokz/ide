@@ -587,8 +587,9 @@ const registerIpc = () => {
 		}
 	};
 
+	// -uall: list every untracked file (not just the parent dir as `?? dir/`).
 	ipcMain.handle('gitStatus', (_ev, cwd) =>
-		runGit(cwd, ['status', '--porcelain=v1', '-b'], 'git status failed'));
+		runGit(cwd, ['status', '--porcelain=v1', '-b', '-uall'], 'git status failed'));
 	ipcMain.handle('gitLog', (_ev, cwd) =>
 		runGit(cwd, ['log', '-n', '30', '--format=%h%x09%s'], 'git log failed'));
 	ipcMain.handle('gitShow', (_ev, cwd, relPath) => {
