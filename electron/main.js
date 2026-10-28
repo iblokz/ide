@@ -1,6 +1,6 @@
 'use strict';
 
-const {app, dialog, BrowserWindow, ipcMain, nativeImage, Menu, nativeTheme, shell} = require('electron');
+const {app, dialog, BrowserWindow, ipcMain, nativeImage, Menu, nativeTheme, shell, clipboard} = require('electron');
 const fs = require('fs');
 const path = require('path');
 const {spawn, execFile} = require('child_process');
@@ -472,6 +472,54 @@ const createWindow = () => {
 		event.preventDefault();
 		toggleLoadMode();
 	});
+	// Electron has no Chromium default context menu — wire a minimal one.
+	// Copy uses params.selectionText: opening the menu can clear the live selection,
+	// so role:'copy' often pastes nothing in contenteditable editors.
+	browserWindow.webContents.on('context-menu', (_event, params) => {
+		const {editFlags} = params;
+		const isEditable = !!params.isEditable;
+		const selectionText = params.selectionText != null ? String(params.selectionText) : '';
+		const hasSelection = !!selectionText;
+		const copyItem = {
+			label: 'Copy',
+			enabled: hasSelection || !!editFlags.canCopy,
+			click: () => {
+				if (selectionText) clipboard.writeText(selectionText);
+				else browserWindow.webContents.copy();
+			}
+		};
+		const items = [];
+		if (isEditable) {
+			items.push(
+				{role: 'undo', enabled: !!editFlags.canUndo},
+				{role: 'redo', enabled: !!editFlags.canRedo},
+				{type: 'separator'},
+				{role: 'cut', enabled: !!editFlags.canCut && hasSelection},
+				copyItem,
+				{role: 'paste', enabled: !!editFlags.canPaste},
+				{role: 'selectAll', enabled: !!editFlags.canSelectAll}
+			);
+		} else if (hasSelection) {
+			items.push(copyItem);
+			if (editFlags.canSelectAll) {
+				items.push({role: 'selectAll'});
+			}
+		}
+		if (!app.isPackaged || process.env.ELECTRON_ENABLE_INSPECT === '1') {
+			if (items.length) items.push({type: 'separator'});
+			items.push({
+				label: 'Inspect Element',
+				click: () => {
+					browserWindow.webContents.inspectElement(params.x, params.y);
+					if (!browserWindow.webContents.isDevToolsOpened()) {
+						browserWindow.webContents.openDevTools({mode: 'detach'});
+					}
+				}
+			});
+		}
+		if (!items.length) return;
+		Menu.buildFromTemplate(items).popup({window: browserWindow});
+	});
 	applyStart(browserWindow);
 
 	return browserWindow;
@@ -587,11 +635,30 @@ const registerIpc = () => {
 		}
 	};
 
-	// -uall: list every untracked file (not just the parent dir as `?? dir/`).
+	// -uall: every untracked file. Do NOT combine with --ignored here — that dumps
+	// every file under node_modules/.parcel-cache and blows maxBuffer.
 	ipcMain.handle('gitStatus', (_ev, cwd) =>
 		runGit(cwd, ['status', '--porcelain=v1', '-b', '-uall'], 'git status failed'));
+	// Compact ignored stubs (dirs as `dir/`, not full trees) for Explorer mute.
+	ipcMain.handle('gitLsIgnored', (_ev, cwd) =>
+		runGit(
+			cwd,
+			['ls-files', '-o', '-i', '--exclude-standard', '--directory'],
+			'git ls-files ignored failed'
+		));
+	// Parents + decorations + author/date for Commits graph (topo order).
 	ipcMain.handle('gitLog', (_ev, cwd) =>
-		runGit(cwd, ['log', '-n', '30', '--format=%h%x09%s'], 'git log failed'));
+		runGit(
+			cwd,
+			[
+				'log',
+				'-n', '50',
+				'--topo-order',
+				'--decorate=short',
+				'--format=%h%x09%p%x09%D%x09%an%x09%aI%x09%s'
+			],
+			'git log failed'
+		));
 	ipcMain.handle('gitShow', (_ev, cwd, relPath) => {
 		if (!relPath || typeof relPath !== 'string') {
 			return Promise.resolve({ok: false, error: 'Missing path'});
@@ -601,6 +668,22 @@ const registerIpc = () => {
 			return Promise.resolve({ok: false, error: 'Invalid path'});
 		}
 		return runGit(cwd, ['show', `HEAD:${normalized}`], 'git show failed');
+	});
+	// Full commit metadata + numstat for hover/expand.
+	ipcMain.handle('gitCommitDetail', (_ev, cwd, hash) => {
+		if (!hash || typeof hash !== 'string' || !/^[0-9a-f]{4,40}$/i.test(hash)) {
+			return Promise.resolve({ok: false, error: 'Invalid commit'});
+		}
+		return runGit(
+			cwd,
+			[
+				'show',
+				'--numstat',
+				'--format=%H%x09%h%x09%an%x09%ae%x09%aI%x09%s%x00%b%x00',
+				hash
+			],
+			'git show commit failed'
+		);
 	});
 };
 

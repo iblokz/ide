@@ -6,6 +6,7 @@ import {obj} from 'iblokz-data';
 import {joinProjectPath} from '../../../util/git-status.js';
 import {fileStubFromPath} from '../../../util/session.js';
 import sideBarPanel from '../panel.js';
+import graphPanel from './graph-panel.js';
 
 const branchLabel = git => {
 	const branch = git.branch || 'HEAD';
@@ -78,7 +79,8 @@ export default ({state, actions}) => {
 		]);
 	}
 
-	const files = git.files || [];
+	// Changes list: skip ignored (`!!`); Explorer mutes those separately.
+	const files = (git.files || []).filter(entry => entry && entry.status !== '!');
 	const commits = git.commits || [];
 	const loading = git.loading || git.available == null;
 	const commitsOpen = obj.sub(state, ['layout', 'toggles', 'gitCommits']) !== false;
@@ -118,17 +120,15 @@ export default ({state, actions}) => {
 				onToggle: () => actions.layout.toggle('gitCommits'),
 				onResize: h => actions.layout.set({gitCommits: h}),
 				children: [
-					commits.length
-						? ul('.git-log-list', commits.map(entry =>
-							li('.git-log-item', {
-								attrs: {title: `${entry.hash} ${entry.subject}`}
-							}, [
-								span('.git-log-hash', entry.hash),
-								span('.git-log-subject', entry.subject)
-							])
-						))
-						: span('.git-status-empty',
-							loading ? 'Loading…' : 'No commits')
+					graphPanel({
+						commits,
+						loading,
+						branch: git.branch,
+						selectedHash: git.selectedHash || null,
+						commitDetails: git.commitDetails || {},
+						projectPath: git.projectPath || projectPath,
+						actions
+					})
 				]
 			})
 		))

@@ -14,6 +14,7 @@ const gitStatusClass = letter => {
 	if (letter === 'A') return 'added';
 	if (letter === 'D') return 'deleted';
 	if (letter === 'U') return 'conflict';
+	if (letter === '!') return null; // muted via .git-ignored, no badge
 	return 'modified';
 };
 
@@ -160,8 +161,12 @@ export const fileLeafNode = (item, path = [], level = 0, opts) => {
 		&& treeEdit.path === item.path);
 	const showActions = canWrite && !isRenaming && (isRoot || selected || showDelete);
 	// Direct status (file or untracked dir `?? foo/`); folders also tint via dirChanged.
-	const fileGitLetter = gitIndex ? gitIndex.fileStatus(item.path) : null;
-	const dirGitChanged = !!(item.isDir && gitIndex && (
+	const ignored = !!(gitIndex && typeof gitIndex.isIgnored === 'function'
+		&& gitIndex.isIgnored(item.path));
+	const fileGitLetter = (!ignored && gitIndex)
+		? gitIndex.fileStatus(item.path)
+		: null;
+	const dirGitChanged = !!(!ignored && item.isDir && gitIndex && (
 		gitIndex.dirChanged(item.path) || !!fileGitLetter
 	));
 	const gitMod = gitStatusClass(fileGitLetter);
@@ -178,6 +183,7 @@ export const fileLeafNode = (item, path = [], level = 0, opts) => {
 				'pending-delete': showDelete,
 				editing: isRenaming,
 				'tree-root': isRoot,
+				'git-ignored': ignored,
 				'git-changed': !!fileGitLetter || dirGitChanged,
 				[`git-${gitMod}`]: !!gitMod
 			},

@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.30.0] - 2026-10-28
+
+### Added
+
+- Source Control Commits graph: topo lanes SVG, branch/tag chips, select-to-expand file changes, delayed hover card (author/date/stats)
+- Explorer: muted gitignored paths via compact `git ls-files --directory` listing
+- Electron: minimal context menu (copy uses selection at right-click; Inspect when unpackaged)
+
+### Changed
+
+- HMR indicator: right-edge header inset instead of badge pill
+- Panel and markdown-preview scrollbars match editor / file-tree thin theme scrollbars
+
 ## [1.29.0] - 2026-10-27
 
 ### Added

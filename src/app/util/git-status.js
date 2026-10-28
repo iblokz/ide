@@ -110,29 +110,44 @@ export const normalizePathKey = p => String(p || '')
 
 /**
  * Map porcelain file entries → lookup for Explorer decorations.
- * Files get a status letter; ancestor dirs are marked changed (no letter).
+ * Dirty files get a status letter; ancestor dirs are marked changed.
+ * Ignored (`!!`) paths are muted via `isIgnored` (exact or under an ignored dir).
  *
  * @param {Array<{path: string, status?: string}>} files
  * @param {string|null} projectPath
  * @returns {{
  *   fileStatus: (absOrRel: string) => string|null,
- *   dirChanged: (absOrRel: string) => boolean
+ *   dirChanged: (absOrRel: string) => boolean,
+ *   isIgnored: (absOrRel: string) => boolean
  * }}
  */
 export const buildGitChangeIndex = (files, projectPath) => {
 	const fileStatus = new Map();
 	const dirs = new Set();
+	const ignoredExact = new Set();
+	const ignoredDirs = [];
 	const list = Array.isArray(files) ? files : [];
 	for (let i = 0; i < list.length; i++) {
 		const entry = list[i];
 		if (!entry || !entry.path) continue;
 		const letter = (entry.status && entry.status !== ' ') ? entry.status : 'M';
 		const rawPath = String(entry.path);
-		// Porcelain marks untracked dirs as `path/` — treat as a directory entry.
+		// Porcelain marks untracked/ignored dirs as `path/` — treat as a directory entry.
 		const isDirEntry = /[/\\]$/.test(rawPath);
 		const abs = joinProjectPath(projectPath, rawPath);
 		const absKey = normalizePathKey(abs);
 		const relKey = normalizePathKey(rawPath);
+
+		if (letter === '!') {
+			if (absKey) ignoredExact.add(absKey);
+			if (relKey) ignoredExact.add(relKey);
+			if (isDirEntry) {
+				if (absKey) ignoredDirs.push(absKey);
+				if (relKey && relKey !== absKey) ignoredDirs.push(relKey);
+			}
+			continue;
+		}
+
 		fileStatus.set(absKey, letter);
 		if (relKey) fileStatus.set(relKey, letter);
 
@@ -151,22 +166,156 @@ export const buildGitChangeIndex = (files, projectPath) => {
 	}
 	return {
 		fileStatus: path => fileStatus.get(normalizePathKey(path)) || null,
-		dirChanged: path => dirs.has(normalizePathKey(path))
+		dirChanged: path => dirs.has(normalizePathKey(path)),
+		isIgnored: path => {
+			const key = normalizePathKey(path);
+			if (!key) return false;
+			if (ignoredExact.has(key)) return true;
+			for (let i = 0; i < ignoredDirs.length; i++) {
+				const dir = ignoredDirs[i];
+				if (key === dir || key.startsWith(`${dir}/`)) return true;
+			}
+			return false;
+		}
 	};
 };
 
-/** Parse `git log --format=%h%x09%s` lines into `{hash, subject}`. */
+/**
+ * Split `git log --decorate` `%D` into ref labels.
+ * Keeps compact tokens: `HEAD`, branch names, `tag: …`, remotes.
+ */
+export const parseDecorations = raw => {
+	const s = String(raw || '').trim();
+	if (!s) return [];
+	const refs = [];
+	const parts = s.split(',').map(p => p.trim()).filter(Boolean);
+	for (let i = 0; i < parts.length; i++) {
+		const part = parts[i];
+		const headBranch = /^HEAD\s*->\s*(.+)$/.exec(part);
+		if (headBranch) {
+			refs.push('HEAD');
+			refs.push(headBranch[1].trim());
+			continue;
+		}
+		if (part === 'HEAD') {
+			refs.push('HEAD');
+			continue;
+		}
+		refs.push(part);
+	}
+	return refs;
+};
+
+/**
+ * Classify a decoration token for chips.
+ * @returns {{raw: string, label: string, kind: 'head'|'branch'|'tag'|'remote', current: boolean}}
+ */
+export const classifyRef = (ref, branch) => {
+	const raw = String(ref || '');
+	if (raw === 'HEAD') {
+		return {raw, label: 'HEAD', kind: 'head', current: false};
+	}
+	const tag = /^tag:\s*(.+)$/i.exec(raw);
+	if (tag) {
+		return {raw, label: tag[1].trim(), kind: 'tag', current: false};
+	}
+	if (raw.includes('/')) {
+		return {raw, label: raw, kind: 'remote', current: false};
+	}
+	const current = !!(branch && raw === branch);
+	return {raw, label: raw, kind: 'branch', current};
+};
+
+/**
+ * Drop noisy refs, dedupe, prioritize HEAD → current branch → locals → tags → remotes.
+ * @param {string[]} refs
+ * @param {string|null|undefined} branch current branch short name
+ */
+export const prioritizeRefs = (refs, branch) => {
+	const list = Array.isArray(refs) ? refs : [];
+	const out = [];
+	const seen = new Set();
+	for (let i = 0; i < list.length; i++) {
+		const item = classifyRef(list[i], branch);
+		if (!item.label) continue;
+		// `origin/HEAD` is noise next to real branch tips
+		if (item.kind === 'remote' && /\/HEAD$/i.test(item.label)) continue;
+		const key = `${item.kind}:${item.label}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		out.push(item);
+	}
+	const rank = {head: 0, branch: 1, tag: 2, remote: 3};
+	out.sort((a, b) => {
+		if (a.kind === 'branch' && b.kind === 'branch' && a.current !== b.current) {
+			return a.current ? -1 : 1;
+		}
+		const ra = rank[a.kind] != null ? rank[a.kind] : 9;
+		const rb = rank[b.kind] != null ? rank[b.kind] : 9;
+		if (ra !== rb) return ra - rb;
+		return a.label.localeCompare(b.label);
+	});
+	return out;
+};
+
+/**
+ * Compact row chips: local branches + tags only (no HEAD / remotes), readable labels.
+ * @param {string[]} refs
+ * @param {string|null|undefined} branch
+ * @param {number} [limit=3]
+ */
+export const rowRefChips = (refs, branch, limit = 3) => {
+	const all = prioritizeRefs(refs, branch).filter(c =>
+		c.kind === 'branch' || c.kind === 'tag'
+	);
+	const max = typeof limit === 'number' && limit > 0 ? limit : 3;
+	return all.slice(0, max).map(c => Object.assign({}, c, {
+		display: c.label
+	}));
+};
+
+/**
+ * Parse `git log --format=%h%x09%p%x09%D%x09%an%x09%aI%x09%s`
+ * (also accepts older `%h…%D…%s` and legacy `%h%x09%s`).
+ * @returns {Array<{
+ *   hash: string,
+ *   parents: string[],
+ *   refs: string[],
+ *   author: string,
+ *   date: string,
+ *   subject: string
+ * }>}
+ */
 export const parseLog = stdout => {
 	const lines = String(stdout || '').split(/\r?\n/).filter(Boolean);
 	const commits = [];
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
-		const tab = line.indexOf('\t');
-		if (tab <= 0) continue;
-		const hash = line.slice(0, tab).trim();
-		const subject = line.slice(tab + 1).trim();
+		const parts = line.split('\t');
+		if (parts.length < 2) continue;
+		const hash = (parts[0] || '').trim();
 		if (!hash) continue;
-		commits.push({hash, subject: subject || '(no subject)'});
+		// Current: hash, parents, decorations, author, date, subject
+		if (parts.length >= 6) {
+			const parents = (parts[1] || '').trim().split(/\s+/).filter(Boolean);
+			const refs = parseDecorations(parts[2]);
+			const author = (parts[3] || '').trim();
+			const date = (parts[4] || '').trim();
+			const subject = parts.slice(5).join('\t').trim() || '(no subject)';
+			commits.push({hash, parents, refs, author, date, subject});
+			continue;
+		}
+		// Phase 1–2: hash, parents, decorations, subject
+		if (parts.length >= 4) {
+			const parents = (parts[1] || '').trim().split(/\s+/).filter(Boolean);
+			const refs = parseDecorations(parts[2]);
+			const subject = parts.slice(3).join('\t').trim() || '(no subject)';
+			commits.push({hash, parents, refs, author: '', date: '', subject});
+			continue;
+		}
+		// Legacy: hash, subject
+		const subject = parts.slice(1).join('\t').trim() || '(no subject)';
+		commits.push({hash, parents: [], refs: [], author: '', date: '', subject});
 	}
 	return commits;
 };
@@ -189,7 +338,7 @@ const emptySnapshot = (available, error) => ({
  *   ahead: number,
  *   behind: number,
  *   files: Array<{path: string, index: string, worktree: string, status: string}>,
- *   commits: Array<{hash: string, subject: string}>
+ *   commits: Array<{hash: string, parents: string[], refs: string[], author: string, date: string, subject: string}>
  * }>}
  */
 export const fetchGitStatus = async projectPath => {
@@ -206,6 +355,30 @@ export const fetchGitStatus = async projectPath => {
 			return emptySnapshot(true, (statusResult && statusResult.error) || 'git status failed');
 		}
 		const parsed = parsePorcelain(statusResult.stdout);
+		const files = parsed.files.slice();
+		// Compact ignored stubs (e.g. node_modules/) — not full trees.
+		if (typeof bridge.gitLsIgnored === 'function') {
+			try {
+				const ignoredResult = await bridge.gitLsIgnored(projectPath);
+				if (ignoredResult && ignoredResult.ok) {
+					const lines = String(ignoredResult.stdout || '')
+						.split(/\r?\n/)
+						.filter(Boolean);
+					for (let i = 0; i < lines.length; i++) {
+						const path = lines[i];
+						if (!path) continue;
+						files.push({
+							path,
+							index: '!',
+							worktree: '!',
+							status: '!'
+						});
+					}
+				}
+			} catch {
+				// ignore helper failures; status still usable
+			}
+		}
 		let commits = [];
 		if (typeof bridge.gitLog === 'function') {
 			try {
@@ -223,7 +396,7 @@ export const fetchGitStatus = async projectPath => {
 			branch: parsed.branch,
 			ahead: parsed.ahead,
 			behind: parsed.behind,
-			files: parsed.files,
+			files,
 			commits
 		};
 	} catch (err) {
@@ -234,6 +407,10 @@ export const fetchGitStatus = async projectPath => {
 export default {
 	statusLetter,
 	parsePorcelain,
+	parseDecorations,
+	classifyRef,
+	prioritizeRefs,
+	rowRefChips,
 	parseLog,
 	joinProjectPath,
 	normalizePathKey,

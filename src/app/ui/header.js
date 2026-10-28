@@ -52,7 +52,10 @@ export default ({state, actions}) => {
 	const start = isStartView(state);
 	const tabStrip = start ? null : tabs({state, actions});
 
+	const hmr = isHmrLoadMode();
+
 	return header({
+		class: { 'is-hmr': hmr },
 		on: showWindowControls() ? {
 			dblclick: ev => {
 				const t = ev.target;
@@ -103,7 +106,15 @@ export default ({state, actions}) => {
 			}, [
 				i(`.fa.${(state.theme && state.theme.mode) === 'dark' ? 'fa-sun-o' : 'fa-moon-o'}`)
 			]),
-			isHmrLoadMode()
+			showWindowControls() ? [
+				button('.window-minimize[aria-label="Minimize"][title="Minimize"]', {
+					on: {click: () => window.app.minimize()}
+				}, [i('.fa.fa-minus')]),
+				button('.window-close[aria-label="Close"][title="Close"]', {
+					on: {click: () => window.app.close()}
+				}, [i('.fa.fa-close')])
+			] : [],
+			hmr
 				? button('.load-mode-flag.is-hmr', {
 					attrs: {
 						'aria-label': 'Development HMR — switch to static',
@@ -117,18 +128,8 @@ export default ({state, actions}) => {
 							}
 						}
 					}
-				}, [
-					span('.load-mode-label', 'HMR')
-				])
-				: [],
-			showWindowControls() ? [
-				button('.window-minimize[aria-label="Minimize"][title="Minimize"]', {
-					on: {click: () => window.app.minimize()}
-				}, [i('.fa.fa-minus')]),
-				button('.window-close[aria-label="Close"][title="Close"]', {
-					on: {click: () => window.app.close()}
-				}, [i('.fa.fa-close')])
-			] : []
+				})
+				: []
 		))
 	));
 };

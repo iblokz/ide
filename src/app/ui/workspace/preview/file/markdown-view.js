@@ -14,6 +14,66 @@ import {revokeDisplayUrl} from '../../../../util/object-url.js';
 import {resolveNodeInTree, fileStubFromPath} from '../../../../util/session.js';
 import {parseMarkdown} from './markdown.js';
 
+/** Match `src/sass/inc/_mixins.sass` `=scrollbar` + `ui/_scrollbars.sass` (concrete colors). */
+const scrollbarCss = mode => {
+	const color = mode === 'light' ? '42, 48, 56' : '240, 242, 245'; // #2a3038 / #f0f2f5
+	return `
+  html, pre, .md-table-wrap, .md-mermaid {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(${color}, 0.12) transparent;
+  }
+  html::-webkit-scrollbar,
+  pre::-webkit-scrollbar,
+  .md-table-wrap::-webkit-scrollbar,
+  .md-mermaid::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+  }
+  html::-webkit-scrollbar-track,
+  pre::-webkit-scrollbar-track,
+  .md-table-wrap::-webkit-scrollbar-track,
+  .md-mermaid::-webkit-scrollbar-track {
+	background: transparent;
+  }
+  html::-webkit-scrollbar-thumb,
+  pre::-webkit-scrollbar-thumb,
+  .md-table-wrap::-webkit-scrollbar-thumb,
+  .md-mermaid::-webkit-scrollbar-thumb {
+	background-color: rgba(${color}, 0.12);
+	border-radius: 6px;
+	border: 1px solid transparent;
+	background-clip: padding-box;
+  }
+  html:hover, html:focus-within,
+  pre:hover, pre:focus-within,
+  .md-table-wrap:hover, .md-table-wrap:focus-within,
+  .md-mermaid:hover, .md-mermaid:focus-within {
+	scrollbar-color: rgba(${color}, 0.35) transparent;
+  }
+  html:hover::-webkit-scrollbar-thumb,
+  html:focus-within::-webkit-scrollbar-thumb,
+  pre:hover::-webkit-scrollbar-thumb,
+  pre:focus-within::-webkit-scrollbar-thumb,
+  .md-table-wrap:hover::-webkit-scrollbar-thumb,
+  .md-table-wrap:focus-within::-webkit-scrollbar-thumb,
+  .md-mermaid:hover::-webkit-scrollbar-thumb,
+  .md-mermaid:focus-within::-webkit-scrollbar-thumb {
+	background-color: rgba(${color}, 0.35);
+  }
+  html::-webkit-scrollbar-thumb:hover,
+  pre::-webkit-scrollbar-thumb:hover,
+  .md-table-wrap::-webkit-scrollbar-thumb:hover,
+  .md-mermaid::-webkit-scrollbar-thumb:hover {
+	background-color: rgba(${color}, 0.45);
+  }
+  html::-webkit-scrollbar-corner,
+  pre::-webkit-scrollbar-corner,
+  .md-table-wrap::-webkit-scrollbar-corner,
+  .md-mermaid::-webkit-scrollbar-corner {
+	background: transparent;
+  }`;
+};
+
 const wrapHtml = (body, theme) => {
 	const mode = (theme && theme.mode) || 'dark';
 	const vars = (theme && theme.vars) || '';
@@ -34,6 +94,7 @@ const wrapHtml = (body, theme) => {
 	font: 15px/1.55 system-ui, sans-serif;
 	padding: 16px 20px;
   }
+  ${scrollbarCss(mode)}
   h1,h2,h3,h4 {
 	line-height: 1.25;
 	color: var(--app-text-strong, var(--app-text));

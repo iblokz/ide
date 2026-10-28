@@ -15,6 +15,10 @@
 	overflow: visible
 	transition: background-color .25s ease, border-color .25s ease, box-shadow .25s ease
 
+	// HMR load mode: accent inset on the right edge of the header
+	&.is-hmr
+		box-shadow: inset -3px 0 0 0 var(--app-accent), var(--app-shadow-soft)
+
 	// Frameless Electron: drag empty chrome
 	&::before
 		position: absolute
@@ -138,24 +142,33 @@
 			i
 				transform: none
 
+		// Invisible hit target over the header’s right inset accent
 		&.load-mode-flag
-			min-width: auto
-			padding: 0 7px
-			font-size: 0.7rem
-			font-weight: 700
-			letter-spacing: 0.04em
-			line-height: 1
-			color: var(--app-accent)
-			border-color: var(--app-accent)
-			background: var(--app-accent-soft)
-
-			.load-mode-label
-				line-height: 1
+			position: absolute
+			top: 0
+			right: 0
+			bottom: 0
+			width: 10px
+			min-width: 10px
+			height: auto
+			padding: 0
+			margin: 0
+			border: 0
+			border-radius: 0
+			background: transparent
+			color: transparent
+			-webkit-app-region: no-drag
 
 			&:hover:not(:disabled)
-				color: var(--app-accent)
-				border-color: var(--app-accent)
-				background: var(--app-bg-hover)
+				background: transparent
+				transform: none
+				i, svg
+					transform: none
+
+			&:focus-visible
+				border: 0
+				box-shadow: inset -3px 0 0 0 var(--app-accent)
+				outline: 1px solid var(--app-accent)
 
 	.dropdown.layout-menu
 		+header-height($panel-row-height)

@@ -93,8 +93,10 @@ contextBridge.exposeInMainWorld('app', {
 		return () => ipcRenderer.removeListener('fs-change', handler);
 	},
 	gitStatus: cwd => ipcRenderer.invoke('gitStatus', cwd),
+	gitLsIgnored: cwd => ipcRenderer.invoke('gitLsIgnored', cwd),
 	gitLog: cwd => ipcRenderer.invoke('gitLog', cwd),
 	gitShow: (cwd, relPath) => ipcRenderer.invoke('gitShow', cwd, relPath),
+	gitCommitDetail: (cwd, hash) => ipcRenderer.invoke('gitCommitDetail', cwd, hash),
 	minimize: () => ipcRenderer.invoke('minimize'),
 	toggleMaximize: () => ipcRenderer.invoke('toggleMaximize'),
 	close: () => ipcRenderer.invoke('close'),
