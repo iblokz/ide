@@ -134,6 +134,8 @@ export default ({
 	commits,
 	loading,
 	branch,
+	ahead,
+	behind,
 	selectedHash,
 	commitDetails,
 	projectPath,
@@ -148,9 +150,13 @@ export default ({
 
 	const details = commitDetails || {};
 	const headHashes = new Set();
+	const syncOpts = {
+		ahead: ahead > 0 ? ahead : 0,
+		behind: behind > 0 ? behind : 0
+	};
 	const rows = list.map(entry => {
 		const hoverChips = prioritizeRefs(entry.refs, branch);
-		const chips = rowRefChips(entry.refs, branch);
+		const chips = rowRefChips(entry.refs, branch, 3, syncOpts);
 		const isHead = hoverChips.some(c => c.kind === 'head');
 		const isCurrent = isHead || hoverChips.some(c => c.current);
 		const selected = selectedHash === entry.hash;

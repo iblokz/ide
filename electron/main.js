@@ -624,15 +624,43 @@ const registerIpc = () => {
 			);
 			return {ok: true, stdout: String(stdout || '')};
 		} catch (err) {
-			const stderr = err && err.stderr != null ? String(err.stderr).trim() : '';
-			const message = stderr
-				|| (err && err.message)
-				|| failLabel;
 			if (err && err.code === 'ENOENT') {
 				return {ok: false, error: 'git not found'};
 			}
-			return {ok: false, error: message};
+			const stderr = err && err.stderr != null ? String(err.stderr).trim() : '';
+			const stdout = err && err.stdout != null ? String(err.stdout).trim() : '';
+			// Prefer git's own output; Node's "Command failed: git …" line is noise.
+			let message = [stderr, stdout].filter(Boolean).join('\n').trim();
+			if (!message && err && err.message) {
+				message = String(err.message)
+					.replace(/^Command failed:\s*[^\n]+\n?/i, '')
+					.trim() || String(err.message);
+			}
+			if (message.length > 600) {
+				message = `${message.slice(0, 597)}…`;
+			}
+			return {ok: false, error: message || failLabel};
 		}
+	};
+
+	/** Relative project paths only — no abs paths, no `..` segments. */
+	const normalizeRelPaths = paths => {
+		if (!Array.isArray(paths)) {
+			return {ok: false, error: 'Invalid paths'};
+		}
+		const out = [];
+		for (let i = 0; i < paths.length; i++) {
+			const raw = paths[i];
+			if (typeof raw !== 'string' || !raw.trim()) {
+				return {ok: false, error: 'Invalid path'};
+			}
+			const normalized = raw.replace(/\\/g, '/').replace(/^\/+/, '');
+			if (!normalized || normalized.split('/').includes('..')) {
+				return {ok: false, error: 'Invalid path'};
+			}
+			out.push(normalized);
+		}
+		return {ok: true, paths: out};
 	};
 
 	// -uall: every untracked file. Do NOT combine with --ignored here — that dumps
@@ -664,7 +692,7 @@ const registerIpc = () => {
 			return Promise.resolve({ok: false, error: 'Missing path'});
 		}
 		const normalized = relPath.replace(/\\/g, '/').replace(/^\/+/, '');
-		if (!normalized || normalized.includes('..')) {
+		if (!normalized || normalized.split('/').includes('..')) {
 			return Promise.resolve({ok: false, error: 'Invalid path'});
 		}
 		return runGit(cwd, ['show', `HEAD:${normalized}`], 'git show failed');
@@ -685,6 +713,47 @@ const registerIpc = () => {
 			'git show commit failed'
 		);
 	});
+	// Write ops: fixed argv shapes only (paths validated, no shell).
+	// paths === null → all; else non-empty relative path list.
+	ipcMain.handle('gitAdd', (_ev, cwd, paths) => {
+		if (paths == null) {
+			return runGit(cwd, ['add', '-A'], 'git add failed');
+		}
+		const norm = normalizeRelPaths(paths);
+		if (!norm.ok) return Promise.resolve(norm);
+		if (!norm.paths.length) {
+			return Promise.resolve({ok: false, error: 'No paths'});
+		}
+		return runGit(cwd, ['add', '--'].concat(norm.paths), 'git add failed');
+	});
+	ipcMain.handle('gitUnstage', (_ev, cwd, paths) => {
+		if (paths == null) {
+			return runGit(cwd, ['restore', '--staged', '--', '.'], 'git unstage failed');
+		}
+		const norm = normalizeRelPaths(paths);
+		if (!norm.ok) return Promise.resolve(norm);
+		if (!norm.paths.length) {
+			return Promise.resolve({ok: false, error: 'No paths'});
+		}
+		return runGit(
+			cwd,
+			['restore', '--staged', '--'].concat(norm.paths),
+			'git unstage failed'
+		);
+	});
+	ipcMain.handle('gitCommit', (_ev, cwd, message) => {
+		if (typeof message !== 'string' || !message.trim()) {
+			return Promise.resolve({ok: false, error: 'Empty commit message'});
+		}
+		// Single -m keeps subject+body; newlines in the arg are fine (no shell).
+		return runGit(cwd, ['commit', '-m', message], 'git commit failed');
+	});
+	ipcMain.handle('gitPull', (_ev, cwd) =>
+		runGit(cwd, ['pull', '--ff-only'], 'git pull failed'));
+	ipcMain.handle('gitPush', (_ev, cwd) =>
+		runGit(cwd, ['push'], 'git push failed'));
+	ipcMain.handle('gitFetch', (_ev, cwd) =>
+		runGit(cwd, ['fetch'], 'git fetch failed'));
 };
 
 const buildAppMenu = () => {

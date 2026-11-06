@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.31.0] - 2026-11-06
+
+### Added
+
+- Source Control write ops: stage / unstage (per-file + all), auto-growing commit message, pull / push / fetch
+- Source Control: pull/push enabled from ahead/behind; quiet autofetch every 3 min (VS Code default) + on focus
+- Source Control: dismissible / expandable / copyable action-error banner
+- Commits graph: show remote chips and ↑/↓ on the current branch tip
+
+### Changed
+
+- Stage / unstage optimistic UI with quiet files-only refresh (no pane flicker)
+- Background git refresh skipped while push / pull / fetch / commit is in flight
+
 ## [1.30.0] - 2026-10-28
 
 ### Added

@@ -259,19 +259,45 @@ export const prioritizeRefs = (refs, branch) => {
 };
 
 /**
- * Compact row chips: local branches + tags only (no HEAD / remotes), readable labels.
+ * Compact row chips for the graph: locals, tags, and remotes (so ahead/behind
+ * is visible as local tip vs `origin/…` on different commits). No HEAD.
  * @param {string[]} refs
  * @param {string|null|undefined} branch
  * @param {number} [limit=3]
+ * @param {{ahead?: number, behind?: number}} [opts] annotate current branch chip
  */
-export const rowRefChips = (refs, branch, limit = 3) => {
-	const all = prioritizeRefs(refs, branch).filter(c =>
-		c.kind === 'branch' || c.kind === 'tag'
+export const rowRefChips = (refs, branch, limit = 3, opts = {}) => {
+	const ranked = prioritizeRefs(refs, branch).filter(c =>
+		c.kind === 'branch' || c.kind === 'tag' || c.kind === 'remote'
 	);
+	const branchName = branch ? String(branch) : '';
+	const isUpstream = c => {
+		if (!branchName || c.kind !== 'remote') return false;
+		return c.label === `origin/${branchName}`
+			|| c.label.endsWith(`/${branchName}`);
+	};
+	// Locals/tags first (prioritizeRefs order), then remotes with upstream first.
+	const locals = ranked.filter(c => c.kind !== 'remote');
+	const remotes = ranked.filter(c => c.kind === 'remote').slice().sort((a, b) => {
+		const aUp = isUpstream(a);
+		const bUp = isUpstream(b);
+		if (aUp !== bUp) return aUp ? -1 : 1;
+		return a.label.localeCompare(b.label);
+	});
+	const all = locals.concat(remotes);
 	const max = typeof limit === 'number' && limit > 0 ? limit : 3;
-	return all.slice(0, max).map(c => Object.assign({}, c, {
-		display: c.label
-	}));
+	const ahead = opts && opts.ahead > 0 ? opts.ahead : 0;
+	const behind = opts && opts.behind > 0 ? opts.behind : 0;
+	return all.slice(0, max).map(c => {
+		let display = c.label;
+		if (c.kind === 'branch' && c.current && (ahead || behind)) {
+			const bits = [];
+			if (ahead) bits.push(`↑${ahead}`);
+			if (behind) bits.push(`↓${behind}`);
+			display = `${c.label} ${bits.join(' ')}`;
+		}
+		return Object.assign({}, c, {display});
+	});
 };
 
 /**
@@ -329,6 +355,47 @@ const emptySnapshot = (available, error) => ({
 	files: [],
 	commits: []
 });
+
+/**
+ * Fast status-only fetch (no log / ls-ignored). Used after stage/unstage.
+ * @param {string} projectPath
+ * @param {Array<{path: string, status?: string}>} [prevFiles] keep prior ignored stubs
+ */
+export const fetchGitFiles = async (projectPath, prevFiles) => {
+	const bridge = typeof window !== 'undefined' ? window.app : null;
+	if (!bridge || typeof bridge.gitStatus !== 'function') {
+		return emptySnapshot(false);
+	}
+	if (!projectPath) {
+		return emptySnapshot(true, 'No project open');
+	}
+	try {
+		const statusResult = await bridge.gitStatus(projectPath);
+		if (!statusResult || !statusResult.ok) {
+			return emptySnapshot(true, (statusResult && statusResult.error) || 'git status failed');
+		}
+		const parsed = parsePorcelain(statusResult.stdout);
+		const files = parsed.files.slice();
+		const prev = Array.isArray(prevFiles) ? prevFiles : [];
+		for (let i = 0; i < prev.length; i++) {
+			const entry = prev[i];
+			if (entry && entry.status === '!' && entry.path) {
+				files.push(entry);
+			}
+		}
+		return {
+			available: true,
+			error: null,
+			branch: parsed.branch,
+			ahead: parsed.ahead || 0,
+			behind: parsed.behind || 0,
+			files,
+			commits: null
+		};
+	} catch (err) {
+		return emptySnapshot(true, (err && err.message) || 'git status failed');
+	}
+};
 
 /**
  * @returns {Promise<{
@@ -415,5 +482,6 @@ export default {
 	joinProjectPath,
 	normalizePathKey,
 	buildGitChangeIndex,
+	fetchGitFiles,
 	fetchGitStatus
 };

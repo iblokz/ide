@@ -128,10 +128,34 @@ const scheduleGitRefresh = () => {
 	gitRefreshTimer = setTimeout(() => {
 		gitRefreshTimer = null;
 		const state = state$.getValue();
-		if (state.project && state.project.path) {
-			actions.git.refresh();
+		if (!state.project || !state.project.path) return;
+		// Skip while push/pull/fetch/commit holds the repo.
+		const busy = state.git && state.git.busy;
+		if (busy === 'push' || busy === 'pull' || busy === 'fetch' || busy === 'commit') {
+			return;
 		}
+		actions.git.refresh();
 	}, 400);
+};
+
+/** VS Code default `git.autofetchPeriod` (180s) when autofetch is on. */
+const GIT_AUTOFETCH_MS = 180 * 1000;
+let gitAutoFetchTimer = null;
+const stopGitAutoFetch = () => {
+	if (gitAutoFetchTimer) {
+		clearInterval(gitAutoFetchTimer);
+		gitAutoFetchTimer = null;
+	}
+};
+const startGitAutoFetch = () => {
+	stopGitAutoFetch();
+	if (!isElectronBridge()) return;
+	gitAutoFetchTimer = setInterval(() => {
+		const state = state$.getValue();
+		if (state.project && state.project.path) {
+			actions.git.autoFetch();
+		}
+	}, GIT_AUTOFETCH_MS);
 };
 
 state$
@@ -139,9 +163,26 @@ state$
 		map(s => (s.project && s.project.path) || null),
 		distinctUntilChanged()
 	)
-	.subscribe(() => {
+	.subscribe(projectPath => {
 		actions.git.refresh();
+		if (projectPath && isElectronBridge()) {
+			startGitAutoFetch();
+			actions.git.autoFetch();
+		} else {
+			stopGitAutoFetch();
+		}
 	});
+
+if (typeof document !== 'undefined') {
+	fromEvent(document, 'visibilitychange')
+		.pipe(filter(() => document.visibilityState === 'visible'))
+		.subscribe(() => {
+			const state = state$.getValue();
+			if (state.project && state.project.path && isElectronBridge()) {
+				actions.git.autoFetch();
+			}
+		});
+}
 
 if (isElectronBridge() && typeof window.app.onFsChange === 'function') {
 	stopFsChange = window.app.onFsChange(payload => {
@@ -201,6 +242,11 @@ let patchSubscription = patchStream(vnode$, toVNode(document.body));
 if (module.hot) {
 	module.hot.dispose(function(data) {
 		data.state = state$.getValue();
+		stopGitAutoFetch();
+		if (gitRefreshTimer) {
+			clearTimeout(gitRefreshTimer);
+			gitRefreshTimer = null;
+		}
 		if (typeof stopFsChange === 'function') {
 			stopFsChange();
 			stopFsChange = null;
