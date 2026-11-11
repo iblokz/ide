@@ -152,17 +152,37 @@ const findTabIndexById = (tabs, id) =>
 const findAuditionIndex = tabs =>
 	(tabs || []).findIndex(t => t && t.pinned === false);
 
-/** Replace active tab via mapper; re-project root mirrors. */
-const mapActiveTab = (state, fn) => {
+/**
+ * Replace a tab via mapper; re-project root mirrors.
+ * @param {object} state
+ * @param {string|null|undefined} tabId — defaults to active
+ * @param {function} fn
+ * @param {{activate?: boolean}} [opts] — make that tab active (default true)
+ */
+const mapTab = (state, tabId, fn, opts) => {
 	const tabs = state.tabs || [];
-	const idx = findTabIndexById(tabs, state.activeTabId);
+	const id = tabId || state.activeTabId;
+	const idx = findTabIndexById(tabs, id);
 	if (idx < 0) return state;
+	const activate = !opts || opts.activate !== false;
 	const nextTab = fn(tabs[idx]);
-	if (!nextTab || nextTab === tabs[idx]) return state;
+	const tabChanged = nextTab && nextTab !== tabs[idx];
+	if (!tabChanged) {
+		if (activate && state.activeTabId !== id) {
+			return projectActive(Object.assign({}, state, {activeTabId: id}));
+		}
+		return state;
+	}
 	const nextTabs = tabs.slice();
 	nextTabs[idx] = nextTab;
-	return projectActive(Object.assign({}, state, {tabs: nextTabs}));
+	return projectActive(Object.assign({}, state, {
+		tabs: nextTabs,
+		activeTabId: activate ? id : state.activeTabId
+	}));
 };
+
+/** Replace active tab via mapper; re-project root mirrors. */
+const mapActiveTab = (state, fn) => mapTab(state, state.activeTabId, fn);
 
 const neighborTabId = (tabs, closedIdx) => {
 	if (!tabs.length) return null;
@@ -204,6 +224,7 @@ module.exports = {
 	findTabIndexByPath,
 	findTabIndexById,
 	findAuditionIndex,
+	mapTab,
 	mapActiveTab,
 	neighborTabId,
 	insertIndexFor

@@ -189,9 +189,16 @@ export const toggleComment = (source, pos, type) => {
 };
 
 /** Read live codebin buffer (source may be ahead of debounced state). */
-export const readLiveEditor = () => {
+const liveEditorEl = () => {
 	if (typeof document === 'undefined') return null;
-	const el = document.querySelector('code.source');
+	const active = document.activeElement;
+	if (active && active.matches && active.matches('code.source')) return active;
+	return document.querySelector('.editor-pane.is-active code.source')
+		|| document.querySelector('code.source');
+};
+
+export const readLiveEditor = () => {
+	const el = liveEditorEl();
 	if (!el) return null;
 	const lis = el.querySelectorAll('li:not(.git-removed-line)');
 	let source = '';

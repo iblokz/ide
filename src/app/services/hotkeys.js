@@ -26,6 +26,8 @@ const keyMatches = (ev, b) => {
 	if (pressed === b.key) return true;
 	// Physical `/` key (some layouts need Shift for `/`; Mod+/ still uses Slash).
 	if (b.key === '/' && ev.code === 'Slash') return true;
+	// Shift+` often reports as `~` — match the physical Backquote key.
+	if (b.key === '`' && (ev.code === 'Backquote' || pressed === '~')) return true;
 	// Ctrl+[ is ESC in terminals; Chromium may set key to Escape — use the physical key.
 	if (b.key === '[' && (ev.code === 'BracketLeft' || ev.keyCode === 219)) return true;
 	if (b.key === ']' && (ev.code === 'BracketRight' || ev.keyCode === 221)) return true;

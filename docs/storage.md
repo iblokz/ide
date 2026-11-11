@@ -54,11 +54,13 @@ Keyed by `project.path` (fallback `project.id`). Map is capped at 24 projects (L
 | Field | Persisted | Notes |
 |-------|-----------|--------|
 | `layout.toggles` / `layout.dim` | yes | Preview open, sidebar widths, split ratios, … |
+| `layout.editorArrangement` | yes | `tabs` (default) or `stack` (vertical accordion) |
 | `preview.mode` / `url` / `input` | yes | Not `reloadToken` |
 | `tabPaths` + `activePath` | yes | Paths only (max 32); files re-read on restore |
+| `expandedPaths` | yes | Open file-tree folders (max 64); re-listed on restore |
 | Buffer text / dirty / caret / scroll | **no** | Re-open from disk; unsaved edits are not restored |
 
-On project open (`openFolder` / `openRecent`), layout + preview apply immediately; tabs restore asynchronously (missing files skipped). Debounced save (~300ms) while in workspace; flush on `beforeunload`.
+On project open (`openFolder` / `openRecent`), layout + preview apply immediately; expanded folders then tabs restore asynchronously (missing paths skipped). Debounced save (~300ms) while in workspace; flush on `beforeunload`.
 
 **Web / FSA caveat:** after a full reload, directory handles are not restored yet — tab reopen by path works on Electron/Cap path backends; on web it only succeeds when the file node (handle) is already in the loaded tree.
 

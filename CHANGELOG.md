@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.32.0] - 2026-11-11
+
+### Added
+
+- Cycle recent projects: **Mod+`** / **Mod+Shift+`** (next / prev in MRU list)
+- Persist expanded file-tree folders in the per-project session (restore on reopen)
+- Stack editors layout (**Mod+Shift+E** / layout menu): vertical accordion of open tabs vs tab strip
+
+### Fixed
+
+- Preview URL bar: treat `localhost:3000` as a host (prepend `http://`), not a scheme
+- Editor: Enter at start of file / column 0 inserts a visible blank line on top
+- Stack editors: fair heights for newly opened tabs; scroll when panes exceed the column
+
 ## [1.31.0] - 2026-11-06
 
 ### Added
@@ -624,7 +638,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.24.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.32.0...HEAD
+[1.32.0]: https://github.com/iblokz/ide/compare/v1.31.0...v1.32.0
+[1.31.0]: https://github.com/iblokz/ide/compare/v1.30.0...v1.31.0
+[1.30.0]: https://github.com/iblokz/ide/compare/v1.29.0...v1.30.0
+[1.29.0]: https://github.com/iblokz/ide/compare/v1.28.0...v1.29.0
+[1.28.0]: https://github.com/iblokz/ide/compare/v1.27.0...v1.28.0
+[1.27.0]: https://github.com/iblokz/ide/compare/v1.26.0...v1.27.0
+[1.26.0]: https://github.com/iblokz/ide/compare/v1.25.0...v1.26.0
+[1.25.0]: https://github.com/iblokz/ide/compare/v1.24.0...v1.25.0
 [1.24.0]: https://github.com/iblokz/ide/compare/v1.23.0...v1.24.0
 [1.23.0]: https://github.com/iblokz/ide/compare/v1.22.0...v1.23.0
 [1.22.0]: https://github.com/iblokz/ide/compare/v1.21.0...v1.22.0

@@ -126,6 +126,97 @@
 					min-height: 0
 					min-width: 0
 
+				&.editor--stack
+					> .editor-toolbox
+						top: 30px
+
+					> .editor-stack
+						flex: 1 1 auto
+						min-height: 0
+						min-width: 0
+						display: flex
+						flex-direction: column
+						// Allow reaching panes when many tabs exceed the column height
+						overflow-x: hidden
+						overflow-y: auto
+
+					.editor-pane
+						display: flex
+						flex-direction: column
+						min-height: 0
+						min-width: 0
+						overflow: hidden
+
+						&.is-active > .editor-pane-header
+							background: var(--app-bg-panel)
+							color: var(--app-text)
+
+						&.is-collapsed
+							flex: 0 0 auto
+							border-bottom: 1px solid var(--app-border)
+
+					> .split-gutter
+						flex: 0 0 auto
+
+					.editor-pane-header
+						flex: 0 0 auto
+						display: flex
+						align-items: center
+						gap: 4px
+						height: 28px
+						padding: 0 6px 0 4px
+						box-sizing: border-box
+						background: transparent
+						color: var(--app-text-muted)
+						font-size: 12px
+						line-height: 1
+						cursor: default
+						user-select: none
+						-webkit-app-region: no-drag
+
+					.editor-pane-label
+						flex: 1 1 auto
+						min-width: 0
+						overflow: hidden
+						text-overflow: ellipsis
+						white-space: nowrap
+
+					.editor-pane-toggle,
+					.editor-pane-close
+						flex: 0 0 auto
+						width: 22px
+						height: 22px
+						padding: 0
+						border: none
+						border-radius: 4px
+						background: transparent
+						color: inherit
+						cursor: pointer
+						display: inline-flex
+						align-items: center
+						justify-content: center
+						opacity: 0.55
+
+						&:hover
+							opacity: 1
+							background: var(--app-bg-page)
+
+					.editor-pane-body
+						flex: 1 1 auto
+						min-height: 0
+						min-width: 0
+						display: flex
+						flex-direction: column
+						overflow: hidden
+						position: relative
+
+						> code.source,
+						> .empty-editor,
+						> .image-viewer
+							flex: 1 1 auto
+							min-height: 0
+							min-width: 0
+
 			// Maximize: pack to the end so freed space opens on the left and the
 			// preview’s right edge stays put. Avoid snapping editor with
 			// max-width:0 (that left a gap and made preview jump left, then grow right).

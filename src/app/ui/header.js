@@ -17,10 +17,18 @@ const layoutMenuItems = [
 	{id: 'left-side-bar', label: 'Left Side Bar', toggleKey: 'leftSideBar'},
 	{id: 'right-side-bar', label: 'Right Side Bar', toggleKey: 'rightSideBar'},
 	{id: 'bottom-panel', label: 'Bottom Panel', toggleKey: 'bottomPanel'},
-	{id: 'preview', label: 'Preview', toggleKey: 'preview'}
-].map(item => Object.assign({}, item, {
-	hotkey: formatHotkey(chordForAction(hotkeyMap, `layout.toggle ${item.toggleKey}`))
-}));
+	{id: 'preview', label: 'Preview', toggleKey: 'preview'},
+	{
+		id: 'stack-editors',
+		label: 'Stack Editors',
+		action: 'toggleEditorArrangement',
+		hotkey: formatHotkey(chordForAction(hotkeyMap, 'layout.toggleEditorArrangement'))
+	}
+].map(item => item.hotkey
+	? item
+	: Object.assign({}, item, {
+		hotkey: formatHotkey(chordForAction(hotkeyMap, `layout.toggle ${item.toggleKey}`))
+	}));
 
 const renderLayoutItem = item => span('.layout-option', [
 	layoutIcon(item.id),
@@ -50,7 +58,9 @@ const isHmrLoadMode = () => resolveLoadMode() === 'dev';
 
 export default ({state, actions}) => {
 	const start = isStartView(state);
-	const tabStrip = start ? null : tabs({state, actions});
+	const stackEditors = !start
+		&& (state.layout && state.layout.editorArrangement) === 'stack';
+	const tabStrip = start || stackEditors ? null : tabs({state, actions});
 
 	const hmr = isHmrLoadMode();
 
@@ -60,7 +70,7 @@ export default ({state, actions}) => {
 			dblclick: ev => {
 				const t = ev.target;
 				if (!t || !t.closest) return;
-				if (t.closest('button, a, input, .tab, .tab-strip, .file-search, .dropdown')) return;
+				if (t.closest('button, a, input, .tab, .tab-strip, .file-search, .dropdown, .editor-pane-header')) return;
 				if (typeof window.app.toggleMaximize === 'function') {
 					window.app.toggleMaximize();
 				}
@@ -88,11 +98,18 @@ export default ({state, actions}) => {
 		span('.header-actions', [].concat(
 			start ? [] : dropdown('.layout-menu', {
 				handle: layoutIcon('menu'),
-				itemSelect: (ev, item) =>
-					actions.layout.toggle(item.toggleKey),
+				itemSelect: (ev, item) => {
+					if (item.action === 'toggleEditorArrangement') {
+						actions.layout.toggleEditorArrangement();
+						return;
+					}
+					actions.layout.toggle(item.toggleKey);
+				},
 				items: layoutMenuItems.map(item => ({
 					...item,
-					active: !!state.layout.toggles[item.toggleKey]
+					active: item.action === 'toggleEditorArrangement'
+						? stackEditors
+						: !!state.layout.toggles[item.toggleKey]
 				})),
 				renderItem: renderLayoutItem,
 				toLeft: true

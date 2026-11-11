@@ -10,7 +10,7 @@ import {
 	looksBinary,
 	BINARY_SAMPLE_BYTES
 } from '../../util/file-tree';
-import {pushRecent} from '../../util/recent';
+import {pushRecent, pickNextRecent} from '../../util/recent';
 import {
 	sessionKey,
 	loadSession,
@@ -285,11 +285,14 @@ const layoutFromSession = (state, session) => {
 	const sideBarSection = (state.layout && state.layout.sideBarSection)
 		|| layoutInitial.sideBarSection
 		|| 'fileTree';
+	const editorCollapsed = (state.layout && state.layout.editorCollapsed) || [];
 	if (session && session.layout) {
 		return {
 			toggles: Object.assign({}, layoutInitial.toggles, session.layout.toggles || {}),
 			dim: Object.assign({}, layoutInitial.dim, (state.layout && state.layout.dim) || {}, session.layout.dim || {}),
-			sideBarSection
+			sideBarSection,
+			editorArrangement: session.layout.editorArrangement === 'stack' ? 'stack' : 'tabs',
+			editorCollapsed
 		};
 	}
 	return {
@@ -297,7 +300,11 @@ const layoutFromSession = (state, session) => {
 			leftSideBar: true
 		}),
 		dim: Object.assign({}, layoutInitial.dim, state.layout && state.layout.dim),
-		sideBarSection
+		sideBarSection,
+		editorArrangement: (state.layout && state.layout.editorArrangement) === 'stack'
+			? 'stack'
+			: 'tabs',
+		editorCollapsed
 	};
 };
 
@@ -313,43 +320,64 @@ const previewFromSession = session => {
 	return Object.assign({}, previewInitial);
 };
 
+/** Re-expand saved folders after project switch (listDir depth order). */
+const restoreSessionExpanded = async (session, filesTree, projectPath, token) => {
+	const expandedPaths = (session && session.expandedPaths) || [];
+	let tree = filesTree || [];
+	if (!expandedPaths.length) return tree;
+	const fs = getFs();
+	tree = await reapplyExpandedPaths(fs, tree, expandedPaths, projectPath);
+	if (!sessionStillCurrent(token)) return tree;
+	const projectId = projectPath;
+	dispatch(state => {
+		const cur = state.project && (state.project.path || state.project.id);
+		if (cur !== projectId) return state;
+		return patchFileTree(state, {nodes: tree});
+	});
+	return tree;
+};
+
 /** Re-open saved tab paths after project switch (disk read; skips missing files). */
 const restoreSessionTabs = async (session, filesTree, token) => {
 	const paths = (session && session.tabPaths) || [];
-	if (!paths.length) {
-		endSessionRestore(token);
-		return;
-	}
+	if (!paths.length) return;
 	const activePath = session.activePath;
 	const ordered = activePath
 		? paths.filter(p => p !== activePath).concat([activePath])
 		: paths.slice();
 
-	try {
-		for (let i = 0; i < ordered.length; i++) {
+	for (let i = 0; i < ordered.length; i++) {
+		if (!sessionStillCurrent(token)) return;
+		const path = ordered[i];
+		const node = resolveFileInTree(filesTree, path) || fileStubFromPath(path);
+		if (!node || node.isDir || node.readable === false) continue;
+		try {
+			const result = openFile(node, {source: 'session'});
+			const reducer = (result && typeof result.then === 'function')
+				? await result
+				: result;
 			if (!sessionStillCurrent(token)) return;
-			const path = ordered[i];
-			const node = resolveFileInTree(filesTree, path) || fileStubFromPath(path);
-			if (!node || node.isDir || node.readable === false) continue;
-			try {
-				const result = openFile(node, {source: 'session'});
-				const reducer = (result && typeof result.then === 'function')
-					? await result
-					: result;
-				if (!sessionStillCurrent(token)) return;
-				if (typeof reducer === 'function') dispatch(reducer);
-			} catch (err) {
-				console.warn('[session] tab restore skipped', path, err);
-			}
+			if (typeof reducer === 'function') dispatch(reducer);
+		} catch (err) {
+			console.warn('[session] tab restore skipped', path, err);
 		}
-		if (activePath && sessionStillCurrent(token)) {
-			dispatch(state => {
-				const tabs = state.tabs || [];
-				const tab = tabs.find(t => t && t.file && t.file.path === activePath);
-				if (!tab) return state;
-				return activateTabId(state, tab.id);
-			});
-		}
+	}
+	if (activePath && sessionStillCurrent(token)) {
+		dispatch(state => {
+			const tabs = state.tabs || [];
+			const tab = tabs.find(t => t && t.file && t.file.path === activePath);
+			if (!tab) return state;
+			return activateTabId(state, tab.id);
+		});
+	}
+};
+
+/** Expand folders, then tabs; always clear the restore gate. */
+const restoreSessionWorkspace = async (session, filesTree, projectPath, token) => {
+	try {
+		const tree = await restoreSessionExpanded(session, filesTree, projectPath, token);
+		if (!sessionStillCurrent(token)) return;
+		await restoreSessionTabs(session, tree, token);
 	} finally {
 		endSessionRestore(token);
 	}
@@ -366,7 +394,7 @@ const applyProjectResult = (fs, result) => {
 	const token = beginSessionRestore();
 	clearEditorconfigCache();
 	queueMicrotask(() => {
-		restoreSessionTabs(session, result.filesTree || [], token);
+		restoreSessionWorkspace(session, result.filesTree || [], result.path, token);
 	});
 
 	return state => Object.assign({}, state, clearOpenFile(state), {
@@ -423,6 +451,19 @@ export const openRecent = root => {
 	}
 	return openFolder();
 };
+
+/** Switch to next/prev recent project (MRU list). */
+const cycleRecent = delta => state => {
+	const target = pickNextRecent(state.recentRoots, state.project, delta);
+	if (!target) return state;
+	openRecent(target).then(reducer => {
+		if (typeof reducer === 'function') dispatch(reducer);
+	});
+	return state;
+};
+
+export const nextRecent = () => cycleRecent(1);
+export const prevRecent = () => cycleRecent(-1);
 
 export const refreshFilesTree = (project, prevTree) => {
 	const fs = getFs();
@@ -831,6 +872,8 @@ export default {
 	openFile,
 	openFolder,
 	openRecent,
+	nextRecent,
+	prevRecent,
 	refreshFilesTree,
 	markExternalChange,
 	reloadFile,

@@ -1,5 +1,5 @@
 /**
- * Per-project workspace session (layout, preview, open tabs).
+ * Per-project workspace session (layout, preview, open tabs, expanded folders).
  * Paths only — buffers are re-read from disk on restore.
  */
 import {
@@ -7,12 +7,14 @@ import {
 	extOf,
 	fileKind,
 	findIndexPathByFilePath,
-	nodeAtIndexPath
+	nodeAtIndexPath,
+	collectExpandedPaths
 } from './file-tree.js';
 
 export const STORAGE_KEY = 'iblokz-ide-project-sessions';
 export const MAX_SESSIONS = 24;
 export const MAX_TAB_PATHS = 32;
+export const MAX_EXPANDED_PATHS = 64;
 
 let restoreToken = 0;
 let restoreActive = false;
@@ -48,8 +50,13 @@ const sanitizeLayout = layout => {
 	const dim = layout.dim && typeof layout.dim === 'object'
 		? Object.assign({}, layout.dim)
 		: null;
-	if (!toggles && !dim) return null;
-	return {toggles: toggles || {}, dim: dim || {}};
+	const editorArrangement = layout.editorArrangement === 'stack' ? 'stack' : 'tabs';
+	if (!toggles && !dim && layout.editorArrangement == null) return null;
+	return {
+		toggles: toggles || {},
+		dim: dim || {},
+		editorArrangement
+	};
 };
 
 const sanitizePreview = preview => {
@@ -64,7 +71,7 @@ const sanitizePreview = preview => {
 	};
 };
 
-const sanitizeTabPaths = paths => {
+const sanitizePathList = (paths, max) => {
 	if (!Array.isArray(paths)) return [];
 	const out = [];
 	const seen = new Set();
@@ -73,8 +80,11 @@ const sanitizeTabPaths = paths => {
 		seen.add(p);
 		out.push(p);
 	});
-	return out.slice(0, MAX_TAB_PATHS);
+	return out.slice(0, max);
 };
+
+const sanitizeTabPaths = paths => sanitizePathList(paths, MAX_TAB_PATHS);
+const sanitizeExpandedPaths = paths => sanitizePathList(paths, MAX_EXPANDED_PATHS);
 
 export const sanitizeSession = raw => {
 	if (!raw || typeof raw !== 'object') return null;
@@ -83,6 +93,7 @@ export const sanitizeSession = raw => {
 		preview: sanitizePreview(raw.preview),
 		tabPaths: sanitizeTabPaths(raw.tabPaths),
 		activePath: typeof raw.activePath === 'string' ? raw.activePath : null,
+		expandedPaths: sanitizeExpandedPaths(raw.expandedPaths),
 		savedAt: typeof raw.savedAt === 'number' ? raw.savedAt : Date.now()
 	};
 };
@@ -133,11 +144,13 @@ export const saveSession = (key, session) => {
 export const serializeSession = state => {
 	const tabs = (state && state.tabs) || [];
 	const active = tabs.find(t => t && t.id === state.activeTabId);
+	const nodes = (state && state.fileTree && state.fileTree.nodes) || [];
 	return sanitizeSession({
 		layout: state && state.layout,
 		preview: state && state.preview,
 		tabPaths: tabs.map(t => t && t.file && t.file.path).filter(Boolean),
 		activePath: (active && active.file && active.file.path) || null,
+		expandedPaths: collectExpandedPaths(nodes),
 		savedAt: Date.now()
 	});
 };
@@ -178,6 +191,7 @@ export default {
 	STORAGE_KEY,
 	MAX_SESSIONS,
 	MAX_TAB_PATHS,
+	MAX_EXPANDED_PATHS,
 	isSessionRestoring,
 	beginSessionRestore,
 	endSessionRestore,

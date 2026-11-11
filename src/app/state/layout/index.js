@@ -1,6 +1,7 @@
 import {obj} from 'iblokz-data';
 
 const SIDE_BAR_SECTIONS = ['fileTree', 'search', 'git'];
+const EDITOR_ARRANGEMENTS = ['tabs', 'stack'];
 
 export const initial = {
 	toggles: {
@@ -26,8 +27,15 @@ export const initial = {
 		gitCommits: 140
 	},
 	/** Left sidebar body: `fileTree` | `search` | `git`. */
-	sideBarSection: 'fileTree'
+	sideBarSection: 'fileTree',
+	/** Editor column: tab strip + one surface, or vertical accordion stack. */
+	editorArrangement: 'tabs',
+	/** Tab ids collapsed in stack mode. */
+	editorCollapsed: []
 };
+
+export const normalizeEditorArrangement = value =>
+	EDITOR_ARRANGEMENTS.indexOf(value) >= 0 ? value : 'tabs';
 
 /** Toggle a layout panel by key (`leftSideBar`, `preview`, …). */
 export const toggle = key => state => {
@@ -63,10 +71,43 @@ export const setSideBarSection = section => state => {
 	return obj.patch(state, ['layout', 'sideBarSection'], next);
 };
 
+/** Set editor arrangement (`tabs` | `stack`). */
+export const setEditorArrangement = arrangement => state =>
+	obj.patch(
+		state,
+		['layout', 'editorArrangement'],
+		normalizeEditorArrangement(arrangement)
+	);
+
+/** Flip tabs ↔ stack. */
+export const toggleEditorArrangement = () => state => {
+	const cur = normalizeEditorArrangement(
+		state.layout && state.layout.editorArrangement
+	);
+	return obj.patch(
+		state,
+		['layout', 'editorArrangement'],
+		cur === 'stack' ? 'tabs' : 'stack'
+	);
+};
+
+/** Collapse / expand a stack pane by tab id. */
+export const toggleEditorCollapsed = tabId => state => {
+	if (!tabId) return state;
+	const prev = (state.layout && state.layout.editorCollapsed) || [];
+	const next = prev.indexOf(tabId) >= 0
+		? prev.filter(id => id !== tabId)
+		: prev.concat([tabId]);
+	return obj.patch(state, ['layout', 'editorCollapsed'], next);
+};
+
 export default {
 	initial,
 	toggle,
 	closePreview,
 	set,
-	setSideBarSection
+	setSideBarSection,
+	setEditorArrangement,
+	toggleEditorArrangement,
+	toggleEditorCollapsed
 };

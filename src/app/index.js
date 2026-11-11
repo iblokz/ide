@@ -27,7 +27,7 @@ const {
 
 let {actions, state$} = createState(actionsTree);
 
-/** Debounced per-project session write (layout / preview / tab paths). */
+/** Debounced per-project session write (layout / preview / tabs / expanded folders). */
 let sessionSaveTimer = null;
 let lastSessionFingerprint = '';
 const persistProjectSession = (state, {immediate = false} = {}) => {

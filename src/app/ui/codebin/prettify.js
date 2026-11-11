@@ -71,12 +71,16 @@ export const prettifyLang = type => {
 };
 
 /**
- * code-prettify numberLines() drops a single trailing \\n, so "hello\\n"
- * renders as one line. Pad so EOF Enter can create a visible blank line.
+ * Blank lines at the buffer edges need padding before prettyPrintOne:
+ * - HTML `<pre>` drops one newline right after the start tag → leading `\n`
+ *   would not render a top blank line (Enter at 0,0).
+ * - extractSourceSpans drops a single trailing `\n` → EOF blank lines vanish.
  */
 export const prettifySource = (source, type) => {
 	const src = source || '';
-	const padded = src.endsWith('\n') ? `${src}\n` : src;
+	let padded = src;
+	if (src.startsWith('\n')) padded = `\n${padded}`;
+	if (src.endsWith('\n')) padded = `${padded}\n`;
 	return clearEmptyLinePads(prettify.prettyPrintOne(escapeHtml(padded), prettifyLang(type), true));
 };
 

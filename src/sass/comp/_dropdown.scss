@@ -215,6 +215,11 @@ $dropdown-item-height: 28px;
       -webkit-mask-image: url('../assets/icons/layout/preview.svg');
       mask-image: url('../assets/icons/layout/preview.svg');
     }
+
+    &.stack-editors {
+      -webkit-mask-image: url('../assets/icons/layout/stack-editors.svg');
+      mask-image: url('../assets/icons/layout/stack-editors.svg');
+    }
   }
 
   &.layout-menu {

@@ -10,7 +10,10 @@ Mod+Tab: nextTab
 Mod+Shift+Tab: prevTab
 Mod+PageDown: nextTab
 Mod+PageUp: prevTab
+"Mod+`": project.nextRecent
+"Mod+Shift+`": project.prevRecent
 Mod+B: layout.toggle leftSideBar
 Mod+Shift+B: layout.toggle rightSideBar
 Mod+J: layout.toggle bottomPanel
 Mod+Shift+P: layout.toggle preview
+Mod+Shift+E: layout.toggleEditorArrangement

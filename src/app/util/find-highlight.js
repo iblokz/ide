@@ -94,7 +94,11 @@ export const focusEditorMatch = (el, pos) => {
 };
 
 export const applyFindResult = pos => {
-	const el = typeof document !== 'undefined' && document.querySelector('code.source');
+	if (typeof document === 'undefined') return;
+	const active = document.activeElement;
+	const el = (active && active.matches && active.matches('code.source') && active)
+		|| document.querySelector('.editor-pane.is-active code.source')
+		|| document.querySelector('code.source');
 	if (!el) return;
 	applyFindMarkup(el, pos);
 };

@@ -30,12 +30,20 @@ export const setMode = mode => state =>
 export const setInput = input => state =>
 	obj.patch(state, ['preview', 'input'], String(input == null ? '' : input));
 
+/**
+ * True when the string already has a usable scheme.
+ * `localhost:3000` must NOT count (host:port ≠ protocol).
+ */
+const hasUrlScheme = value =>
+	/^(?:about|data|blob|javascript):/i.test(value)
+	|| /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value);
+
 /** Commit address bar (or explicit url) into `preview.url`. */
 export const navigate = (url) => state => {
 	const cur = previewOf(state);
 	let next = url != null ? String(url) : String(cur.input || '');
 	next = next.trim();
-	if (next && next !== 'about:blank' && !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(next)) {
+	if (next && !hasUrlScheme(next)) {
 		next = `http://${next}`;
 	}
 	if (!next) next = DEFAULT_URL;

@@ -2,6 +2,7 @@ import {obj} from 'iblokz-data';
 import {
 	emptyPos,
 	emptyScroll,
+	mapTab,
 	mapActiveTab,
 	findTabIndexById,
 	projectActive
@@ -16,7 +17,7 @@ import {DEFAULT_INDENT} from '../../util/editorconfig.js';
 /** No dedicated slice yet — buffer fields live on the active tab / root mirrors. */
 export const initial = {};
 
-export const updateSource = (source, pos) => state => mapActiveTab(state, tab => {
+export const updateSource = (source, pos, tabId) => state => mapTab(state, tabId, tab => {
 	const nextPos = pos || tab.pos || emptyPos;
 	return Object.assign({}, tab, {
 		source,
@@ -34,7 +35,7 @@ export const updateSource = (source, pos) => state => mapActiveTab(state, tab =>
 	});
 });
 
-export const updatePos = pos => state => mapActiveTab(state, tab => Object.assign({}, tab, {
+export const updatePos = (pos, tabId) => state => mapTab(state, tabId, tab => Object.assign({}, tab, {
 	pos,
 	history: [].concat(
 		tab.history.slice(0, tab.history.length - 1),

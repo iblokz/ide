@@ -199,7 +199,7 @@ export default ({
 				ev.preventDefault();
 				inputSyncGen += 1;
 				try {
-					const el = ev.target;
+					const el = ev.currentTarget || ev.target;
 					const curSource = unprettify(el.innerHTML) || source || '';
 					let cur;
 					try {
