@@ -918,27 +918,59 @@
 			list-style: none
 			display: block
 			width: 100%
-			padding: 2px 8px 8px
+			padding: 2px 0 8px
 
-			li
+			li.recent-root-item
 				+reset
-				display: block
+				display: flex
+				align-items: center
+				gap: 2px
 				line-height: $panel-row-height
+				min-width: 0
+				padding: 0 6px 0 8px
+				box-sizing: border-box
+				color: var(--app-text-muted)
+
+				&:hover,
+				&:focus-within
+					background: color-mix(in srgb, var(--app-bg-hover) 45%, transparent)
+					color: var(--app-text)
+
+					button.recent-root-remove
+						opacity: 0.55
+
+			a
+				flex: 1 1 auto
+				min-width: 0
+				display: block
 				overflow: hidden
 				text-overflow: ellipsis
 				white-space: nowrap
-
-			a
-				display: block
-				width: 100%
 				cursor: pointer
-				color: var(--app-text)
+				color: inherit
 				text-decoration: none
-				transition: background-color .15s ease, color .15s ease
 
-				&:hover
-					background: var(--app-bg-hover)
-					color: var(--app-text-strong)
+			button.recent-root-remove
+				flex: 0 0 auto
+				width: 22px
+				height: 22px
+				margin: 0
+				padding: 0
+				border: 0
+				border-radius: 4px
+				background: transparent
+				color: inherit
+				cursor: pointer
+				outline: none
+				opacity: 0
+				display: inline-flex
+				align-items: center
+				justify-content: center
+
+				&:hover,
+				&:focus
+					opacity: 1
+					background: var(--app-bg-page)
 
 		ul.git-log-list
 			padding-bottom: 4px

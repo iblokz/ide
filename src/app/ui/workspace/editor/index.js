@@ -41,6 +41,7 @@ const escapeAttr = value => {
 	return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 };
 
+/** Find + save chrome for the focused text editor (column or active stack pane). */
 const toolbox = ({state, actions}) => {
 	if (!(state.file && state.file.name) || state.type === 'image' || state.type === 'pdf') {
 		return null;
@@ -204,9 +205,12 @@ const stackPane = ({tab, state, actions, collapsed, weight}) => {
 				}
 			}, [i('.fa.fa-times')])
 		]),
-		collapsed ? [] : section('.editor-pane-body', [
-			surfaceForTab({tab, state, actions})
-		])
+		collapsed
+			? []
+			: section('.editor-pane-body', [].concat(
+				active ? (toolbox({state, actions}) || []) : [],
+				surfaceForTab({tab, state, actions})
+			))
 	));
 };
 
@@ -284,11 +288,20 @@ const stack = ({state, actions}) => {
 			collapsed,
 			weight: collapsed ? 0 : (weights[tab.id] || 1)
 		}));
-		const next = tabs[i + 1];
-		if (!collapsed && next && collapsedIds.indexOf(next.id) < 0) {
+		if (collapsed) return;
+		// Gutter under this expanded pane when another expanded pane exists below
+		// (adjacent, or after a mid-stack collapsed group).
+		let belowId = null;
+		for (let j = i + 1; j < tabs.length; j++) {
+			if (collapsedIds.indexOf(tabs[j].id) < 0) {
+				belowId = tabs[j].id;
+				break;
+			}
+		}
+		if (belowId) {
 			nodes.push(stackGutter({
 				aboveId: tab.id,
-				belowId: next.id,
+				belowId,
 				actions
 			}));
 		}
@@ -305,7 +318,7 @@ export default ({state, actions, flex = '1 1 auto', flexGrow, flexShrink, flexBa
 			? {flexGrow, flexShrink: flexShrink != null ? flexShrink : 0, flexBasis: flexBasis || 'auto'}
 			: {flex}
 	}, [].concat(
-		toolbox({state, actions}) || [],
+		arrangement === 'stack' ? [] : (toolbox({state, actions}) || []),
 		arrangement === 'stack'
 			? stack({state, actions})
 			: surface({state, actions})

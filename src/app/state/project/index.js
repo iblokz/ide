@@ -10,7 +10,7 @@ import {
 	looksBinary,
 	BINARY_SAMPLE_BYTES
 } from '../../util/file-tree';
-import {pushRecent, pickNextRecent} from '../../util/recent';
+import {pushRecent, removeRecent as dropRecent, pickNextRecent} from '../../util/recent';
 import {
 	sessionKey,
 	loadSession,
@@ -465,6 +465,11 @@ const cycleRecent = delta => state => {
 export const nextRecent = () => cycleRecent(1);
 export const prevRecent = () => cycleRecent(-1);
 
+/** Drop a project from the MRU recent-roots list (localStorage). */
+export const removeRecent = root => state => Object.assign({}, state, {
+	recentRoots: dropRecent(root, state.recentRoots || [])
+});
+
 export const refreshFilesTree = (project, prevTree) => {
 	const fs = getFs();
 	if (!project || !project.path || typeof fs.listDir !== 'function') {
@@ -874,6 +879,7 @@ export default {
 	openRecent,
 	nextRecent,
 	prevRecent,
+	removeRecent,
 	refreshFilesTree,
 	markExternalChange,
 	reloadFile,

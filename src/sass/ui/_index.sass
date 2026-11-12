@@ -79,7 +79,8 @@
 				// Match left-pane open/close timing
 				transition: flex-basis .18s .18s ease-in-out
 
-				> .editor-toolbox
+				// Column (tabs) or active stack pane body
+				.editor-toolbox
 					position: absolute
 					top: 4px
 					right: 12px
@@ -127,9 +128,6 @@
 					min-width: 0
 
 				&.editor--stack
-					> .editor-toolbox
-						top: 30px
-
 					> .editor-stack
 						flex: 1 1 auto
 						min-height: 0
@@ -153,7 +151,7 @@
 
 						&.is-collapsed
 							flex: 0 0 auto
-							border-bottom: 1px solid var(--app-border)
+							border-bottom: 1px solid color-mix(in srgb, var(--app-border) 40%, transparent)
 
 					> .split-gutter
 						flex: 0 0 auto

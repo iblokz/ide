@@ -48,6 +48,16 @@ const sameRoot = (a, b) => {
 	return false;
 };
 
+const removeRecent = (entry, list = loadRecent()) => {
+	const clean = sanitizeEntry(entry);
+	if (!clean) return list;
+	const next = list
+		.map(sanitizeEntry)
+		.filter(item => item && !sameRoot(item, clean));
+	saveRecent(next);
+	return next;
+};
+
 /** Next/prev entry in recent list relative to `current` (wraps). */
 const pickNextRecent = (recent, current, delta = 1) => {
 	const list = (recent || []).map(sanitizeEntry).filter(Boolean);
@@ -65,6 +75,7 @@ module.exports = {
 	loadRecent,
 	saveRecent,
 	pushRecent,
+	removeRecent,
 	sanitizeEntry,
 	sameRoot,
 	pickNextRecent

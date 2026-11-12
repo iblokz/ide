@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.33.0] - 2026-11-12
+
+### Added
+
+- Recent projects: hover × to remove from the list (Explorer panel + start screen)
+- Stack editors: find + save on the focused expanded pane (not a single column overlay)
+
+### Changed
+
+- Start screen recent list: name over path, wider panel, clearer hierarchy
+
+### Fixed
+
+- Stack editors: resize gutter above a mid-stack collapsed group (under the expanded pane above it)
+
 ## [1.32.0] - 2026-11-11
 
 ### Added
@@ -638,7 +653,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.32.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.33.0...HEAD
+[1.33.0]: https://github.com/iblokz/ide/compare/v1.32.0...v1.33.0
 [1.32.0]: https://github.com/iblokz/ide/compare/v1.31.0...v1.32.0
 [1.31.0]: https://github.com/iblokz/ide/compare/v1.30.0...v1.31.0
 [1.30.0]: https://github.com/iblokz/ide/compare/v1.29.0...v1.30.0

@@ -1,7 +1,7 @@
 /**
  * Explorer sidebar section: file tree + recent roots panel.
  */
-import {div, a, span, ul, li} from 'iblokz-snabbdom-helpers';
+import {div, a, span, ul, li, button, i} from 'iblokz-snabbdom-helpers';
 import {obj} from 'iblokz-data';
 import {buildGitChangeIndex} from '../../../util/git-status.js';
 import sideBarPanel from '../panel.js';
@@ -89,7 +89,7 @@ export default ({state, actions}) => {
 				onResize: h => actions.layout.set({recentRoots: h}),
 				children: [
 					ul('.recent-roots-list', recent.map(root =>
-						li([
+						li('.recent-root-item', [
 							a({
 								attrs: {title: root.path || root.name, href: '#'},
 								on: {
@@ -98,7 +98,21 @@ export default ({state, actions}) => {
 										actions.project.openRecent(root);
 									}
 								}
-							}, [span([String(root.name)])])
+							}, [span([String(root.name)])]),
+							button('.recent-root-remove', {
+								attrs: {
+									type: 'button',
+									title: 'Remove from recent',
+									'aria-label': `Remove ${root.name} from recent`
+								},
+								on: {
+									click: ev => {
+										ev.preventDefault();
+										ev.stopPropagation();
+										actions.project.removeRecent(root);
+									}
+								}
+							}, [i('.fa.fa-times')])
 						])
 					))
 				]

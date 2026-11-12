@@ -35,7 +35,8 @@ export default ({state, actions}) => {
 			ev.stopPropagation();
 			if (!ev.shiftKey) {
 				findHighlight.focusEditorMatch(
-					document.querySelector('code.source'),
+					document.querySelector('.editor-pane.is-active code.source')
+						|| document.querySelector('code.source'),
 					state.pos
 				);
 			}

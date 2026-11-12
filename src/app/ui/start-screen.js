@@ -44,7 +44,7 @@ module.exports = ({state, actions}) => {
 				? div('.start-recent', [
 					span('.label', ['Recent']),
 					ul(recent.map(root =>
-						li([
+						li('.recent-row', [
 							button('.recent-item', {
 								attrs: {
 									type: 'button',
@@ -58,11 +58,27 @@ module.exports = ({state, actions}) => {
 								}
 							}, [].concat(
 								i('.fa.fa-folder-o'),
-								span('.name', [String(root.name)]),
-								root.path && root.path !== root.name
-									? span('.path', [String(root.path)])
-									: []
-							))
+								span('.recent-text', [].concat(
+									span('.name', [String(root.name)]),
+									root.path && root.path !== root.name
+										? span('.path', [String(root.path)])
+										: []
+								))
+							)),
+							button('.recent-remove', {
+								attrs: {
+									type: 'button',
+									title: 'Remove from recent',
+									'aria-label': `Remove ${root.name} from recent`
+								},
+								on: {
+									click: ev => {
+										ev.preventDefault();
+										ev.stopPropagation();
+										actions.project.removeRecent(root);
+									}
+								}
+							}, [i('.fa.fa-times')])
 						])
 					))
 				])
