@@ -452,6 +452,41 @@ export const openRecent = root => {
 	return openFolder();
 };
 
+export const openPath = ({folder, file, line, col}) => {
+	const fs = getFs();
+	const folderPath = folder && folder.path;
+	if (!folderPath) return openFolder();
+	const doOpen = fs.openFolderByPath
+		? () => fs.openFolderByPath(folderPath, folder)
+		: () => fs.openFolder();
+	return doOpen()
+		.then(result => {
+			if (!result) return openFolder();
+			const withProject = applyProjectResult(fs, result);
+			if (file) {
+				const fileNode = {path: file, name: file.split('/').pop() || file, isDir: false};
+				queueMicrotask(() => {
+					const tryDispatch = typeof dispatch === 'function' ? dispatch : null;
+					if (tryDispatch) {
+						openFile(fileNode, {mode: 'pinned'}).then(r => { if (typeof r === 'function') tryDispatch(r); }).catch(() => {});
+						if (line) queueMicrotask(() => tryDispatch(state => {
+							const idx = (state.tabs || []).findIndex(t => t && t.file && t.file.path === file);
+							if (idx < 0) return state;
+							const tabs = state.tabs.slice();
+						tabs[idx] = Object.assign({}, tabs[idx], {gotoLine: line, gotoCol: col || 1});
+							return Object.assign({}, state, {tabs});
+						}));
+					}
+				});
+			}
+			return withProject;
+		})
+		.catch(err => {
+			console.error('openPath failed', folderPath, err);
+			return openFolder();
+		});
+};
+
 /** Switch to next/prev recent project (MRU list). */
 const cycleRecent = delta => state => {
 	const target = pickNextRecent(state.recentRoots, state.project, delta);
@@ -877,6 +912,7 @@ export default {
 	openFile,
 	openFolder,
 	openRecent,
+	openPath,
 	nextRecent,
 	prevRecent,
 	removeRecent,

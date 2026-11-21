@@ -10,7 +10,7 @@
 windows:
   # true  — second launch focuses the existing window (requestSingleInstanceLock)
   # false — each launch may open another window (pre-1.14 behavior)
-  singleInstance: false
+  singleInstance: true
 
 # Editor prefs (loaded into the renderer via getSettings; edit + restart).
 # Cap / web use the same hardcoded defaults when Electron settings are unavailable.

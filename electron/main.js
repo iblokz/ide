@@ -39,6 +39,94 @@ if (electronMajorEarly > 0 && electronMajorEarly < 12) {
 	app.commandLine.appendSwitch('disable-software-rasterizer');
 	bootLog('legacy: disableHardwareAcceleration + disable-gpu');
 }
+const APP_VERSION = (() => { try { return require('../package.json').version || ''; } catch (_) { return ''; } })();
+
+/** VSCode-like CLI: `iblokz-ide [--new-window|--reuse-window] [--help|--version] [path]` */
+const CLI_HELP = `Usage: iblokz-ide [options] [path]
+  alias: ide [options] [path]  (bin shim)
+
+Options:
+  -h, --help            Show this help
+  -v, --version         Show version
+  -n, --new-window      Force a new window even when singleInstance is on
+  -r, --reuse-window    Reuse existing window (default)
+  --goto <file[:line[:col]]>  Open file (optionally at line/col)
+
+Arguments:
+  [path]  Folder or file to open (default: start screen)
+  .       Current directory
+`;
+
+function isHelpFlag(a) { return a === '-h' || a === '--help'; }
+function isVersionFlag(a) { return a === '-v' || a === '--version'; }
+function isNewWindowFlag(a) { return a === '-n' || a === '--new-window'; }
+function isReuseWindowFlag(a) { return a === '-r' || a === '--reuse-window'; }
+
+function parseCliArgs(rawArgv) {
+  // Drop electron + app binary (app.isPackaged ? first arg is app, else script).
+  // process.argv already excludes them when called from AppImage via wrapper.
+  const args = rawArgv.slice(app.isPackaged ? 1 : 1);
+  let forceNewWindow = false;
+  let explicitReuse = false;
+  let help = false;
+  let version = false;
+  const positionals = [];
+  let gotoPending = false;
+  let gotoTarget = null;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (gotoPending) { gotoTarget = a; gotoPending = false; positionals.push(a); continue; }
+    if (a === '--goto') { gotoPending = true; continue; }
+    if (a.startsWith('--goto=')) { gotoTarget = a.slice('--goto='.length); positionals.push(gotoTarget); continue; }
+    if (isHelpFlag(a)) { help = true; continue; }
+    if (isVersionFlag(a)) { version = true; continue; }
+    if (isNewWindowFlag(a)) { forceNewWindow = true; continue; }
+    if (isReuseWindowFlag(a)) { explicitReuse = true; continue; }
+    // Ignore Electron/Chromium switches (e.g. --no-sandbox passed by AppImage runtime)
+    if (a.startsWith('-')) continue;
+    positionals.push(a);
+  }
+  const rawTarget = positionals[0] || gotoTarget || null;
+  return {forceNewWindow, explicitReuse, help, version, rawTarget, positionals};
+}
+
+const cliArgs = parseCliArgs(process.argv);
+if (cliArgs.help) { console.log(CLI_HELP); app.exit(0); }
+if (cliArgs.version) { console.log(APP_VERSION || 'unknown'); app.exit(0); }
+// --- CLI: resolve a user-supplied path → {folder, file, line, col} ---
+function parseGotoSuffix(s) {
+	const m = String(s || '').match(/^(.*?)(?::(\d+))?(?::(\d+))?$/);
+	if (!m) return {path: s, line: null, col: null};
+	return {path: m[1], line: m[2] ? parseInt(m[2], 10) : null, col: m[3] ? parseInt(m[3], 10) : null};
+}
+function resolveInitialTarget(raw) {
+	if (!raw) return null;
+	const expanded = raw.startsWith('~') ? path.join(require('os').homedir(), raw.slice(1)) : raw;
+	// Do NOT re-parse :line:col after absolutizing — that reintroduces the doubled path
+	// seen in the bug report (ext/omarchy/widgets/... → /app/dist/.../ext/...). Parse first,
+	// then absolutize only the path part.
+	let parsed = parseGotoSuffix(expanded);
+	let p = parsed.path;
+	if (!raw.includes(':')) parsed = {path: p, line: null, col: null};
+	else p = parsed.path;
+	// Resolve relative paths against user's cwd; AppImage may cwd to the mount point.
+	// Prefer env-provided cwd (shell) or process.cwd() if it exists on disk.
+	let cwd = process.cwd();
+	try { if (!fs.existsSync(cwd)) cwd = require('os').homedir(); } catch (_) {}
+	const targetPath = path.isAbsolute(p) ? p : path.resolve(cwd, p);
+	try {
+		const stat = fs.statSync(targetPath);
+		if (stat.isDirectory()) return {kind: 'folder', folder: targetPath, file: null, line: parsed.line, col: parsed.col};
+		if (stat.isFile()) return {kind: 'file', folder: path.dirname(targetPath), file: targetPath, line: parsed.line, col: parsed.col};
+	} catch (_) {}
+	const parent = path.dirname(targetPath);
+	try { const ps = fs.statSync(parent); if (ps.isDirectory()) return {kind: 'folder', folder: parent, file: null, line: null, col: null}; } catch (_) {}
+	bootLog(`resolveInitialTarget miss raw=${raw} cwd=${cwd} targetPath=${targetPath}`);
+	return null;
+}
+let pendingInitialTarget = cliArgs.rawTarget ? resolveInitialTarget(cliArgs.rawTarget) : null;
+if (cliArgs.rawTarget && !pendingInitialTarget) bootLog(`cli: no such path: ${cliArgs.rawTarget}`);
+else if (pendingInitialTarget) bootLog(`cli target: ${JSON.stringify(pendingInitialTarget)}`);
 
 const DEV_URL = 'http://127.0.0.1:1234';
 const ICONS_DIR = path.join(__dirname, '..', 'build', 'assets', 'icons');
@@ -450,7 +538,7 @@ const createWindow = () => {
 		console.error('did-fail-load', {code, desc, url, start});
 		reveal();
 	});
-	browserWindow.webContents.on('did-finish-load', () => {
+browserWindow.webContents.on('did-finish-load', () => {
 		bootLog('did-finish-load');
 		if (!browserWindow.isDestroyed()) {
 			browserWindow.webContents.send('load-mode', loadMode);
@@ -462,6 +550,12 @@ const createWindow = () => {
 			bootLog(`page ${JSON.stringify(info)}`);
 		}).catch(err => bootLog(`executeJavaScript failed ${err}`));
 		reveal();
+		if (pendingInitialTarget) {
+			const t = pendingInitialTarget;
+			pendingInitialTarget = null;
+			browserWindow.webContents.send('open-path', t);
+			bootLog(`cli: sent open-path ${JSON.stringify(t)}`);
+		}
 	});
 	// CmdOrCtrl+Shift+H — sole handler (menu accel would double-fire with this).
 	browserWindow.webContents.on('before-input-event', (event, input) => {
@@ -858,11 +952,31 @@ if (singleInstance) {
 	if (!gotLock) {
 		app.quit();
 	} else {
-		app.on('second-instance', () => {
+		const handleExternalOpen = (raw) => {
+			const target = resolveInitialTarget(raw);
+			if (!target) return;
+			if (!win || win.isDestroyed()) { pendingInitialTarget = target; return; }
+			win.webContents.send('open-path', target);
+			if (win.isMinimized()) win.restore();
+			win.show(); win.focus();
+		};
+		app.on('second-instance', (_ev, argv) => {
 			if (!win || win.isDestroyed()) return;
 			if (win.isMinimized()) win.restore();
-			win.show();
-			win.focus();
+			win.show(); win.focus();
+			const args = Array.isArray(argv) ? argv : [];
+			const parsed = parseCliArgs(['', ...args.slice(1)]);
+			if (parsed.rawTarget && !parsed.forceNewWindow && !cliArgs.forceNewWindow) {
+				handleExternalOpen(parsed.rawTarget);
+			} else if (parsed.forceNewWindow || cliArgs.forceNewWindow) {
+				pendingInitialTarget = parsed.rawTarget ? resolveInitialTarget(parsed.rawTarget) : null;
+				allowClose = false;
+				win = createWindow();
+			}
+		});
+		app.on('open-file', (ev, filePath) => {
+			ev.preventDefault();
+			handleExternalOpen(filePath);
 		});
 		startApp();
 	}
