@@ -56,6 +56,59 @@ const resolveLoadMode = () => {
 
 const isHmrLoadMode = () => resolveLoadMode() === 'dev';
 
+const LONG_PRESS_MS = 500;
+let themeLongPressTimer = null;
+let themeLongPressFired = false;
+
+const clearThemeLongPress = () => {
+	if (themeLongPressTimer) {
+		clearTimeout(themeLongPressTimer);
+		themeLongPressTimer = null;
+	}
+};
+
+const canToggleHmr = () => isElectron()
+	&& typeof window !== 'undefined'
+	&& window.app
+	&& typeof window.app.toggleLoadMode === 'function';
+
+const themeToggleOn = actions => {
+	const on = {
+		click: ev => {
+			clearThemeLongPress();
+			if (themeLongPressFired) {
+				themeLongPressFired = false;
+				ev.preventDefault();
+				ev.stopPropagation();
+				return;
+			}
+			actions.theme.toggle();
+		}
+	};
+	if (!canToggleHmr()) return on;
+	return Object.assign(on, {
+		pointerdown: ev => {
+			if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+			clearThemeLongPress();
+			themeLongPressFired = false;
+			themeLongPressTimer = setTimeout(() => {
+				themeLongPressTimer = null;
+				themeLongPressFired = true;
+				window.app.toggleLoadMode();
+			}, LONG_PRESS_MS);
+		},
+		pointerup: clearThemeLongPress,
+		pointerleave: clearThemeLongPress,
+		pointercancel: clearThemeLongPress,
+		contextmenu: ev => {
+			if (themeLongPressFired || themeLongPressTimer) {
+				ev.preventDefault();
+				ev.stopPropagation();
+			}
+		}
+	});
+};
+
 export default ({state, actions}) => {
 	const start = isStartView(state);
 	const stackEditors = !start
@@ -119,7 +172,7 @@ export default ({state, actions}) => {
 					'aria-label': (state.theme && state.theme.mode) === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
 					title: (state.theme && state.theme.mode) === 'dark' ? 'Light theme' : 'Dark theme'
 				},
-				on: {click: () => actions.theme.toggle()}
+				on: themeToggleOn(actions)
 			}, [
 				i(`.fa.${(state.theme && state.theme.mode) === 'dark' ? 'fa-sun-o' : 'fa-moon-o'}`)
 			]),

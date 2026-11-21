@@ -99,6 +99,14 @@ const wrapHtml = (body, theme) => {
 	line-height: 1.25;
 	color: var(--app-text-strong, var(--app-text));
   }
+  .md-code {
+	position: relative;
+	margin: 0.9em 0;
+  }
+  .md-code > pre {
+	margin: 0;
+	padding-right: 2.5em;
+  }
   pre {
 	overflow: auto;
 	padding: 10px 12px;
@@ -106,6 +114,45 @@ const wrapHtml = (body, theme) => {
 	border: 1px solid var(--app-border);
 	border-radius: 6px;
   }
+  .md-code-copy {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid var(--app-border);
+	border-radius: 6px;
+	background: var(--app-bg-panel, var(--app-bg-muted));
+	color: var(--app-text-muted);
+	cursor: pointer;
+	opacity: 0.55;
+	transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+  }
+  .md-code:hover > .md-code-copy,
+  .md-code:focus-within > .md-code-copy,
+  .md-code-copy:focus-visible {
+	opacity: 1;
+  }
+  .md-code-copy:hover,
+  .md-code-copy:focus-visible {
+	color: var(--app-text-strong, var(--app-text));
+	border-color: var(--app-accent);
+	background: var(--app-bg-muted);
+  }
+  .md-code-copy.is-copied {
+	opacity: 1;
+	color: var(--app-accent);
+	border-color: var(--app-accent);
+  }
+  .md-code-copy-done { display: none; }
+  .md-code-copy.is-copied .md-code-copy-idle { display: none; }
+  .md-code-copy.is-copied .md-code-copy-done { display: inline-flex; }
+  .md-code-copy-icon { display: block; }
   code {
 	font-family: 'Fira Code', ui-monospace, monospace;
 	font-size: 0.92em;
@@ -464,6 +511,41 @@ const fillMermaid = async (html, diagrams, theme) => {
 	return body;
 };
 
+const copyText = text => {
+	if (!text) return Promise.resolve();
+	if (navigator.clipboard && navigator.clipboard.writeText) {
+		return navigator.clipboard.writeText(text);
+	}
+	try {
+		const ta = document.createElement('textarea');
+		ta.value = text;
+		ta.setAttribute('readonly', '');
+		ta.style.position = 'fixed';
+		ta.style.left = '-9999px';
+		document.body.appendChild(ta);
+		ta.select();
+		document.execCommand('copy');
+		document.body.removeChild(ta);
+		return Promise.resolve();
+	} catch (err) {
+		return Promise.reject(err);
+	}
+};
+
+const flashCopied = btn => {
+	if (!btn) return;
+	if (btn._copyTimer) clearTimeout(btn._copyTimer);
+	btn.classList.add('is-copied');
+	btn.setAttribute('title', 'Copied');
+	btn.setAttribute('aria-label', 'Copied');
+	btn._copyTimer = setTimeout(() => {
+		btn.classList.remove('is-copied');
+		btn.setAttribute('title', 'Copy');
+		btn.setAttribute('aria-label', 'Copy code');
+		btn._copyTimer = null;
+	}, 1400);
+};
+
 const bindPreviewLinks = elm => {
 	if (!elm || elm._mdLinksBound) return;
 	elm._mdLinksBound = true;
@@ -471,6 +553,16 @@ const bindPreviewLinks = elm => {
 		const doc = elm.contentDocument;
 		if (!doc) return;
 		doc.addEventListener('click', e => {
+			const copyBtn = e.target && e.target.closest && e.target.closest('.md-code-copy');
+			if (copyBtn) {
+				e.preventDefault();
+				e.stopPropagation();
+				const block = copyBtn.closest('.md-code');
+				const codeEl = block && block.querySelector('pre code');
+				const text = codeEl ? codeEl.textContent : '';
+				copyText(text).then(() => flashCopied(copyBtn)).catch(() => {});
+				return;
+			}
 			const a = e.target && e.target.closest && e.target.closest('a[href]');
 			if (!a) return;
 			const href = a.getAttribute('href');

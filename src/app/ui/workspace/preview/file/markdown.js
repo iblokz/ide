@@ -4,16 +4,29 @@
  */
 import {prettify, prettifyLang, escapeHtml} from '../../../codebin/prettify.js';
 
+const COPY_ICON = '<svg class="md-code-copy-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 1.5A1.5 1.5 0 0 0 2.5 3v8A1.5 1.5 0 0 0 4 12.5h1V11H4a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 .5.5v1h1.5V3A1.5 1.5 0 0 0 10 1.5H4Zm3 4A1.5 1.5 0 0 0 5.5 7v6A1.5 1.5 0 0 0 7 14.5h6a1.5 1.5 0 0 0 1.5-1.5V7A1.5 1.5 0 0 0 13 5.5H7ZM7 7h6v6H7V7Z"/></svg>';
+const CHECK_ICON = '<svg class="md-code-copy-icon md-code-copy-check" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.03 4.47a.75.75 0 0 1 0 1.06l-6 6a.75.75 0 0 1-1.06 0l-2.5-2.5a.75.75 0 1 1 1.06-1.06L6.5 9.94l5.47-5.47a.75.75 0 0 1 1.06 0Z"/></svg>';
+
+const wrapCodeBlock = inner => (
+	`<div class="md-code">`
+	+ `<button type="button" class="md-code-copy" title="Copy" aria-label="Copy code">`
+	+ `<span class="md-code-copy-idle">${COPY_ICON}</span>`
+	+ `<span class="md-code-copy-done">${CHECK_ICON}</span>`
+	+ `</button>${inner}</div>`
+);
+
 const formatCodeBlock = (code, lang) => {
 	const escaped = escapeHtml(code);
 	if (!lang) {
-		return `<pre><code>${escaped}</code></pre>`;
+		return wrapCodeBlock(`<pre><code>${escaped}</code></pre>`);
 	}
 	try {
 		const highlighted = prettify.prettyPrintOne(escaped, prettifyLang(lang));
-		return `<pre class="prettyprint"><code class="prettyprint">${highlighted}</code></pre>`;
+		return wrapCodeBlock(
+			`<pre class="prettyprint"><code class="prettyprint">${highlighted}</code></pre>`
+		);
 	} catch (_err) {
-		return `<pre><code>${escaped}</code></pre>`;
+		return wrapCodeBlock(`<pre><code>${escaped}</code></pre>`);
 	}
 };
 

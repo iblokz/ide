@@ -5,12 +5,15 @@
 
 import {get as getCaret} from './caret.js';
 
-const JS_LIKE = new Set([
+/** Languages that use `//` line comments (JS/TS/CSS + C-family and peers). */
+const SLASH_LIKE = new Set([
 	'js', 'mjs', 'cjs', 'jsx',
 	'ts', 'tsx', 'mts', 'cts',
 	'javascript', 'typescript',
 	'css', 'scss', 'sass', 'less',
-	'jsonc', 'json5'
+	'jsonc', 'json5',
+	'c', 'h', 'cpp', 'hpp', 'cc', 'cxx', 'hh', 'hxx',
+	'java', 'kt', 'cs', 'go', 'rs', 'php'
 ]);
 
 const HASH_LIKE = new Set([
@@ -27,7 +30,7 @@ const WRAP_LIKE = new Set([
 /** @returns {{kind:'line', prefix:string}|{kind:'wrap', open:string, close:string}|null} */
 export const commentStyle = type => {
 	const key = String(type || 'js').toLowerCase();
-	if (JS_LIKE.has(key)) return {kind: 'line', prefix: '// '};
+	if (SLASH_LIKE.has(key)) return {kind: 'line', prefix: '// '};
 	if (HASH_LIKE.has(key)) return {kind: 'line', prefix: '# '};
 	if (WRAP_LIKE.has(key)) return {kind: 'wrap', open: '<!-- ', close: ' -->'};
 	return null;

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.34.0] - 2026-11-21
+
+### Added
+
+- Markdown preview: copy button on fenced code blocks
+- Electron: hold theme toggle (mouse / touch) to switch static ↔ HMR load mode
+
+### Fixed
+
+- Toggle comment (**Mod+/**): `//` for C/C++ and other slash-comment languages (Java, Go, Rust, …)
+
 ## [1.33.0] - 2026-11-12
 
 ### Added
@@ -653,7 +664,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.33.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.34.0...HEAD
+[1.34.0]: https://github.com/iblokz/ide/compare/v1.33.0...v1.34.0
 [1.33.0]: https://github.com/iblokz/ide/compare/v1.32.0...v1.33.0
 [1.32.0]: https://github.com/iblokz/ide/compare/v1.31.0...v1.32.0
 [1.31.0]: https://github.com/iblokz/ide/compare/v1.30.0...v1.31.0
