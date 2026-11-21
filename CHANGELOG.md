@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.35.0] - 2026-11-21
+
+### Added
+
+- Start screen version badge next to the title (from `package.json`)
+- Launcher wrappers (`ide`, `iblokz-ide`) auto-route to Parcel HMR when the dev server is listening; opt out with `IDE_HMR=0`
+
+### Changed
+
+- Electron preload: expose `onOpenPath` bridge so second-instance CLI open requests reach the renderer
+
+### Fixed
+
+- Single-instance lock defaults to on; `ide <dir>` reuses the window instead of spawning duplicates
+- CLI open-path: folder targets resolve against the caller's cwd (no more mis-rooted relative paths)
+
 ## [1.34.0] - 2026-11-21
 
 ### Added
@@ -664,7 +680,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.34.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.35.0...HEAD
+[1.35.0]: https://github.com/iblokz/ide/compare/v1.34.0...v1.35.0
 [1.34.0]: https://github.com/iblokz/ide/compare/v1.33.0...v1.34.0
 [1.33.0]: https://github.com/iblokz/ide/compare/v1.32.0...v1.33.0
 [1.32.0]: https://github.com/iblokz/ide/compare/v1.31.0...v1.32.0

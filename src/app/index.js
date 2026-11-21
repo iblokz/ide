@@ -212,9 +212,23 @@ if (isElectronBridge() && typeof window.app.onOpenFolderRequest === 'function') 
 		actions.project.openFolder();
 	});
 }
+let stopOpenPath = null;
+const handleOpenPath = payload => {
+	if (!payload) return;
+	const {kind, folder, file, line, col} = payload;
+	if (kind === 'file' && folder) {
+		const folderRoot = {id: folder, name: folder.split('/').pop() || folder, path: folder};
+		actions.project.openPath({folder: folderRoot, file, line, col});
+	} else if (kind === 'folder' && folder) {
+		const folderRoot = {id: folder, name: folder.split('/').pop() || folder, path: folder};
+		actions.project.openPath({folder: folderRoot, file: null, line: null, col: null});
+	}
+};
+if (isElectronBridge() && typeof window.app.onOpenPath === 'function') {
+	stopOpenPath = window.app.onOpenPath(handleOpenPath);
+}
 if (isElectronBridge() && typeof window.app.onHostThemeChange === 'function') {
 	stopHostTheme = window.app.onHostThemeChange(host => {
-		applyHostAccent(host);
 		actions.theme.setHost(host);
 		// Omarchy `mode` → theme.mode so .theme-mode-* syntax colors track the palette.
 		if (shouldFollowHostMode(host)) {

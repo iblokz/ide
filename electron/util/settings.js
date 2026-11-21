@@ -7,7 +7,7 @@ const yaml = require('js-yaml');
 /** Fallback if bundled config/settings.yml is missing from the package. */
 const DEFAULTS = {
 	windows: {
-		singleInstance: false
+		singleInstance: true
 	},
 	editor: {
 		enablePreview: true,

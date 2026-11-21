@@ -874,36 +874,42 @@ install_electron_appimage() {
     echo "Warning: icon missing at $icon_src — desktop entry will use generic icon" >&2
   fi
 
-  ln -sfn "$installed" "$bin_link"
+  # Launcher wrapper: auto-route to Parcel HMR when :1234 is listening (so `ide <dir>`
+  # respects a running dev server without rebuilding). Survives rebuilds.
+  for _launcher in "$bin_link" "$bin_home/ide"; do
+    printf '%s\n' '#!/usr/bin/env bash' \
+      '# Auto-forward to Parcel HMR when it is listening; otherwise run the packaged build.' \
+      '# Honors explicit ELECTRON_START_URL and IDE_HMR={0,off,false,no} to opt out.' \
+      'set -e' \
+      "APPIMAGE=\"$installed\"" \
+      'HMR_URL="${IDE_HMR_URL:-http://127.0.0.1:1234}"' \
+      'if [ -z "${ELECTRON_START_URL:-}" ] && [ "${IDE_HMR:-}" != "0" ] && [ "${IDE_HMR:-}" != "off" ] && [ "${IDE_HMR:-}" != "false" ] && [ "${IDE_HMR:-}" != "no" ]; then' \
+      '  HMR_UP=""' \
+      '  if [ -f /proc/net/tcp ] && grep -qE "^[^:]+: [0-9A-Fa-f]+:04D2 " /proc/net/tcp 2>/dev/null; then HMR_UP=1' \
+      '  elif command -v curl >/dev/null 2>&1; then if curl -sf --connect-timeout 0.4 -o /dev/null "$HMR_URL/" 2>/dev/null; then HMR_UP=1; fi' \
+      '  elif command -v nc >/dev/null 2>&1; then if nc -z -w1 127.0.0.1 1234 2>/dev/null; then HMR_UP=1; fi' \
+      '  fi' \
+      '  if [ -n "$HMR_UP" ]; then export ELECTRON_START_URL="$HMR_URL"; fi' \
+      'fi' \
+      'exec "$APPIMAGE" "$@"' > "$_launcher"
+    chmod +x "$_launcher"
+  done
 
   cat > "$desktop_file" <<EOF
-[Desktop Entry]
-Type=Application
-Version=1.0
-Name=${product_name}
-Comment=iBloKz in-browser / desktop code editor
-Exec=${installed}
-Icon=${app_id}
-Terminal=false
-Categories=Development;IDE;
-# Must match Electron Linux WM_CLASS (executable basename from package.json name).
-StartupWMClass=iblokz-ide
-StartupNotify=true
+ [Desktop Entry]
+ Type=Application
+ Version=1.0
+ Name=${product_name}
+ Comment=iBloKz in-browser / desktop code editor
+ Exec=${bin_link} %F
+ Icon=${app_id}
+ Terminal=false
+ Categories=Development;IDE;
+ # Must match Electron Linux WM_CLASS (executable basename from package.json name).
+ StartupWMClass=iblokz-ide
+ StartupNotify=true
 EOF
-  chmod 644 "$desktop_file"
-
-  if command -v update-desktop-database &>/dev/null; then
-    update-desktop-database "$apps_dir" 2>/dev/null || true
-  fi
-  if command -v gtk-update-icon-cache &>/dev/null && [ -d "$data_home/icons/hicolor" ]; then
-    gtk-update-icon-cache -f -t "$data_home/icons/hicolor" 2>/dev/null || true
-  fi
-
-  echo "Installed AppImage → $installed"
-  echo "Desktop entry     → $desktop_file"
-  echo "Launcher symlink  → $bin_link"
 }
-
 # Install a macOS .app into ~/Applications (parallel to Linux AppImage → ~/.local).
 # Accepts a .app bundle path or a .dmg (attaches, copies .app, detaches).
 # Usage: install_electron_macos /path/to/App.app|/path/to.dmg

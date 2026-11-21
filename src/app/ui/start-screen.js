@@ -1,7 +1,10 @@
-'use strict';
-
 const {div, h1, p, button, ul, li, span, i} = require('iblokz-snabbdom-helpers');
 const {isElectron} = require('../util/platform');
+
+const appVersion = (() => {
+	try { return require('../../../package.json').version || ''; } catch (_) { return ''; }
+})();
+
 
 module.exports = ({state, actions}) => {
 	const recent = (state.recentRoots || []).filter(root => root && root.name);
@@ -20,7 +23,7 @@ module.exports = ({state, actions}) => {
 					'aria-label': 'iBloKz IDE'
 				}
 			}),
-			h1(['iBloKz IDE']),
+			h1([span('iBloKz IDE'), appVersion ? span('.start-version', [` v${appVersion}`]) : []]),
 			p('.start-tagline', ['Open a project folder to get started.']),
 			div('.start-actions', [
 				button('.primary.open-project', {
