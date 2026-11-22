@@ -854,19 +854,30 @@ install_electron_appimage() {
   fi
 
   mkdir -p "$install_dir" "$apps_dir" "$icons_dir" "$bin_home"
-  # Resolve to absolute path so hardlinks / desktop Exec= are stable.
+  # Resolve to absolute path so desktop Exec= / launcher APPIMAGE= are stable.
   appimage="$(cd "$(dirname "$appimage")" && pwd)/$(basename "$appimage")"
-  chmod +x "$appimage"
-  # Same FS → hardlink; else symlink (Projects vs ~/.local); else copy.
-  rm -f "$installed"
-  if ln -f "$appimage" "$installed" 2>/dev/null; then
-    :
-  elif ln -sfn "$appimage" "$installed" 2>/dev/null; then
-    :
-  else
-    cp -f "$appimage" "$installed"
-    chmod +x "$installed"
+  # Refuse obviously broken artifacts (e.g. launcher script that overwrote the binary).
+  local _sz
+  _sz=$(wc -c < "$appimage" | tr -d ' ')
+  if [ "${_sz:-0}" -lt 1000000 ]; then
+    echo "AppImage looks corrupt (only ${_sz} bytes): $appimage" >&2
+    return 1
   fi
+  if command -v file >/dev/null 2>&1; then
+    case "$(file -b --mime-type "$appimage" 2>/dev/null || true)" in
+      application/x-executable|application/x-sharedlib|application/octet-stream) ;;
+      *)
+        echo "AppImage is not an ELF binary ($(file -b "$appimage" 2>/dev/null)): $appimage" >&2
+        return 1
+        ;;
+    esac
+  fi
+  chmod +x "$appimage"
+  # Always copy — do not hardlink to artifacts/ (a mistaken write through an old
+  # ~/.local/bin symlink previously clobbered both the install and the build).
+  rm -f "$installed"
+  cp -f "$appimage" "$installed"
+  chmod +x "$installed"
 
   if [ -f "$icon_src" ]; then
     cp -f "$icon_src" "$icon_dst"
@@ -876,7 +887,10 @@ install_electron_appimage() {
 
   # Launcher wrapper: auto-route to Parcel HMR when :1234 is listening (so `ide <dir>`
   # respects a running dev server without rebuilding). Survives rebuilds.
+  # CRITICAL: rm before write — `>` follows an existing symlink and would overwrite
+  # the AppImage (and any hardlinked artifact) with this script.
   for _launcher in "$bin_link" "$bin_home/ide"; do
+    rm -f "$_launcher"
     printf '%s\n' '#!/usr/bin/env bash' \
       '# Auto-forward to Parcel HMR when it is listening; otherwise run the packaged build.' \
       '# Honors explicit ELECTRON_START_URL and IDE_HMR={0,off,false,no} to opt out.' \
@@ -896,19 +910,31 @@ install_electron_appimage() {
   done
 
   cat > "$desktop_file" <<EOF
- [Desktop Entry]
- Type=Application
- Version=1.0
- Name=${product_name}
- Comment=iBloKz in-browser / desktop code editor
- Exec=${bin_link} %F
- Icon=${app_id}
- Terminal=false
- Categories=Development;IDE;
- # Must match Electron Linux WM_CLASS (executable basename from package.json name).
- StartupWMClass=iblokz-ide
- StartupNotify=true
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=${product_name}
+Comment=iBloKz in-browser / desktop code editor
+Exec=${bin_link} %F
+Icon=${app_id}
+Terminal=false
+Categories=Development;IDE;
+# Must match Electron Linux WM_CLASS (executable basename from package.json name).
+StartupWMClass=iblokz-ide
+StartupNotify=true
 EOF
+  chmod 644 "$desktop_file"
+
+  if command -v update-desktop-database &>/dev/null; then
+    update-desktop-database "$apps_dir" 2>/dev/null || true
+  fi
+  if command -v gtk-update-icon-cache &>/dev/null && [ -d "$data_home/icons/hicolor" ]; then
+    gtk-update-icon-cache -f -t "$data_home/icons/hicolor" 2>/dev/null || true
+  fi
+
+  echo "Installed AppImage → $installed"
+  echo "Desktop entry     → $desktop_file"
+  echo "Launchers         → $bin_link , $bin_home/ide"
 }
 # Install a macOS .app into ~/Applications (parallel to Linux AppImage → ~/.local).
 # Accepts a .app bundle path or a .dmg (attaches, copies .app, detaches).

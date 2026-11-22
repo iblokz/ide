@@ -99,7 +99,13 @@ function parseGotoSuffix(s) {
 	if (!m) return {path: s, line: null, col: null};
 	return {path: m[1], line: m[2] ? parseInt(m[2], 10) : null, col: m[3] ? parseInt(m[3], 10) : null};
 }
-function resolveInitialTarget(raw) {
+/**
+ * @param {string} raw
+ * @param {string} [cwdOverride] — second-instance shell cwd (desktop-started
+ *   first process often has cwd=$HOME; relative `ide ../foo` must use the
+ *   invoking shell's directory, not the first process's).
+ */
+function resolveInitialTarget(raw, cwdOverride) {
 	if (!raw) return null;
 	const expanded = raw.startsWith('~') ? path.join(require('os').homedir(), raw.slice(1)) : raw;
 	// Do NOT re-parse :line:col after absolutizing — that reintroduces the doubled path
@@ -109,9 +115,8 @@ function resolveInitialTarget(raw) {
 	let p = parsed.path;
 	if (!raw.includes(':')) parsed = {path: p, line: null, col: null};
 	else p = parsed.path;
-	// Resolve relative paths against user's cwd; AppImage may cwd to the mount point.
-	// Prefer env-provided cwd (shell) or process.cwd() if it exists on disk.
-	let cwd = process.cwd();
+	// Resolve relative paths against the caller cwd; AppImage may cwd to the mount point.
+	let cwd = (cwdOverride && typeof cwdOverride === 'string' && cwdOverride) || process.cwd();
 	try { if (!fs.existsSync(cwd)) cwd = require('os').homedir(); } catch (_) {}
 	const targetPath = path.isAbsolute(p) ? p : path.resolve(cwd, p);
 	try {
@@ -952,26 +957,30 @@ if (singleInstance) {
 	if (!gotLock) {
 		app.quit();
 	} else {
-		const handleExternalOpen = (raw) => {
-			const target = resolveInitialTarget(raw);
+		const handleExternalOpen = (raw, cwd) => {
+			const target = resolveInitialTarget(raw, cwd);
 			if (!target) return;
 			if (!win || win.isDestroyed()) { pendingInitialTarget = target; return; }
 			win.webContents.send('open-path', target);
 			if (win.isMinimized()) win.restore();
 			win.show(); win.focus();
 		};
-		app.on('second-instance', (_ev, argv) => {
+		app.on('second-instance', (_ev, argv, workingDirectory) => {
 			if (!win || win.isDestroyed()) return;
 			if (win.isMinimized()) win.restore();
 			win.show(); win.focus();
 			const args = Array.isArray(argv) ? argv : [];
 			const parsed = parseCliArgs(['', ...args.slice(1)]);
-			if (parsed.rawTarget && !parsed.forceNewWindow && !cliArgs.forceNewWindow) {
-				handleExternalOpen(parsed.rawTarget);
-			} else if (parsed.forceNewWindow || cliArgs.forceNewWindow) {
-				pendingInitialTarget = parsed.rawTarget ? resolveInitialTarget(parsed.rawTarget) : null;
+			const cwd = workingDirectory || undefined;
+			// Only honor -n/--new-window from *this* launch — not the first process's argv.
+			if (parsed.forceNewWindow) {
+				pendingInitialTarget = parsed.rawTarget
+					? resolveInitialTarget(parsed.rawTarget, cwd)
+					: null;
 				allowClose = false;
 				win = createWindow();
+			} else if (parsed.rawTarget) {
+				handleExternalOpen(parsed.rawTarget, cwd);
 			}
 		});
 		app.on('open-file', (ev, filePath) => {

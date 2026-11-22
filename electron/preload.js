@@ -105,6 +105,7 @@ contextBridge.exposeInMainWorld('app', {
 	gitFetch: cwd => ipcRenderer.invoke('gitFetch', cwd),
 	minimize: () => ipcRenderer.invoke('minimize'),
 	toggleMaximize: () => ipcRenderer.invoke('toggleMaximize'),
+	close: () => ipcRenderer.invoke('close'),
 	onOpenFolderRequest: callback => {
 		const handler = () => callback();
 		ipcRenderer.on('open-folder-request', handler);

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### (none)
 
+## [1.35.1] - 2026-11-22
+
+### Fixed
+
+- AppImage install: writing the HMR launcher no longer follows/overwrites the binary (or hardlinked artifact); copy instead of hardlink; refuse tiny/non-ELF artifacts; restore valid `.desktop` entry
+- Electron: restore `window.app.close` (dropped when adding `onOpenPath`)
+- `ide <path>` after a desktop-launched window: resolve relative paths with the second-instance shell cwd
+- Second-instance: only honor `--new-window` from the new launch (not the first process argv)
+- HMR: dispose `onOpenPath` listener on hot reload
+
 ## [1.35.0] - 2026-11-21
 
 ### Added
@@ -680,7 +690,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/iblokz/ide/compare/v1.35.0...HEAD
+[Unreleased]: https://github.com/iblokz/ide/compare/v1.35.1...HEAD
+[1.35.1]: https://github.com/iblokz/ide/compare/v1.35.0...v1.35.1
 [1.35.0]: https://github.com/iblokz/ide/compare/v1.34.0...v1.35.0
 [1.34.0]: https://github.com/iblokz/ide/compare/v1.33.0...v1.34.0
 [1.33.0]: https://github.com/iblokz/ide/compare/v1.32.0...v1.33.0

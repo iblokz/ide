@@ -269,6 +269,10 @@ if (module.hot) {
 			stopOpenFolderRequest();
 			stopOpenFolderRequest = null;
 		}
+		if (typeof stopOpenPath === 'function') {
+			stopOpenPath();
+			stopOpenPath = null;
+		}
 		if (typeof stopHostTheme === 'function') {
 			stopHostTheme();
 			stopHostTheme = null;

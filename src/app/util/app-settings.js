@@ -3,7 +3,8 @@
 /** VS Code–aligned defaults when Electron settings.yml is unavailable (web / Cap). */
 const DEFAULTS = {
 	windows: {
-		singleInstance: false
+		// Renderer-only fallback; Electron main reads config/settings.yml (true).
+		singleInstance: true
 	},
 	editor: {
 		enablePreview: true,
